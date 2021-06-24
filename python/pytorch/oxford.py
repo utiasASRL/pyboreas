@@ -8,7 +8,7 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from pytorch.custom_sampler import RandomWindowBatchSampler, SequentialWindowBatchSampler
 from utils.radar import load_radar, radar_polar_to_cartesian
-from datasets.interpolate_poses import interpolate_ins_poses
+from utils.interpolate_poses import interpolate_ins_poses
 from utils.utils import get_inverse_tf
 
 def get_transform_oxford(x, y, theta):
