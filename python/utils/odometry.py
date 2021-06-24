@@ -1,4 +1,5 @@
 import numpy as np
+from utils.utils import get_inverse_tf, rotationError, translationError, enforce_orthog
 
 def trajectoryDistances(poses):
     """Calculates path length along the trajectory.
@@ -113,6 +114,7 @@ def computeKittiMetrics(T_gt, T_pred, seq_lens):
     return t_err * 100, r_err * 180 / np.pi
 
 if __name__ == '__main__':
+    pass
 	# TODO: turn this into a script that we can run, passing arguments for the location of ground truth and prediction files.
 	# for each sequence:
 	#	T_gt = ..., T_pred = ... (load list of transforms from files)

@@ -6,8 +6,8 @@ import numpy as np
 import cv2
 import torch
 from utils.utils import get_transform, get_inverse_tf
-from datasets.radar import radar_polar_to_cartesian
-from datasets.oxford import mean_intensity_mask
+from utils.radar import radar_polar_to_cartesian
+from pytorch.oxford import mean_intensity_mask
 
 def augmentBatch(batch, config):
     """Rotates the cartesian radar image by a random amount, adjusts the ground truth transform accordingly."""

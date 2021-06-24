@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import torch
 import torchvision.utils as vutils
 from torchvision.transforms import ToTensor
-from utils import enforce_orthog, get_inverse_tf, get_T_ba
+from utils.utils import enforce_orthog, get_inverse_tf, get_T_ba
 
 def convert_plt_to_img():
     buf = io.BytesIO()
