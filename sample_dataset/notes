@@ -1,0 +1,12 @@
+lidar frame z axis flipped? even with respect to transform_data_to_sensor_frame() in andrew's repo
+how to run andrew's code:
+    - run visualize_labels.py
+    - first .json is the point cloud data json
+    - "labels.json" should be "sample_labels.json"
+    - "idk.jpg" is image save path (leave blank for visualization window)
+
+in the end we want everything in the lidar frame
+
+Visualizer architecture
+    User provides which track and which timestep to visualize
+    Also provides render options
