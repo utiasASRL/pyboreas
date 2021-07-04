@@ -12,7 +12,7 @@ from PIL import ImageDraw
 from PIL import ImageFont
 
 import datetime
-import utils
+import vis_utils
 import os
 
 pd.options.mode.chained_assignment = None
@@ -60,9 +60,9 @@ def get_lidar_projection(path):
 def get_radar_im(path, radar_resolution=0.0596, cart_resolution=0.25, cart_pixel_width=1080,
                  interpolate_crossover=True):
     # Load and convert radar data
-    _, azimuths, _, fft_data = utils.load_radar(path)
-    out = utils.radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resolution, cart_pixel_width,
-                                         interpolate_crossover)
+    _, azimuths, _, fft_data = vis_utils.load_radar(path)
+    out = vis_utils.radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resolution, cart_pixel_width,
+                                             interpolate_crossover)
     out = np.squeeze(out, axis=0)
     out = np.expand_dims(out, axis=2)
     out = cv2.cvtColor(out, cv2.COLOR_GRAY2RGB)
@@ -79,7 +79,7 @@ def min_transform(prev_pose, df):
 
     df2['rotation_err'] = np.nan
     for idx, rows in df2.iterrows():
-        n = utils.rotationError(np.matmul(np.transpose(utils.get_rotation(heading)), utils.get_rotation(df.loc[idx, 'heading'])))
+        n = vis_utils.rotationError(np.matmul(np.transpose(vis_utils.get_rotation(heading)), vis_utils.get_rotation(df.loc[idx, 'heading'])))
         df2.loc[idx, 'rotation_err'] = n
 
     return df2['rotation_err'].idxmin()
