@@ -41,6 +41,52 @@ def get_transformation_matrix(raw_heading, r_io):
 
     return T_vo, C_vo_yaw
 
+def get_device_pose(raw_data):
+    """
+    Get pose of IMU from recorded json data file
+    :param raw_data: data from point cloud json file
+    """
+    raw_heading = np.array(list(raw_data['device_heading'].values()))
+    r_io = np.array([list(raw_data['device_position'].values())]).T
+    return get_transformation_matrix(raw_heading, r_io)
+
+def transform_points(T, raw_pcd):
+    """
+    Transform raw lidar points by a SE3 transformation
+    :param T_vo: required transformation
+    :param raw_pcd: original point cloud data
+    """
+    points = np.zeros([len(raw_pcd), 3])
+    for i in range(len(raw_pcd)):
+        points[i][0] = raw_pcd[i]['x']
+        points[i][1] = raw_pcd[i]['y']
+        points[i][2] = raw_pcd[i]['z']
+    points = np.matmul(T,
+                       np.vstack((points.T, np.ones(points.shape[0]))))
+    points = points.T[:, :3]
+    return points
+
+def transform_bounding_boxes(T, C_yaw, raw_labels):
+    """
+    Generate bounding boxes from labels and transform them
+    by a SE3 transformation
+    :param T: required SE3 transformation
+    :param C_yaw: yaw component of the SE3 transformation 
+    :param raw_labels: original label data
+    """
+    boxes = []
+    for i in range(len(raw_labels)):
+        # Load Labels
+        bbox_raw_pos = np.concatenate(
+            (np.fromiter(raw_labels[i]['position'].values(), dtype=float), [1]))
+        # Create Bounding Box
+        pos = np.matmul(T, np.array([bbox_raw_pos]).T)[:3]
+        rotation = np.matmul(C_yaw, rot_z(raw_labels[i]['yaw']))
+        rot_to_yaw_pitch_roll(rotation)
+        extent = np.array(list(raw_labels[i]['dimensions'].values()))
+        box = (pos, rotation, extent)
+        boxes.append(box)
+    return boxes
 
 def transform_data_to_sensor_frame(raw_data, raw_labels):
     """
@@ -50,34 +96,15 @@ def transform_data_to_sensor_frame(raw_data, raw_labels):
     :param raw_labels: data from label csv file
     :return: point cloud numpy array and bounding boxes tuple in sensor frame
     """
-    raw_heading = np.array(list(raw_data['device_heading'].values()))
-    r_io = np.array([list(raw_data['device_position'].values())]).T
     raw_pcd = raw_data['points']
-    T_vo, C_vo_yaw = get_transformation_matrix(raw_heading, r_io)
+    # Get transformation matrices
+    T_vo, C_vo_yaw = get_device_pose(raw_data)
 
     # Transform Points
-    points = np.zeros([len(raw_pcd), 3])
-    for i in range(len(raw_pcd)):
-        points[i][0] = raw_pcd[i]['x']
-        points[i][1] = raw_pcd[i]['y']
-        points[i][2] = raw_pcd[i]['z']
-    points = np.matmul(T_vo,
-                       np.vstack((points.T, np.ones(points.shape[0]))))
-    points = points.T[:, :3]
+    points = transform_points(T_vo, raw_pcd)
 
     # Transform Labels into Bounding Boxes
-    boxes = []
-    for i in range(len(raw_labels)):
-        # Load Labels
-        bbox_raw_pos = np.concatenate(
-            (np.fromiter(raw_labels[i]['position'].values(), dtype=float), [1]))
-        # Create Bounding Box
-        pos = np.matmul(T_vo, np.array([bbox_raw_pos]).T)[:3]
-        rotation = np.matmul(C_vo_yaw, rot_z(raw_labels[i]['yaw']))
-        rot_to_yaw_pitch_roll(rotation)
-        extent = np.array(list(raw_labels[i]['dimensions'].values()))
-        box = (pos, rotation, extent)
-        boxes.append(box)
+    boxes = transform_bounding_boxes(T_vo, C_vo_yaw, raw_labels)
 
     return points, boxes
 
