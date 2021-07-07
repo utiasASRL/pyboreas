@@ -14,7 +14,7 @@ from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
 
 
-def get_sensor_calibration(P_cam_file, T_vi_file, T_vc_file, T_vr_file):
+def get_sensor_calibration(P_cam_file, T_iv_file, T_cv_file, T_rv_file):
     """
     Extract sensor calibration data (camera, lidar and radar)
      :param P_cam_file: file containing camera intrinsics file
@@ -28,39 +28,39 @@ def get_sensor_calibration(P_cam_file, T_vi_file, T_vc_file, T_vr_file):
     """
     # Load data
     P_cam = np.loadtxt(P_cam_file)
-    T_vi = np.loadtxt(T_vi_file)
-    T_vc = np.loadtxt(T_vc_file)
-    T_vr = np.loadtxt(T_vr_file)
+    T_iv = np.loadtxt(T_iv_file)
+    T_cv = np.loadtxt(T_cv_file)
+    T_rv = np.loadtxt(T_rv_file)
+    print('---------P_cam----------')
     print(P_cam)
-    print(T_vi)
-    print(T_vc)
-    print(T_vr)
-    print('---------inv(T_vi)*T_vr----------')
-    m1 = np.matmul(np.linalg.inv(T_vi),T_vr)
-    print(m1)
-    vec1 = R.from_matrix(m1[0:3,0:3]).as_rotvec()
-    print(vec1)
-    print('----------inv(T_vc)*T_vr---------')
-    m2 = np.matmul(np.linalg.inv(T_vc),T_vr)
-    print(m2)
-    vec2 = R.from_matrix(m2[0:3,0:3]).as_rotvec()
-    print(vec2)
     
-    print('----------inv(T_vc)*T_vi---------')
-    m3 = np.matmul(np.linalg.inv(T_vc),T_vi)
-    print(m3)
-    vec3 = R.from_matrix(m3[0:3,0:3]).as_rotvec()
-    print(vec3)
-    print('-------------------')
-    
-    a = R.from_matrix(T_vi[0:3,0:3])
-    print(a.as_rotvec())
-
-    b = R.from_matrix(T_vr[0:3,0:3])
-    print(b.as_rotvec())
-
-    c = R.from_matrix(np.matmul(np.linalg.inv(T_vi),T_vc)[0:3,0:3])
-    print(c.as_rotvec())
+    print('---------T_iv----------')
+    print(T_iv)
+    vec_iv = R.from_matrix(T_iv[0:3,0:3]).as_euler('zyx', degrees=True)
+    print(vec_iv)
+    print('---------T_cv----------')
+    print(T_cv)
+    vec_cv = R.from_matrix(T_cv[0:3,0:3]).as_euler('zyx', degrees=True)
+    print(vec_cv)
+    print('---------T_rv----------')
+    print(T_rv)
+    vec_rv = R.from_matrix(T_rv[0:3,0:3]).as_euler('zyx', degrees=True)
+    print(vec_rv)
+    print('---------T_iv*inv(T_rv)=T_ir----------')
+    T_ir = np.matmul(T_iv,np.linalg.inv(T_rv))
+    print(T_ir)
+    vec_ir = R.from_matrix(T_ir[0:3,0:3]).as_euler('zyx', degrees=True)
+    print(vec_ir)
+    print('----------T_cv*inv(T_rv)=T_cr---------')
+    T_cr = np.matmul(T_cv,np.linalg.inv(T_rv))
+    print(T_cr)
+    vec_cr = R.from_matrix(T_cr[0:3,0:3]).as_euler('zyx', degrees=True)
+    print(vec_cr)
+    print('----------T_cv*inv(T_iv)=T_ci---------')
+    T_ci = np.matmul(T_cv,np.linalg.inv(T_iv))
+    print(T_ci)
+    vec_ci = R.from_matrix(T_ci[0:3,0:3]).as_euler('zyx', degrees=True)
+    print(vec_ci)
     print('-------------------')
 
 def load_cubloids(label_file, idx):
