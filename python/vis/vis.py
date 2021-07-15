@@ -13,7 +13,6 @@ import open3d as o3d
 import open3d.ml.torch as ml3d
 from matplotlib import cm
 import numpy as np
-from PIL import Image
 from tqdm import tqdm
 
 import vis_utils
@@ -124,6 +123,24 @@ class BoreasVisualizer:
             if x > 0 and x < image.shape[1] and y > 0 and y < image.shape[0]:
                 c = cv2.applyColorMap(np.array([int(pixel_camera[2, i] / max_z * 255)], dtype=np.uint8), cv2.COLORMAP_RAINBOW).squeeze().tolist()
                 cv2.circle(image, (x, y), 1, c, 1)
+
+        centroids_odom = np.array([]).reshape(3, 0)
+        for bb in boxes:
+            centroids_odom = np.hstack((centroids_odom, bb[0]))
+        centroids_odom = np.vstack((centroids_odom, np.ones((1, len(boxes)))))
+        centroids_camera_all = self.get_cam2vel_transform(centroids_odom)
+        centroids_camera = np.array([])
+        for i in range(centroids_camera_all.shape[1]):
+            if centroids_camera_all[2, i] > 0:
+                centroids_camera = np.concatenate((centroids_camera, centroids_camera_all[:, i]))
+        centroids_camera = np.reshape(centroids_camera, (-1, 4)).T
+        pixel_centroid_camera = np.matmul(self.P_cam, centroids_camera)
+        for i in range(pixel_centroid_camera.shape[1]):
+            z = pixel_centroid_camera[2, i]
+            x = int(pixel_centroid_camera[0, i] / z)
+            y = int(pixel_centroid_camera[1, i] / z)
+            if x > 0 and x < image.shape[1] and y > 0 and y < image.shape[0]:
+                cv2.circle(image, (x, y), 5, [255, 255, 255], 10)
 
         cv2.destroyAllWindows()
         cv2.imshow("persp_img", image)
