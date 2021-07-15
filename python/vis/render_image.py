@@ -155,7 +155,7 @@ if __name__ == '__main__':
     
     idx = 50
     label_file_path = "./sample_dataset/labels.json"
-    data_file_paths = sorted(glob.glob('./sample_dataset/data/task_point_cloud*.json'), key=lambda x : int(''.join(filter(str.isdigit, x))))
+    data_file_paths = sorted(glob.glob('./sample_dataset/lidar_data/task_point_cloud*.json'), key=lambda x : int(''.join(filter(str.isdigit, x))))
     camera_file_paths = sorted(glob.glob('./sample_dataset/camera/*.png'), key=lambda x : int(''.join(filter(str.isdigit, x))))
 
     #synced_cameras = sync_camera_lidar(data_file_paths, camera_file_paths)

@@ -129,5 +129,5 @@ dmypy.json
 .pyre/
 
 # (SLU) sample data
-sample_dataset/data
+sample_dataset/lidar_data
 sample_dataset/camera
