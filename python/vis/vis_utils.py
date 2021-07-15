@@ -1,6 +1,10 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
+def to_T(C, r):
+    T = np.concatenate((C, r), axis=1)
+    T = np.concatenate((T, [[0, 0, 0, 1]]), axis=0)
+    return T
 
 def get_transformation_matrix(raw_heading, r_io):
     """
@@ -26,8 +30,7 @@ def get_transformation_matrix(raw_heading, r_io):
     C_vi = C_iv.T
     r_vi = np.array([[0, 0, 0.45]]).T
     r_iv = -np.matmul(C_vi, r_vi)
-    T_vi = np.concatenate((C_vi, r_iv), axis=1)
-    T_vi = np.concatenate((T_vi, [[0, 0, 0, 1]]), axis=0)
+    T_vi = to_T(C_vi, r_iv)
 
     # Transformation matrix from Odom to Velodyne
     T_vo = np.matmul(T_vi, T_io)
@@ -40,6 +43,15 @@ def get_transformation_matrix(raw_heading, r_io):
     C_vo_yaw = np.matmul(C_vi, C_io_yaw)
 
     return T_vo, C_vo_yaw
+
+def get_camera_timestamp(raw_data):
+    """
+    Get GPS timestamp from recorded json data file
+    :param raw_data: data from point cloud json file
+    """
+    lidar_time_stamp = raw_data['timestamp']
+    camera_timestamp = int(-1.634e-07 * lidar_time_stamp + 2.675e+11 + lidar_time_stamp)
+    return lidar_time_stamp, camera_timestamp
 
 def get_device_pose(raw_data):
     """
@@ -63,7 +75,7 @@ def transform_points(T, raw_pcd):
         points[i][2] = raw_pcd[i]['z']
     points = np.matmul(T,
                        np.vstack((points.T, np.ones(points.shape[0]))))
-    points = points.T[:, :3]
+    points = points.T[:]
     return points
 
 def transform_bounding_boxes(T, C_yaw, raw_labels):
