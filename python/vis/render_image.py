@@ -121,19 +121,16 @@ def render_image(label_file_path, data_file_paths, synced_cameras, idx, P_cam, T
     #print(points)
     #print(boxes[0])
     
+    # Lidar
     #points_camera_all = np.matmul(T_cv, np.matmul(np.linalg.inv(T_iv), points))
     points_camera_all = temp_transform(points)
-    print(points_camera_all.shape)
     points_camera = np.array([])
     for i in range(points_camera_all.shape[1]):
         if points_camera_all[2,i] > 0:
             points_camera = np.concatenate((points_camera, points_camera_all[:,i]))
     points_camera = np.reshape(points_camera, (-1,4)).T
-    print(points_camera)
-    print(points_camera.shape)
-
-    print(image.shape[:2])
     pixel_camera = np.matmul(P_cam, points_camera)
+
     max_z = int(max(pixel_camera[2,:])/3)
     for i in range(pixel_camera.shape[1]):
         z = pixel_camera[2,i]
@@ -143,6 +140,25 @@ def render_image(label_file_path, data_file_paths, synced_cameras, idx, P_cam, T
             c = cv2.applyColorMap(np.array([int(pixel_camera[2,i] / max_z*255)], dtype=np.uint8), cv2.COLORMAP_RAINBOW).squeeze().tolist()
             cv2.circle(image,(x,y), 1, c, 1)
     
+    # Bounding boxes
+    centroids_odom = np.array([]).reshape(3,0)
+    for bb in boxes:
+        centroids_odom = np.hstack((centroids_odom, bb[0]))
+    centroids_odom = np.vstack((centroids_odom, np.ones((1, len(boxes)))))
+    centroids_camera_all = temp_transform(centroids_odom)
+    centroids_camera = np.array([])
+    for i in range(centroids_camera_all.shape[1]):
+        if centroids_camera_all[2,i] > 0:
+            centroids_camera = np.concatenate((centroids_camera, centroids_camera_all[:,i]))
+    centroids_camera = np.reshape(centroids_camera, (-1,4)).T
+    pixel_centroid_camera = np.matmul(P_cam, centroids_camera)
+    for i in range(pixel_centroid_camera.shape[1]):
+        z = pixel_centroid_camera[2,i]
+        x = int(pixel_centroid_camera[0,i] / z)
+        y = int(pixel_centroid_camera[1,i] / z)
+        if x > 0 and x < image.shape[1] and y > 0 and y < image.shape[0]:
+            cv2.circle(image,(x,y), 5, [255,255,255], 10)
+
     cv2.destroyAllWindows()
     cv2.imshow(image_file, image) 
     cv2.waitKey(100)
@@ -160,5 +176,5 @@ if __name__ == '__main__':
 
     #synced_cameras = sync_camera_lidar(data_file_paths, camera_file_paths)
     #print(synced_cameras)
-    for id in range(90):
+    for id in range(50):
         render_image(label_file_path, data_file_paths, camera_file_paths, id, P_cam, T_iv, T_cv)
