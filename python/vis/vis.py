@@ -111,13 +111,20 @@ class BoreasVisualizer:
 
         points, boxes = vis_utils.transform_data_to_sensor_frame(curr_lidar_data, curr_lables)
         points = points.astype(np.float32)
+        z_min = np.min(points[:, 2])
+        z_max = np.max(points[:, 2])
+        colors = cm.ocean((points[:, 2] - z_min) / (z_max - z_min))[:, 0:3]
 
         fig, ax = plt.subplots(figsize=(10, 10))
 
-        ax.scatter(points[:, 0], points[:, 1], s=0.1)
+        ax.scatter(points[:, 0], points[:, 1], color=colors, s=0.1)
 
         for box in boxes:
             box.render_bbox_2d(ax)
+
+        if predictions is not None:
+            for box in predictions:
+                box.render_bbox_2d(ax, color="k")
 
         plt.show()
         plt.close()
