@@ -37,5 +37,8 @@ class BBox:
             ax.plot([prev_pt[0], self.points[0, i]], [prev_pt[1], self.points[1, i]], color=color)
             prev_pt = self.points[:, i]
 
+    def get_raw_data(self):
+        return self.pos, self.rot, self.extent
+
 
 

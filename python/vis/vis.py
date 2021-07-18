@@ -158,7 +158,7 @@ class BoreasVisualizer:
 
         centroids_odom = np.array([]).reshape(3, 0)
         for bb in boxes:
-            centroids_odom = np.hstack((centroids_odom, bb[0]))
+            centroids_odom = np.hstack((centroids_odom, bb.pos))
         centroids_odom = np.vstack((centroids_odom, np.ones((1, len(boxes)))))
         centroids_camera_all = self.get_cam2vel_transform(centroids_odom)
         centroids_camera = np.array([])

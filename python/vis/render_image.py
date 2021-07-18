@@ -142,7 +142,8 @@ def render_image(label_file_path, data_file_paths, synced_cameras, idx, P_cam, T
     
     # Bounding boxes
     centroids_odom = np.array([]).reshape(3,0)
-    for bb in boxes:
+    for box in boxes:
+        bb = box.get_raw_data()
         centroids_odom = np.hstack((centroids_odom, bb[0]))
     centroids_odom = np.vstack((centroids_odom, np.ones((1, len(boxes)))))
     centroids_camera_all = temp_transform(centroids_odom)
