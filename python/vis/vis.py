@@ -117,17 +117,10 @@ class BoreasVisualizer:
         ax.scatter(points[:, 0], points[:, 1], s=0.1)
 
         for box in boxes:
-            bbox = vis_utils.get_bbox_points(box)
-            self.render_bbox(ax, bbox)
+            box.render_bbox_2d(ax)
 
         plt.show()
         plt.close()
-
-    def render_bbox(self, ax, bbox):
-        prev_pt = bbox[:, 3]
-        for i in range(4):  # Just draw top 4 points of bbox
-            ax.plot([prev_pt[0], bbox[0, i]], [prev_pt[1], bbox[1, i]], color="r")
-            prev_pt = bbox[:, i]
 
     def get_cam2vel_transform(self, pcd):
         pcd = np.matmul(vis_utils.to_T(vis_utils.rot_z(-np.pi / 2), np.zeros((3, 1))), np.matmul(np.linalg.inv(self.T_cv), pcd))

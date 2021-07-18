@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
+from bbox import BBox
+
 def to_T(C, r):
     T = np.concatenate((C, r), axis=1)
     T = np.concatenate((T, [[0, 0, 0, 1]]), axis=0)
@@ -96,22 +98,9 @@ def transform_bounding_boxes(T, C_yaw, raw_labels):
         rotation = np.matmul(C_yaw, rot_z(raw_labels[i]['yaw']))
         rot_to_yaw_pitch_roll(rotation)
         extent = np.array(list(raw_labels[i]['dimensions'].values())).reshape(3, 1)  # Convert to 2d
-        box = (pos, rotation, extent)
+        box = BBox(pos, rotation, extent)
         boxes.append(box)
     return boxes
-
-def get_bbox_points(bbox):
-    # Top 4 points ccw, then bottom 4 points, ccw
-    assert len(bbox) == 3
-    assert bbox[0].shape == (3, 1)
-    assert bbox[2].shape == (3, 1)
-
-    dims_multiplier = np.array([[1, 1, 1], [-1, 1, 1], [-1, -1, 1], [1, -1, 1],
-                                [1, 1, -1], [-1, 1, -1], [-1, -1, -1], [1, -1, -1]])
-    points = []
-    for i in range(dims_multiplier.shape[0]):
-        points.append(bbox[0] + bbox[2]*dims_multiplier[i].reshape(3, 1))
-    return np.concatenate(points, axis=-1)
 
 def transform_data_to_sensor_frame(raw_data, raw_labels):
     """
