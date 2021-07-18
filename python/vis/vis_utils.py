@@ -83,7 +83,7 @@ def transform_bounding_boxes(T, C_yaw, raw_labels):
     Generate bounding boxes from labels and transform them
     by a SE3 transformation
     :param T: required SE3 transformation
-    :param C_yaw: yaw component of the SE3 transformation 
+    :param C_yaw: yaw component of the SE3 transformation
     :param raw_labels: original label data
     """
     boxes = []
@@ -95,10 +95,23 @@ def transform_bounding_boxes(T, C_yaw, raw_labels):
         pos = np.matmul(T, np.array([bbox_raw_pos]).T)[:3]
         rotation = np.matmul(C_yaw, rot_z(raw_labels[i]['yaw']))
         rot_to_yaw_pitch_roll(rotation)
-        extent = np.array(list(raw_labels[i]['dimensions'].values()))
+        extent = np.array(list(raw_labels[i]['dimensions'].values())).reshape(3, 1)  # Convert to 2d
         box = (pos, rotation, extent)
         boxes.append(box)
     return boxes
+
+def get_bbox_points(bbox):
+    # Top 4 points ccw, then bottom 4 points, ccw
+    assert len(bbox) == 3
+    assert bbox[0].shape == (3, 1)
+    assert bbox[2].shape == (3, 1)
+
+    dims_multiplier = np.array([[1, 1, 1], [-1, 1, 1], [-1, -1, 1], [1, -1, 1],
+                                [1, 1, -1], [-1, 1, -1], [-1, -1, -1], [1, -1, -1]])
+    points = []
+    for i in range(dims_multiplier.shape[0]):
+        points.append(bbox[0] + bbox[2]*dims_multiplier[i].reshape(3, 1))
+    return np.concatenate(points, axis=-1)
 
 def transform_data_to_sensor_frame(raw_data, raw_labels):
     """
@@ -155,7 +168,7 @@ def rot_to_yaw_pitch_roll(C, eps=1e-15):
     return yaw, pitch, roll
 
 
-def get_sensor_calibration(P_cam_file, T_iv_file, T_cv_file, T_rv_file):
+def get_sensor_calibration(P_cam_file, T_iv_file, T_cv_file, T_rv_file, verbose=True):
     """
     Extract sensor calibration data (camera, lidar and radar)
      :param P_cam_file: file containing camera intrinsics file
@@ -172,35 +185,40 @@ def get_sensor_calibration(P_cam_file, T_iv_file, T_cv_file, T_rv_file):
     T_iv = np.loadtxt(T_iv_file)
     T_cv = np.loadtxt(T_cv_file)
     T_rv = np.loadtxt(T_rv_file)
-    print('---------P_cam----------')
-    print(P_cam)
 
-    print('---------T_iv----------')
-    print(T_iv)
     vec_iv = R.from_matrix(T_iv[0:3, 0:3]).as_euler('zyx', degrees=True)
-    print(vec_iv)
-    print('---------T_cv----------')
-    print(T_cv)
     vec_cv = R.from_matrix(T_cv[0:3, 0:3]).as_euler('zyx', degrees=True)
-    print(vec_cv)
-    print('---------T_rv----------')
-    print(T_rv)
     vec_rv = R.from_matrix(T_rv[0:3, 0:3]).as_euler('zyx', degrees=True)
-    print(vec_rv)
-    print('---------T_iv*inv(T_rv)=T_ir----------')
+
     T_ir = np.matmul(T_iv, np.linalg.inv(T_rv))
-    print(T_ir)
     vec_ir = R.from_matrix(T_ir[0:3, 0:3]).as_euler('zyx', degrees=True)
-    print(vec_ir)
-    print('----------T_cv*inv(T_rv)=T_cr---------')
+
     T_cr = np.matmul(T_cv, np.linalg.inv(T_rv))
-    print(T_cr)
     vec_cr = R.from_matrix(T_cr[0:3, 0:3]).as_euler('zyx', degrees=True)
-    print(vec_cr)
-    print('----------T_cv*inv(T_iv)=T_ci---------')
+
     T_ci = np.matmul(T_cv, np.linalg.inv(T_iv))
-    print(T_ci)
     vec_ci = R.from_matrix(T_ci[0:3, 0:3]).as_euler('zyx', degrees=True)
-    print(vec_ci)
-    print('-------------------')
+
+    if verbose:
+        print('---------P_cam----------')
+        print(P_cam)
+        print('---------T_iv----------')
+        print(T_iv)
+        print(vec_iv)
+        print('---------T_cv----------')
+        print(T_cv)
+        print(vec_cv)
+        print('---------T_rv----------')
+        print(T_rv)
+        print(vec_rv)
+        print('---------T_iv*inv(T_rv)=T_ir----------')
+        print(T_ir)
+        print(vec_ir)
+        print('----------T_cv*inv(T_rv)=T_cr---------')
+        print(T_cr)
+        print(vec_cr)
+        print('----------T_cv*inv(T_iv)=T_ci---------')
+        print(T_ci)
+        print(vec_ci)
+        print('-------------------')
     return P_cam, T_iv, T_cv

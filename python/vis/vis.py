@@ -11,15 +11,29 @@ from os import path
 import cv2
 import open3d as o3d
 import open3d.ml.torch as ml3d
+import matplotlib
+import matplotlib.pyplot as plt
 from matplotlib import cm
 import numpy as np
 from tqdm import tqdm
 
 import vis_utils
 
-# Currently only works for one track at a time
+matplotlib.use("tkagg")  # slu: for testing with ide
+
 class BoreasVisualizer:
+    """Main class for loading the Boreas dataset for visualization.
+
+    Loads relevant data, transforms, and labels and provides access to several visualization options.
+    Currently only works for one track at a time.
+    """
+
     def __init__(self, dataroot):
+        """Initialize the class with the corresponding data, transforms and labels.
+
+        Args:
+            dataroot: Path to the directory where the dataset is stored
+        """
         # Check if dataroot paths are valid
         if not path.exists(path.join(dataroot, "camera")):
             raise ValueError("Error: images dir missing from dataroot")
@@ -29,24 +43,25 @@ class BoreasVisualizer:
             raise ValueError("Error: labels.json missing from dataroot")
 
         # Instantiate class properties
-        self.dataroot = dataroot
-        self.pcd_paths = sorted(glob.glob(path.join(dataroot, "lidar_data", "task_point_cloud*.json")))
-        self.img_paths = sorted(glob.glob(path.join(dataroot, "camera", "*.png")))
-        self.label_file = path.join(dataroot, "labels.json")
-        self.timestamps = []
-        self.lidar_data = []
-        self.images_raw = []
-        self.images_synced = []
-        self.labels = []
-        self.track_length = len(self.pcd_paths)
+        self.dataroot = dataroot  # Root directory for the dataset
+        self.pcd_paths = sorted(glob.glob(path.join(dataroot, "lidar_data", "task_point_cloud*.json")))[0:3] #TEMP TESTING SLU  # Paths to the pointcloud jsons
+        self.img_paths = sorted(glob.glob(path.join(dataroot, "camera", "*.png")))  # Paths to the camera images
+        self.label_file = path.join(dataroot, "labels.json")  # Path to the label json
+        self.timestamps = []                        # List of all timestamps (in order)
+        self.lidar_data = []                        # List of all loaded lidar jsons (in order)
+        self.images_raw = []                        # List of all loaded cv2 images (in order, not 1-1 with timestamps)
+        self.images_synced = []                     # List of all synced images (in order)
+        self.labels = []                            # List of all loaded label jsons (in order)
+        self.track_length = len(self.pcd_paths)     # Length of current track
 
         # Load transforms
         self.P_cam, self.T_iv, self.T_cv = vis_utils.get_sensor_calibration("./calib/P_camera.txt",
                                                                             "./calib/T_applanix_lidar.txt",
                                                                             "./calib/T_camera_lidar.txt",
-                                                                            "./calib/T_radar_lidar.txt")
+                                                                            "./calib/T_radar_lidar.txt",
+                                                                            verbose=False)
 
-        # Load pointcloud data
+        # Load pointcloud data & timestamps
         print("Loading Lidar Pointclouds...", flush=True)
         for pcd_path in tqdm(self.pcd_paths):
             with open(pcd_path, 'r') as file:
@@ -57,7 +72,7 @@ class BoreasVisualizer:
         print("Loading Images...", flush=True)
         for img_path in tqdm(self.img_paths):
             self.images_raw.append(cv2.imread(img_path, cv2.IMREAD_COLOR))
-        self._sync_camera_frames()
+        self._sync_camera_frames()  # Sync each lidar frame to a corresponding camera frame
         # Load label data
         print("Loading Labels...", flush=True)
         with open(self.label_file, 'r') as file:
@@ -89,6 +104,30 @@ class BoreasVisualizer:
         vis = ml3d.vis.Visualizer()
         vis.visualize(pc_data)
         vis.show_geometries_under("task", True)
+
+    def visualize_track_topdown_mpl(self, frame_idx, predictions=None):
+        curr_lidar_data = self.lidar_data[frame_idx]
+        curr_lables = self.labels[frame_idx]
+
+        points, boxes = vis_utils.transform_data_to_sensor_frame(curr_lidar_data, curr_lables)
+        points = points.astype(np.float32)
+
+        fig, ax = plt.subplots(figsize=(10, 10))
+
+        ax.scatter(points[:, 0], points[:, 1], s=0.1)
+
+        for box in boxes:
+            bbox = vis_utils.get_bbox_points(box)
+            self.render_bbox(ax, bbox)
+
+        plt.show()
+        plt.close()
+
+    def render_bbox(self, ax, bbox):
+        prev_pt = bbox[:, 3]
+        for i in range(4):  # Just draw top 4 points of bbox
+            ax.plot([prev_pt[0], bbox[0, i]], [prev_pt[1], bbox[1, i]], color="r")
+            prev_pt = bbox[:, i]
 
     def get_cam2vel_transform(self, pcd):
         pcd = np.matmul(vis_utils.to_T(vis_utils.rot_z(-np.pi / 2), np.zeros((3, 1))), np.matmul(np.linalg.inv(self.T_cv), pcd))
@@ -170,4 +209,5 @@ class BoreasVisualizer:
 if __name__ == '__main__':
     dataset = BoreasVisualizer("./sample_dataset")
     # dataset.visualize_track_topdown()
-    dataset.visualize_frame_persp(1)
+    dataset.visualize_track_topdown_mpl(0)
+    # dataset.visualize_frame_persp(1)
