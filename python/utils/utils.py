@@ -247,7 +247,7 @@ def rotationError(T):
     d = 0.5 * (np.trace(T[0:3, 0:3]) - 1)
     return np.arccos(max(min(d, 1.0), -1.0))
 
-def translationError(T, dim=2):
+def translationError(T, dim=3):
     """Calculates a euclidean distance corresponding to the translation vector within a 4x4 transform.
     Args:
         T (np.ndarray): 4x4 transformation matrix T = [C, r; 0 0 0 1]
@@ -334,3 +334,9 @@ def get_gt_data_for_frame(root, sensType, frame):
                 return [float(x) for x in line.split(',')]
     assert(0), 'gt not found for root: {} sensType: {} frame: {}'.format(root, sensType, frame)
     return None
+
+def get_rotation(heading):
+    return np.array([[np.cos(heading), -np.sin(heading), 0],
+                     [np.sin(heading), np.cos(heading), 0],
+                     [0, 0, 1]])
+
