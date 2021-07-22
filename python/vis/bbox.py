@@ -21,6 +21,8 @@ class BBox:
         # Construct points array
         dims_multiplier = np.array([[1, 1, 1], [-1, 1, 1], [-1, -1, 1], [1, -1, 1],
                                     [1, 1, -1], [-1, 1, -1], [-1, -1, -1], [1, -1, -1]])
+        
+        #Todo: need orientation here
         points = []
         for i in range(dims_multiplier.shape[0]):
             points.append(position + extent * dims_multiplier[i].reshape(3, 1) / 2)
@@ -76,6 +78,8 @@ class BBox:
 
     def get_raw_data(self):
         return self.pos, self.rot, self.extent
+
+    
 
 
 

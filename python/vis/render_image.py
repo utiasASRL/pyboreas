@@ -98,6 +98,101 @@ def temp_transform(pcd):
     pcd = np.matmul(vis_utils.to_T(vis_utils.rot_y(np.pi), np.zeros((3,1))), pcd)
     return pcd
 
+def to_pixel(cam_matrix, point_camera):
+    point_camera = np.reshape(point_camera, (-1,4)).T
+    pixel_point_camera = np.matmul(cam_matrix, point_camera)
+
+    z = pixel_point_camera[2]
+    x = int(pixel_point_camera[0] / z)
+    y = int(pixel_point_camera[1] / z)
+    return [x, y, float(z)]
+
+def draw_point(image, cam_matrix, point_camera, color, diameter, line_width):
+    if point_camera[2] > 0:
+        pixels = to_pixel(cam_matrix, point_camera)
+        if pixels[0] > 0 and pixels[0] < image.shape[0] and pixels[1] > 0 and pixels[1] < image.shape[1]:
+            cv2.circle(image,(pixels[0],pixels[1]), diameter, color, line_width)
+
+def get_point_with_offset(pose, offset):
+    T = np.eye(4)
+    T[0:3,3] = np.array([offset[0],offset[1],offset[2]])
+    return np.matmul(pose, T)
+
+def get_box_corners(box):
+    centroid_pose = vis_utils.to_T(box.rot, box.pos)
+    dims = box.extent.reshape(-1)/2
+    corners = {}
+
+    front_top_left = get_point_with_offset(centroid_pose, [-dims[0],dims[1],dims[2]])
+    front_top_right = get_point_with_offset(centroid_pose, [dims[0],dims[1],dims[2]])
+
+    front_bottom_left = get_point_with_offset(centroid_pose, [-dims[0],dims[1],-dims[2]])
+    front_bottom_right = get_point_with_offset(centroid_pose, [dims[0],dims[1],-dims[2]])
+
+    back_top_left = get_point_with_offset(centroid_pose, [-dims[0],-dims[1],dims[2]])
+    back_top_right = get_point_with_offset(centroid_pose, [dims[0],-dims[1],dims[2]])
+
+    back_bottom_left = get_point_with_offset(centroid_pose, [-dims[0],-dims[1],-dims[2]])
+    back_bottom_right = get_point_with_offset(centroid_pose, [dims[0],-dims[1],-dims[2]])
+
+    corners['ftl'] = front_top_left
+    corners['ftr'] = front_top_right
+    corners['fbl'] = front_bottom_left
+    corners['fbr'] = front_bottom_right
+    corners['btl'] = back_top_left
+    corners['btr'] = back_top_right
+    corners['bbl'] = back_bottom_left
+    corners['bbr'] = back_bottom_right
+
+    return corners
+
+def draw_box(image, cam_matrix, box, color, line_width, draw_corner_pts = False):
+    corners = get_box_corners(box)
+
+    corners_camera = {}
+    corners_pixel = {}
+    for key, value in corners.items():
+        T_camera = temp_transform(value)
+        p_camera = T_camera[:,3]
+        if p_camera[2] <= 1e-5:
+            return
+        pixel = to_pixel(cam_matrix, p_camera)
+        if pixel[0] < 0 or pixel[0] > image.shape[0] or \
+             pixel[1] < 0 or pixel[1] > image.shape[1]:
+            return
+        corners_camera[key] = p_camera
+        corners_pixel[key] = tuple(pixel[0:2])
+
+    if (draw_corner_pts):
+        draw_point(image, cam_matrix, corners_camera['ftl'], [0, 0, 255], 3,4) # [b,g,r]
+        draw_point(image, cam_matrix, corners_camera['ftr'], [0, 255, 0], 3,4)
+        draw_point(image, cam_matrix, corners_camera['fbl'], [255, 0, 0], 3,4)
+        draw_point(image, cam_matrix, corners_camera['fbr'], [255, 255, 0], 3,4)
+        draw_point(image, cam_matrix, corners_camera['btl'], [0, 0, 128], 3,4)
+        draw_point(image, cam_matrix, corners_camera['btr'], [0, 128, 0], 3,4)
+        draw_point(image, cam_matrix, corners_camera['bbl'], [128, 0, 0], 3,4)
+        draw_point(image, cam_matrix, corners_camera['bbr'], [255, 255, 0], 3,4)
+
+    cv2.line(image,corners_pixel['ftl'],corners_pixel['ftr'],color,line_width)
+    cv2.line(image,corners_pixel['ftl'],corners_pixel['fbl'],color,line_width)
+    cv2.line(image,corners_pixel['ftr'],corners_pixel['fbr'],color,line_width)
+    cv2.line(image,corners_pixel['fbl'],corners_pixel['fbr'],color,line_width)
+
+    cv2.line(image,corners_pixel['ftl'],corners_pixel['fbr'],color,line_width)
+    cv2.line(image,corners_pixel['ftr'],corners_pixel['fbl'],color,line_width)
+
+    cv2.line(image,corners_pixel['btl'],corners_pixel['btr'],color,line_width)
+    cv2.line(image,corners_pixel['btl'],corners_pixel['bbl'],color,line_width)
+    cv2.line(image,corners_pixel['btr'],corners_pixel['bbr'],color,line_width)
+    cv2.line(image,corners_pixel['bbl'],corners_pixel['bbr'],color,line_width)
+
+    cv2.line(image,corners_pixel['ftl'],corners_pixel['btl'],color,line_width)
+    cv2.line(image,corners_pixel['ftr'],corners_pixel['btr'],color,line_width)
+    cv2.line(image,corners_pixel['fbl'],corners_pixel['bbl'],color,line_width)
+    cv2.line(image,corners_pixel['fbr'],corners_pixel['bbr'],color,line_width)
+    
+    
+
 def render_image(label_file_path, data_file_paths, synced_cameras, idx, P_cam, T_iv, T_cv):
     label_file = open(label_file_path, 'r')
     data_file = open(data_file_paths[idx], 'r')
@@ -141,31 +236,21 @@ def render_image(label_file_path, data_file_paths, synced_cameras, idx, P_cam, T
             cv2.circle(image,(x,y), 1, c, 1)
     
     # Bounding boxes
-    centroids_odom = np.array([]).reshape(3,0)
+    #centroids_odom = np.array([]).reshape(3,0)
     for box in boxes:
-        bb = box.get_raw_data()
-        centroids_odom = np.hstack((centroids_odom, bb[0]))
-    centroids_odom = np.vstack((centroids_odom, np.ones((1, len(boxes)))))
-    centroids_camera_all = temp_transform(centroids_odom)
-    centroids_camera = np.array([])
-    for i in range(centroids_camera_all.shape[1]):
-        if centroids_camera_all[2,i] > 0:
-            centroids_camera = np.concatenate((centroids_camera, centroids_camera_all[:,i]))
-    centroids_camera = np.reshape(centroids_camera, (-1,4)).T
-    pixel_centroid_camera = np.matmul(P_cam, centroids_camera)
-    for i in range(pixel_centroid_camera.shape[1]):
-        z = pixel_centroid_camera[2,i]
-        x = int(pixel_centroid_camera[0,i] / z)
-        y = int(pixel_centroid_camera[1,i] / z)
-        if x > 0 and x < image.shape[1] and y > 0 and y < image.shape[0]:
-            cv2.circle(image,(x,y), 5, [255,255,255], 10)
 
+        pose = vis_utils.to_T(box.rot, box.pos)
+        T_centroid_camera = temp_transform(pose)
+        centroid_camera = T_centroid_camera[:,3]
+        
+        draw_point(image, P_cam, centroid_camera, [255, 255, 255], 3,4)
+
+        draw_box(image, P_cam, box, [0,0,255], 2, False)
+        
     cv2.destroyAllWindows()
     cv2.imshow(image_file, image) 
-    cv2.waitKey(100)
-    print()
+    cv2.waitKey(50)
      
-
 
 if __name__ == '__main__':
     P_cam, T_iv, T_cv = get_sensor_calibration("./calib/P_camera.txt","./calib/T_applanix_lidar.txt","./calib/T_camera_lidar.txt","./calib/T_radar_lidar.txt")
