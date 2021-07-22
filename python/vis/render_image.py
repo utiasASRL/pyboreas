@@ -93,8 +93,10 @@ def get_sensor_calibration(P_cam_file, T_iv_file, T_cv_file, T_rv_file):
     print('-------------------')
     return P_cam, T_iv, T_cv
 
-def temp_transform(pcd):
-    pcd = np.matmul(vis_utils.to_T(vis_utils.rot_z(-np.pi/2), np.zeros((3,1))), np.matmul(np.linalg.inv(T_cv), pcd))
+def temp_transform(T_cv, pcd):
+    pcd = np.matmul(np.linalg.inv(T_cv), pcd)
+    pcd = np.matmul(vis_utils.to_T(vis_utils.rot_x(-0.03), np.zeros((3,1))), pcd)
+    pcd = np.matmul(vis_utils.to_T(vis_utils.rot_z(-np.pi/2+0.05), np.zeros((3,1))), pcd)
     pcd = np.matmul(vis_utils.to_T(vis_utils.rot_y(np.pi), np.zeros((3,1))), pcd)
     return pcd
 
@@ -146,13 +148,13 @@ def get_box_corners(box):
 
     return corners
 
-def draw_box(image, cam_matrix, box, color, line_width, draw_corner_pts = False):
+def draw_box(image, T_cv, cam_matrix, box, color, line_width, draw_corner_pts = False):
     corners = get_box_corners(box)
 
     corners_camera = {}
     corners_pixel = {}
     for key, value in corners.items():
-        T_camera = temp_transform(value)
+        T_camera = temp_transform(T_cv, value)
         p_camera = T_camera[:,3]
         if p_camera[2] <= 1e-5:
             return
@@ -218,7 +220,7 @@ def render_image(label_file_path, data_file_paths, synced_cameras, idx, P_cam, T
     
     # Lidar
     #points_camera_all = np.matmul(T_cv, np.matmul(np.linalg.inv(T_iv), points))
-    points_camera_all = temp_transform(points)
+    points_camera_all = temp_transform(T_cv, points)
     points_camera = np.array([])
     for i in range(points_camera_all.shape[1]):
         if points_camera_all[2,i] > 0:
@@ -240,16 +242,16 @@ def render_image(label_file_path, data_file_paths, synced_cameras, idx, P_cam, T
     for box in boxes:
 
         pose = vis_utils.to_T(box.rot, box.pos)
-        T_centroid_camera = temp_transform(pose)
+        T_centroid_camera = temp_transform(T_cv, pose)
         centroid_camera = T_centroid_camera[:,3]
         
         draw_point(image, P_cam, centroid_camera, [255, 255, 255], 3,4)
 
-        draw_box(image, P_cam, box, [0,0,255], 2, False)
+        draw_box(image, T_cv,  P_cam, box, [0,0,255], 2, False)
         
     cv2.destroyAllWindows()
     cv2.imshow(image_file, image) 
-    cv2.waitKey(50)
+    cv2.waitKey(100)
      
 
 if __name__ == '__main__':
