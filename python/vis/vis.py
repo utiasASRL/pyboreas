@@ -18,6 +18,7 @@ import numpy as np
 from tqdm import tqdm
 
 import vis_utils
+import map_utils
 
 matplotlib.use("tkagg")  # slu: for testing with ide
 
@@ -60,6 +61,16 @@ class BoreasVisualizer:
                                                                             "./calib/T_camera_lidar.txt",
                                                                             "./calib/T_radar_lidar.txt",
                                                                             verbose=False)
+
+        # Hardcode GPS coord offset for now
+        x = 624186.687436
+        y = 4844692.17809
+        x2 = 623947.146108
+        y2 = 4844908.90913
+        # self.o_x = x2 + 4067.59276782
+        # self.o_y = y2 - 622.176477479
+        self.o_x = 624121.315803 + 4067.59276782
+        self.o_y = 4844768.47104 - 622.176477479
 
         # Load pointcloud data & timestamps
         print("Loading Lidar Pointclouds...", flush=True)
@@ -110,12 +121,17 @@ class BoreasVisualizer:
         curr_lables = self.labels[frame_idx]
 
         points, boxes = vis_utils.transform_data_to_sensor_frame(curr_lidar_data, curr_lables)
+        _, C_vo_yaw = vis_utils.get_device_pose(curr_lidar_data)
         points = points.astype(np.float32)
         z_min = np.min(points[:, 2])
         z_max = np.max(points[:, 2])
         colors = cm.ocean((points[:, 2] - z_min) / (z_max - z_min))[:, 0:3]
 
-        fig, ax = plt.subplots(figsize=(10, 10))
+        fig, ax = plt.subplots()
+
+        off_x = curr_lidar_data["device_position"]["x"]
+        off_y = curr_lidar_data["device_position"]["y"]
+        map_utils.draw_map_without_lanelet("./sample_dataset/sample_map.osm", ax, self.o_x + off_x, self.o_y + off_y, C_vo_yaw, utm=True)
 
         ax.scatter(points[:, 0], points[:, 1], color=colors, s=0.1)
 
