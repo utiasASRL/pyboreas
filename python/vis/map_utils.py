@@ -92,7 +92,7 @@ class LL2XYProjector:
     def latlon2xy(self, lat, lon):
         if self.rot_mtx is not None:
             [x, y] = self.p(lon, lat)
-            rotated = np.matmul(-self.rot_mtx, np.array([[x-self.x_origin], [y-self.y_origin]]))
+            rotated = np.matmul(self.rot_mtx, np.array([[x-self.x_origin], [y-self.y_origin]]))
             return rotated[0][0], rotated[1][0]
         else:
             [x, y] = self.p(lon, lat)

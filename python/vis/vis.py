@@ -9,6 +9,7 @@ import glob
 from collections import OrderedDict
 from os import path
 import csv
+from math import sin, cos, pi
 
 import cv2
 import open3d as o3d
@@ -32,7 +33,7 @@ class LidarPose:
         self.position = position
         self.heading = heading  # roll, pitch, heading(yaw)
 
-    def get_C_vo(self):
+    def get_C_v_enu(self):
         return R.from_euler('xyz', self.heading)
 
 class GPSPose:
@@ -87,6 +88,11 @@ class BoreasVisualizer:
                                                                             "./calib/T_camera_lidar.txt",
                                                                             "./calib/T_radar_lidar.txt",
                                                                             verbose=False)
+        self.C_enu_ned = np.array([
+            [0, 1, 0],
+            [1, 0, 0],
+            [0, 0, -1]
+        ])
 
         # Load pointcloud data & timestamps
         print("Loading Lidar Pointclouds...")
@@ -94,7 +100,7 @@ class BoreasVisualizer:
             self.timestamps.append(int(pcd_path.split("/")[-1][:-4]))
             scan = np.fromfile(pcd_path, dtype=np.float32)
             points = scan.reshape((-1, 6))[:, :6]
-            self.lidar_data.append(points)  # x, y, z, i, ?, ?
+            self.lidar_data.append(points)  # x, y, z, i, laser #, gps timestamp
         # Load lidar poses
         print("Loading Lidar Poses...")
         with open(path.join(self.dataroot, "applanix", "lidar_poses.csv")) as file:
@@ -156,16 +162,22 @@ class BoreasVisualizer:
         curr_lidar_pose = self.lidar_poses[curr_ts]
         # curr_lables = self.labels[frame_idx]
 
-        C_vo = curr_lidar_pose.get_C_vo().as_matrix()
-        z_min = np.min(curr_lidar_data[:, 2])
-        z_max = np.max(curr_lidar_data[:, 2])
-        colors = cm.ocean((curr_lidar_data[:, 2] - z_min) / (z_max - z_min))[:, 0:3]
+        C_v_enu = curr_lidar_pose.get_C_v_enu().as_matrix()
+        C_i_enu = self.T_iv[0:3, 0:3] @ C_v_enu
+        C_iv = self.T_iv[0:3, 0:3]
+        z_min = -3
+        z_max = 5
+        colors = cm.jet(((curr_lidar_data[:, 2] - z_min) / (z_max - z_min)) + 0.2, 1)[:, 0:3]
 
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(7,7))
+        ax.set_xlim(-75, 75)
+        ax.set_ylim(-75, 75)
 
-        map_utils.draw_map_without_lanelet("./sample_boreas/boreas_lane.osm", ax, curr_lidar_pose.position[0], curr_lidar_pose.position[1], C_vo, utm=True)
+        pcd_i = np.matmul(C_iv[0:2, 0:2].reshape(1,2,2), curr_lidar_data[:, 0:2].reshape(curr_lidar_data.shape[0], 2, 1)).squeeze(-1)
 
-        ax.scatter(curr_lidar_data[:, 0], curr_lidar_data[:, 1], color=colors, s=0.1)
+        map_utils.draw_map_without_lanelet("./sample_boreas/boreas_lane.osm", ax, curr_lidar_pose.position[0], curr_lidar_pose.position[1], C_i_enu, utm=True)
+
+        ax.scatter(pcd_i[:, 0], pcd_i[:, 1], color=colors, s=0.1)
 
         # for box in boxes:
         #     box.render_bbox_2d(ax)
@@ -258,5 +270,5 @@ class BoreasVisualizer:
 if __name__ == '__main__':
     dataset = BoreasVisualizer("./sample_boreas", ts_to_load=5)
     # dataset.visualize_track_topdown()
-    dataset.visualize_track_topdown_mpl(0)
+    dataset.visualize_track_topdown_mpl(4)
     # dataset.visualize_frame_persp(1)
