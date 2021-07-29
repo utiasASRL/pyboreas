@@ -180,11 +180,11 @@ def draw_box(image, T_cv, T_iv, cam_matrix, box, color, line_width, draw_corner_
         T_camera = temp_transform(T_cv, T_iv, value)
         p_camera = T_camera[:,3]
         if p_camera[2] <= 1e-5:
-            return
+            return {}
         pixel = to_pixel(cam_matrix, p_camera)
         if pixel[0] < 0 or pixel[0] > image.shape[0] or \
              pixel[1] < 0 or pixel[1] > image.shape[1]:
-            return
+            return {}
         corners_camera[key] = p_camera
         corners_pixel[key] = tuple(pixel[0:2])
 
@@ -215,8 +215,13 @@ def draw_box(image, T_cv, T_iv, cam_matrix, box, color, line_width, draw_corner_
     cv2.line(image,corners_pixel['ftr'],corners_pixel['btr'],color,line_width)
     cv2.line(image,corners_pixel['fbl'],corners_pixel['bbl'],color,line_width)
     cv2.line(image,corners_pixel['fbr'],corners_pixel['bbr'],color,line_width)
+    return corners_pixel
     
-    
+def draw_label(image, corners_pixel, color, box):
+    if len(corners_pixel) > 0:
+        pos = (corners_pixel['ftl'][0], max(0, corners_pixel['ftl'][1]-10))
+        text = box.label
+        cv2.putText(image, text, pos, cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA, False)
 
 def render_image(label_file_path, data_file_paths, synced_cameras, start_idx, idx, P_cam, T_iv, T_cv):
     label_file = open(label_file_path, 'r')
@@ -228,20 +233,13 @@ def render_image(label_file_path, data_file_paths, synced_cameras, start_idx, id
     T, C = vis_utils.get_device_pose(data_json)
 
     points, boxes = vis_utils.transform_data_to_sensor_frame(data_json, label_json[start_idx+idx]['cuboids'], 0.7)
-    #print(len(label_json))
-    #print(len(cubloids_raw['cuboids']))
-    #print(cubloids_raw['cuboids'])
 
     image_file = synced_cameras[idx]
-    #print(image_file)
     image = cv2.imread(image_file, cv2.IMREAD_COLOR) 
     
     points = points.T
-    #print(points)
-    #print(boxes[0])
     
     # Lidar
-    #points_camera_all = np.matmul(T_cv, np.matmul(np.linalg.inv(T_iv), points))
     points_camera_all = temp_transform(T_cv, T_iv, points)
     points_camera = np.array([])
     for i in range(points_camera_all.shape[1]):
@@ -260,7 +258,6 @@ def render_image(label_file_path, data_file_paths, synced_cameras, start_idx, id
             cv2.circle(image,(x,y), 1, c, 1)
     
     # Bounding boxes
-    #centroids_odom = np.array([]).reshape(3,0)
     for box in boxes:
 
         pose = vis_utils.to_T(box.rot, box.pos)
@@ -268,8 +265,8 @@ def render_image(label_file_path, data_file_paths, synced_cameras, start_idx, id
         centroid_camera = T_centroid_camera[:,3]
         
         draw_point(image, P_cam, centroid_camera, [255, 255, 255], 3,4)
-
-        draw_box(image, T_cv, T_iv, P_cam, box, [0,0,255], 2, False)
+        corners_pixel = draw_box(image, T_cv, T_iv, P_cam, box, [0,0,255], 2, False)
+        draw_label(image, corners_pixel, [255, 255, 255], box)
         
     cv2.destroyAllWindows()
     cv2.imshow(image_file, image)
@@ -280,8 +277,9 @@ def render_image(label_file_path, data_file_paths, synced_cameras, start_idx, id
 if __name__ == '__main__':
     P_cam, T_iv, T_cv = get_sensor_calibration("./calib/P_camera.txt","./calib/T_applanix_lidar.txt","./calib/T_camera_lidar.txt","./calib/T_radar_lidar.txt")
     
-    start_idx = 10
-    end_idx = 50
+    start_idx = 0
+    end_idx = 80
+    
     label_file_path = "./sample_dataset/labels.json"
     data_file_paths = sorted(glob.glob('./sample_dataset/lidar_data/task_point_cloud*.json'), key=lambda x : int(''.join(filter(str.isdigit, x))))
     camera_file_paths = sorted(glob.glob('./sample_dataset/camera/*.png'), key=lambda x : int(''.join(filter(str.isdigit, x))))
