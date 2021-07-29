@@ -62,10 +62,10 @@ def get_sensor_calibration(P_cam_file, T_iv_file, T_cv_file, T_rv_file):
     P_cam = np.loadtxt(P_cam_file)
     T_iv = np.loadtxt(T_iv_file)
 
-    h_adj = vis_utils.to_T(vis_utils.rot_x(np.radians(0)), np.array([0.0,0.0,0.3]).reshape(3,1))
+    h_adj = vis_utils.to_T(vis_utils.rot_x(np.radians(0)), np.array([0.0,0.0,0.0]).reshape(3,1))
     pitch_adj = vis_utils.rot_x(np.radians(0.4)) # roll
-    yaw_adj = vis_utils.rot_y(np.radians(-0.7))  # yaw
-    roll_adj = vis_utils.rot_z(np.radians(0.5))
+    yaw_adj = vis_utils.rot_y(np.radians(-0.3))  # yaw
+    roll_adj = vis_utils.rot_z(np.radians(0.0))
     pitch_adj = vis_utils.to_T(pitch_adj, np.zeros((3,1)))
     yaw_adj = vis_utils.to_T(yaw_adj, np.zeros((3,1)))
     roll_adj = vis_utils.to_T(roll_adj, np.zeros((3,1)))
@@ -114,7 +114,7 @@ def temp_transform(T_cv, T_iv, pcd):
 
     #pcd = np.matmul(T_cv, pcd)
 
-    T_cv = np.matmul(vis_utils.to_T(vis_utils.rot_y(np.pi/4+0.04), np.zeros((3,1))), T_cv)
+    #T_cv = np.matmul(vis_utils.to_T(vis_utils.rot_y(np.pi/4+0.04), np.zeros((3,1))), T_cv)
     pcd = np.matmul(T_cv, np.matmul(np.linalg.inv(T_iv), pcd))
 
     #pcd = np.matmul(vis_utils.to_T(vis_utils.rot_x(-0.03), np.zeros((3,1))), pcd)
@@ -280,8 +280,8 @@ def render_image(label_file_path, data_file_paths, synced_cameras, start_idx, id
 if __name__ == '__main__':
     P_cam, T_iv, T_cv = get_sensor_calibration("./calib/P_camera.txt","./calib/T_applanix_lidar.txt","./calib/T_camera_lidar.txt","./calib/T_radar_lidar.txt")
     
-    start_idx = 70
-    end_idx = 80
+    start_idx = 10
+    end_idx = 50
     label_file_path = "./sample_dataset/labels.json"
     data_file_paths = sorted(glob.glob('./sample_dataset/lidar_data/task_point_cloud*.json'), key=lambda x : int(''.join(filter(str.isdigit, x))))
     camera_file_paths = sorted(glob.glob('./sample_dataset/camera/*.png'), key=lambda x : int(''.join(filter(str.isdigit, x))))
