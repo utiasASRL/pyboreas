@@ -3,13 +3,10 @@
 # TODO: render visualization as an image, (display it), (save it)
 # TODO: plot odometry results vs. ground truth
 
-import sys
 import json
 import glob
 from collections import OrderedDict
 from os import path
-import csv
-from math import sin, cos, pi
 
 import cv2
 import open3d as o3d
@@ -18,32 +15,12 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import numpy as np
-from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
 
 import vis_utils
 import map_utils
 
 matplotlib.use("tkagg")  # slu: for testing with ide
-
-class LidarPose:
-    def __init__(self, ros_ts, gps_ts, position, heading):
-        self.ros_ts = ros_ts
-        self.gps_ts = gps_ts
-        self.position = position
-        self.heading = heading  # roll, pitch, heading(yaw)
-
-    def get_C_v_enu(self):
-        return R.from_euler('xyz', self.heading)
-
-class GPSPose:
-    def __init__(self, gps_ts, position, heading):
-        self.gps_ts = gps_ts
-        self.position = position
-        self.heading = heading  # roll, pitch, heading(yaw)
-
-    def get_C_vo(self):
-        return R.from_euler('xyz', self.heading)
 
 class BoreasVisualizer:
     """Main class for loading the Boreas dataset for visualization.
@@ -52,7 +29,7 @@ class BoreasVisualizer:
     Currently only works for one track at a time.
     """
 
-    def __init__(self, dataroot, ts_to_load=None):
+    def __init__(self, dataroot):
         """Initialize the class with the corresponding data, transforms and labels.
 
         Args:
@@ -61,22 +38,18 @@ class BoreasVisualizer:
         # Check if dataroot paths are valid
         if not path.exists(path.join(dataroot, "camera")):
             raise ValueError("Error: images dir missing from dataroot")
-        if not path.exists(path.join(dataroot, "lidar")):
-            raise ValueError("Error: lidar dir missing from dataroot")
-        if not path.exists(path.join(dataroot, "applanix")):
-            raise ValueError("Error: applnix dir missing from dataroot")
-        # if not path.exists(path.join(dataroot, "labels.json")):
-        #     raise ValueError("Error: labels.json missing from dataroot")
+        if not path.exists(path.join(dataroot, "lidar_data")):
+            raise ValueError("Error: lidar_data dir missing from dataroot")
+        if not path.exists(path.join(dataroot, "labels.json")):
+            raise ValueError("Error: labels.json missing from dataroot")
 
         # Instantiate class properties
         self.dataroot = dataroot  # Root directory for the dataset
-        self.pcd_paths = sorted(glob.glob(path.join(dataroot, "lidar", "*.bin")))[0:ts_to_load]  # Paths to the pointcloud jsons
-        self.img_paths = sorted(glob.glob(path.join(dataroot, "camera", "*.png")))[0:ts_to_load]  # Paths to the camera images
+        self.pcd_paths = sorted(glob.glob(path.join(dataroot, "lidar_data", "task_point_cloud*.json")))[0:3] #TEMP TESTING SLU  # Paths to the pointcloud jsons
+        self.img_paths = sorted(glob.glob(path.join(dataroot, "camera", "*.png")))  # Paths to the camera images
         self.label_file = path.join(dataroot, "labels.json")  # Path to the label json
         self.timestamps = []                        # List of all timestamps (in order)
         self.lidar_data = []                        # List of all loaded lidar jsons (in order)
-        self.lidar_poses = {}                       # Dict of all the lidar poses (by ros timestamp)
-        self.gps_poses = {}                         # Dict of all the gps poses (by GPS time)
         self.images_raw = []                        # List of all loaded cv2 images (in order, not 1-1 with timestamps)
         self.images_synced = []                     # List of all synced images (in order)
         self.labels = []                            # List of all loaded label jsons (in order)
@@ -88,48 +61,35 @@ class BoreasVisualizer:
                                                                             "./calib/T_camera_lidar.txt",
                                                                             "./calib/T_radar_lidar.txt",
                                                                             verbose=False)
-        self.C_enu_ned = np.array([
-            [0, 1, 0],
-            [1, 0, 0],
-            [0, 0, -1]
-        ])
+
+        # Hardcode GPS coord offset for now
+        x = 624186.687436
+        y = 4844692.17809
+        x2 = 623947.146108
+        y2 = 4844908.90913
+        # self.o_x = x2 + 4067.59276782
+        # self.o_y = y2 - 622.176477479
+        self.o_x = 624121.315803 + 4067.59276782
+        self.o_y = 4844768.47104 - 622.176477479
 
         # Load pointcloud data & timestamps
-        print("Loading Lidar Pointclouds...")
-        for pcd_path in tqdm(self.pcd_paths, file=sys.stdout):
-            self.timestamps.append(int(pcd_path.split("/")[-1][:-4]))
-            scan = np.fromfile(pcd_path, dtype=np.float32)
-            points = scan.reshape((-1, 6))[:, :6]
-            self.lidar_data.append(points)  # x, y, z, i, laser #, gps timestamp
-        # Load lidar poses
-        print("Loading Lidar Poses...")
-        with open(path.join(self.dataroot, "applanix", "lidar_poses.csv")) as file:
-            reader = csv.reader(file)
-            headers = next(reader)  # Extract headers
-            for row in tqdm(reader, file=sys.stdout):
-                lidar_pose = LidarPose(int(row[0]), float(row[1]), np.asarray(row[2:5], dtype=np.float32), np.asarray(row[8:11], dtype=np.float32))
-                self.lidar_poses[int(row[0])] = lidar_pose
-        # Load gps poses
-        print("Loading GPS Poses...")
-        with open(path.join(self.dataroot, "applanix", "gps_post_process.csv")) as file:
-            reader = csv.reader(file)
-            headers = next(reader)  # Extract headers
-            for row in tqdm(reader, file=sys.stdout):
-                gps_pose = GPSPose(float(row[0]), np.asarray(row[1:4], dtype=np.float32), np.asarray(row[7:10], dtype=np.float32))
-                self.gps_poses[float(row[0])] = gps_pose
+        print("Loading Lidar Pointclouds...", flush=True)
+        for pcd_path in tqdm(self.pcd_paths):
+            with open(pcd_path, 'r') as file:
+                raw_data = json.load(file)
+                self.timestamps.append(raw_data["timestamp"])
+                self.lidar_data.append(raw_data)
         # Load camera data
-        print("Loading Images...")
-        for img_path in tqdm(self.img_paths, file=sys.stdout):
+        print("Loading Images...", flush=True)
+        for img_path in tqdm(self.img_paths):
             self.images_raw.append(cv2.imread(img_path, cv2.IMREAD_COLOR))
         self._sync_camera_frames()  # Sync each lidar frame to a corresponding camera frame
-
-        # # Load label data
-        # print("Loading Labels...", flush=True)
-        # with open(self.label_file, 'r') as file:
-        #     raw_labels = json.load(file)
-        #     for label in tqdm(raw_labels):
-        #         self.labels.append(label['cuboids'])
-
+        # Load label data
+        print("Loading Labels...", flush=True)
+        with open(self.label_file, 'r') as file:
+            raw_labels = json.load(file)
+            for label in tqdm(raw_labels):
+                self.labels.append(label['cuboids'])
 
     def visualize_track_topdown(self):
         pc_data = []
@@ -157,30 +117,26 @@ class BoreasVisualizer:
         vis.show_geometries_under("task", True)
 
     def visualize_track_topdown_mpl(self, frame_idx, predictions=None):
-        curr_ts = self.timestamps[frame_idx]
         curr_lidar_data = self.lidar_data[frame_idx]
-        curr_lidar_pose = self.lidar_poses[curr_ts]
-        # curr_lables = self.labels[frame_idx]
+        curr_lables = self.labels[frame_idx]
 
-        C_v_enu = curr_lidar_pose.get_C_v_enu().as_matrix()
-        C_i_enu = self.T_iv[0:3, 0:3] @ C_v_enu
-        C_iv = self.T_iv[0:3, 0:3]
-        z_min = -3
-        z_max = 5
-        colors = cm.jet(((curr_lidar_data[:, 2] - z_min) / (z_max - z_min)) + 0.2, 1)[:, 0:3]
+        points, boxes = vis_utils.transform_data_to_sensor_frame(curr_lidar_data, curr_lables)
+        _, C_vo_yaw = vis_utils.get_device_pose(curr_lidar_data)
+        points = points.astype(np.float32)
+        z_min = np.min(points[:, 2])
+        z_max = np.max(points[:, 2])
+        colors = cm.ocean((points[:, 2] - z_min) / (z_max - z_min))[:, 0:3]
 
-        fig, ax = plt.subplots(figsize=(7,7))
-        ax.set_xlim(-75, 75)
-        ax.set_ylim(-75, 75)
+        fig, ax = plt.subplots()
 
-        pcd_i = np.matmul(C_iv[0:2, 0:2].reshape(1,2,2), curr_lidar_data[:, 0:2].reshape(curr_lidar_data.shape[0], 2, 1)).squeeze(-1)
+        off_x = curr_lidar_data["device_position"]["x"]
+        off_y = curr_lidar_data["device_position"]["y"]
+        map_utils.draw_map_without_lanelet("./sample_dataset/sample_map.osm", ax, self.o_x + off_x, self.o_y + off_y, C_vo_yaw, utm=True)
 
-        map_utils.draw_map_without_lanelet("./sample_boreas/boreas_lane.osm", ax, curr_lidar_pose.position[0], curr_lidar_pose.position[1], C_i_enu, utm=True)
+        ax.scatter(points[:, 0], points[:, 1], color=colors, s=0.1)
 
-        ax.scatter(pcd_i[:, 0], pcd_i[:, 1], color=colors, s=0.1)
-
-        # for box in boxes:
-        #     box.render_bbox_2d(ax)
+        for box in boxes:
+            box.render_bbox_2d(ax)
 
         if predictions is not None:
             for box in predictions:
@@ -261,14 +217,13 @@ class BoreasVisualizer:
         # Find closest lidar timestamp for each camera frame
         camera_timestamps = [int(f.replace('/', '.').split('.')[-2]) for f in self.img_paths]
         for i in range(self.track_length):
-            timestamp = self.timestamps[i]
-            corrected_timestamp = vis_utils.get_offset_camera_ts(timestamp)
+            timestamp, corrected_timestamp = vis_utils.get_camera_timestamp(self.lidar_data[i])
             closet_idx, cloest_val = get_closest_ts(corrected_timestamp, camera_timestamps)
             self.images_synced.append(self.images_raw[closet_idx])
 
 
 if __name__ == '__main__':
-    dataset = BoreasVisualizer("./sample_boreas", ts_to_load=5)
+    dataset = BoreasVisualizer("./sample_dataset")
     # dataset.visualize_track_topdown()
-    dataset.visualize_track_topdown_mpl(4)
+    dataset.visualize_track_topdown_mpl(0)
     # dataset.visualize_frame_persp(1)

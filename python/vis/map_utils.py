@@ -44,14 +44,19 @@ def get_type(element):
             return tag.get("v")
     return None
 
-def plot_color(element):
+def plot_color_samplemap(element):
     for tag in element.findall("tag"):
         if tag.get("k") == "name":
             if tag.get("v") == "Allen Road":
                 return 1
+            elif tag.get("v").startswith("LIne") or tag.get("v").startswith("Line"):
+                return -1
             else:
                 return 0
     return -1
+
+def plot_color_boreas_lane(element):
+    return 1
 
 def get_subtype(element):
     for tag in element.findall("tag"):
@@ -73,25 +78,26 @@ class LL2XYProjector:
             self.lon_origin = y_origin
             self.zone = math.floor((y_origin+180.)/6)+1  # works for most tiles, and for all in the dataset
             self.p = pyproj.Proj(proj='utm', ellps='WGS84', zone=self.zone, datum='WGS84')
-            [self.x_origin, self.y_origin] = self.p(y_origin, x_origin)
+            [self.x_origin, self.y_origin] = [0,0]#temp testing# self.p(y_origin, x_origin)
         elif utm == True:
             self.zone = 17  # Hardcode for now
             self.p = pyproj.Proj(proj='utm', ellps='WGS84', zone=self.zone, datum='WGS84')
             self.x_origin = x_origin
             self.y_origin = y_origin
         if rot_mtx is not None:
-            self.rot_mtx = rot_mtx[0:2, 0:2]
+            self.rot_mtx = rot_mtx[0:2, 0:2]  # Just take 2d component (x, y) of rotation matrix
         else:
             self.rot_mtx = None
 
     def latlon2xy(self, lat, lon):
         if self.rot_mtx is not None:
             [x, y] = self.p(lon, lat)
-            rotated = np.matmul(-self.rot_mtx, np.array([[x-self.x_origin], [y-self.y_origin]]))
+            rotated = np.matmul(self.rot_mtx, np.array([[x-self.x_origin], [y-self.y_origin]]))
             return rotated[0][0], rotated[1][0]
         else:
             [x, y] = self.p(lon, lat)
             return [x - self.x_origin, y - self.y_origin]
+
 
 def get_x_y_lists(element, point_dict):
     x_list = list()
@@ -134,14 +140,13 @@ def draw_map(map_path, ax):
     draw_map_without_lanelet(map_path, ax, lat_origin, lon_origin)
 
 def draw_map_without_lanelet(filename, axes, x_origin, y_origin, rot_mtx=None, utm=False):
-    axes.set_aspect('equal', adjustable='box')
-    axes.patch.set_facecolor('lightgrey')
+    axes.patch.set_facecolor('white')
 
     projector = LL2XYProjector(x_origin, y_origin, rot_mtx, utm)
 
     map_data = xml.parse(filename).getroot()
 
-    point_dict = dict()
+    point_dict = {}
     for node in map_data.findall("node"):
         point = Point()
         point.x, point.y = projector.latlon2xy(float(node.get('lat')), float(node.get('lon')))
@@ -150,7 +155,7 @@ def draw_map_without_lanelet(filename, axes, x_origin, y_origin, rot_mtx=None, u
     unknown_linestring_types = list()
 
     for way in map_data.findall('way'):
-        color = plot_color(way)
+        color = plot_color_boreas_lane(way)
         if color == 1:
             type_dict = dict(color="black", linewidth=1, zorder=10)
             x_list, y_list = get_x_y_lists(way, point_dict)
@@ -172,6 +177,10 @@ if __name__ == "__main__":
     y = 4844692.17809
     x2 = 623947.146108
     y2 = 4844908.90913
+    x3 = 624100.772252  # +18s
+    y3 = 4844789.28905
+    x4 = 624141.093729  # -18s
+    y4 = 4844746.7083
     # diff_x = -4066.990882
     # diff_y = 621.629028708
     # ax.scatter(x, y, s=10)
@@ -189,8 +198,8 @@ if __name__ == "__main__":
     # o_x = 624121.315803 + 4067.59276782
     # o_y = 4844768.47104 - 622.176477479
 
-    o_x = x2 + 4067.59276782
-    o_y = y2 - 622.176477479
+    o_x = x4 + 4067.59276782 - 175
+    o_y = y4 - 622.176477479 + 175
 
     with open("./sample_dataset/gps.csv") as file:
         reader = csv.reader(file)

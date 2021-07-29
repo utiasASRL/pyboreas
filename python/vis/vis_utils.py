@@ -55,6 +55,9 @@ def get_camera_timestamp(raw_data):
     camera_timestamp = int(-1.634e-07 * lidar_time_stamp + 2.675e+11 + lidar_time_stamp)
     return lidar_time_stamp, camera_timestamp
 
+def get_offset_camera_ts(timestamp):
+    return int(-1.634e-07 * timestamp + 2.675e+11 + timestamp)
+
 def get_device_pose(raw_data):
     """
     Get pose of IMU from recorded json data file
