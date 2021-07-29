@@ -18,7 +18,9 @@ def get_transformation_matrix(raw_heading, r_io):
             C_vo_yaw: Yaw rotation matrix from odom to Velodyne
     """
     # Transformation matrix from Odom to IMU
-    raw_heading = np.roll(raw_heading, -1)
+    raw_heading = -np.roll(raw_heading, -1)
+    raw_heading[0] = -raw_heading[0]
+    raw_heading[1] = -raw_heading[1]
     raw_heading[2] = -raw_heading[2]
     C_io = R.from_quat(raw_heading).as_matrix()
     r_oi = -np.matmul(C_io, r_io)
@@ -52,7 +54,9 @@ def get_camera_timestamp(raw_data):
     :param raw_data: data from point cloud json file
     """
     lidar_time_stamp = raw_data['timestamp']
-    camera_timestamp = int(-1.634e-07 * lidar_time_stamp + 2.675e+11 + lidar_time_stamp)
+    # print(lidar_time_stamp)
+    # camera_timestamp = int(-1.634e-07 * lidar_time_stamp + 2.675e+11 + lidar_time_stamp) + 18e9
+    camera_timestamp = lidar_time_stamp + 6.3e9
     return lidar_time_stamp, camera_timestamp
 
 def get_offset_camera_ts(timestamp):
@@ -67,7 +71,7 @@ def get_device_pose(raw_data):
     r_io = np.array([list(raw_data['device_position'].values())]).T
     return get_transformation_matrix(raw_heading, r_io)
 
-def transform_points(T, raw_pcd):
+def transform_points(T, raw_pcd, keep_prob=1.0):
     """
     Transform raw lidar points by a SE3 transformation
     :param T_vo: required transformation
@@ -78,6 +82,7 @@ def transform_points(T, raw_pcd):
         points[i][0] = raw_pcd[i]['x']
         points[i][1] = raw_pcd[i]['y']
         points[i][2] = raw_pcd[i]['z']
+    points = points[np.random.choice(len(raw_pcd), int(keep_prob*len(raw_pcd)), replace=False)]
     points = np.matmul(T,
                        np.vstack((points.T, np.ones(points.shape[0]))))
     points = points.T[:]
@@ -105,7 +110,7 @@ def transform_bounding_boxes(T, C_yaw, raw_labels):
         boxes.append(box)
     return boxes
 
-def transform_data_to_sensor_frame(raw_data, raw_labels):
+def transform_data_to_sensor_frame(raw_data, raw_labels, pcd_down_sample_prob=1.0):
     """
     Transforms point cloud and label data from GPS (odom) frame
     to sensor (Velodyne) frame
@@ -114,11 +119,12 @@ def transform_data_to_sensor_frame(raw_data, raw_labels):
     :return: point cloud numpy array and bounding boxes tuple in sensor frame
     """
     raw_pcd = raw_data['points']
+    
     # Get transformation matrices
     T_vo, C_vo_yaw = get_device_pose(raw_data)
 
     # Transform Points
-    points = transform_points(T_vo, raw_pcd)
+    points = transform_points(T_vo, raw_pcd, pcd_down_sample_prob)
 
     # Transform Labels into Bounding Boxes
     boxes = transform_bounding_boxes(T_vo, C_vo_yaw, raw_labels)

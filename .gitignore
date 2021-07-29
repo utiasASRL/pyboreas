@@ -131,4 +131,5 @@ dmypy.json
 # (SLU) sample data
 sample_dataset/lidar_data
 sample_dataset/camera
+sample_dataset/output
 sample_boreas

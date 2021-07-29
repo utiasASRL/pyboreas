@@ -15,14 +15,16 @@ import vis_utils
 from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
 
-def get_closest(query_time, targets):
+def get_closest(query_time, targets, start=0):
     min_delta = 1e9
     closest = -1
-    for i in range(len(targets)):
+    for i in range(start, len(targets)):
         delta = abs(query_time - targets[i])
         if delta < min_delta:
             min_delta = delta
             closest = i
+        #else:
+        #    break
     assert(closest >= 0), "closest time to query: {} in rostimes not found.".format(query_time)
     return closest, targets[closest]
 
@@ -30,14 +32,15 @@ def sync_camera_lidar(data_file_paths, camera_file_paths):
     
     camera_timestamps = [int(f.replace('/','.').split('.')[-2]) for f in camera_file_paths]
     sync_map = []
+    closet_idx = 0
     for i in range(len(data_file_paths)):
         data_file = open(data_file_paths[i], 'r')
         data_json = json.load(data_file)
         timestamp, corrected_timestamp = vis_utils.get_camera_timestamp(data_json)
 
-        closet_idx, cloest_val = get_closest(corrected_timestamp, camera_timestamps)
-        # print(i, closet_idx, timestamp, corrected_timestamp, cloest_val)
-        # print("   off by ", abs(cloest_val - data_timestamp)*1e-11)
+        closet_idx, cloest_val = get_closest(corrected_timestamp, camera_timestamps, closet_idx)
+        print(i, closet_idx, timestamp, corrected_timestamp, cloest_val)
+        print("   off by ", abs(cloest_val - corrected_timestamp)*1e-9)
         sync_map.append(camera_file_paths[closet_idx])
 
     return sync_map
@@ -58,7 +61,21 @@ def get_sensor_calibration(P_cam_file, T_iv_file, T_cv_file, T_rv_file):
     # Load data
     P_cam = np.loadtxt(P_cam_file)
     T_iv = np.loadtxt(T_iv_file)
-    T_cv = np.loadtxt(T_cv_file)
+
+    h_adj = vis_utils.to_T(vis_utils.rot_x(np.radians(0)), np.array([0.0,0.0,0.3]).reshape(3,1))
+    pitch_adj = vis_utils.rot_x(np.radians(0.4)) # roll
+    yaw_adj = vis_utils.rot_y(np.radians(-0.7))  # yaw
+    roll_adj = vis_utils.rot_z(np.radians(0.5))
+    pitch_adj = vis_utils.to_T(pitch_adj, np.zeros((3,1)))
+    yaw_adj = vis_utils.to_T(yaw_adj, np.zeros((3,1)))
+    roll_adj = vis_utils.to_T(roll_adj, np.zeros((3,1)))
+    adj = np.matmul(roll_adj, h_adj)
+    adj = np.matmul(yaw_adj, adj)
+    adj = np.matmul(pitch_adj, adj)
+    T_cv = np.matmul(adj, np.loadtxt(T_cv_file))
+
+
+    # T_cv = np.loadtxt(T_cv_file)
     T_rv = np.loadtxt(T_rv_file)
     print('---------P_cam----------')
     print(P_cam)
@@ -93,11 +110,17 @@ def get_sensor_calibration(P_cam_file, T_iv_file, T_cv_file, T_rv_file):
     print('-------------------')
     return P_cam, T_iv, T_cv
 
-def temp_transform(T_cv, pcd):
-    pcd = np.matmul(np.linalg.inv(T_cv), pcd)
-    pcd = np.matmul(vis_utils.to_T(vis_utils.rot_x(-0.03), np.zeros((3,1))), pcd)
-    pcd = np.matmul(vis_utils.to_T(vis_utils.rot_z(-np.pi/2+0.05), np.zeros((3,1))), pcd)
-    pcd = np.matmul(vis_utils.to_T(vis_utils.rot_y(np.pi), np.zeros((3,1))), pcd)
+def temp_transform(T_cv, T_iv, pcd):
+
+    #pcd = np.matmul(T_cv, pcd)
+
+    T_cv = np.matmul(vis_utils.to_T(vis_utils.rot_y(np.pi/4+0.04), np.zeros((3,1))), T_cv)
+    pcd = np.matmul(T_cv, np.matmul(np.linalg.inv(T_iv), pcd))
+
+    #pcd = np.matmul(vis_utils.to_T(vis_utils.rot_x(-0.03), np.zeros((3,1))), pcd)
+    #pcd = np.matmul(vis_utils.to_T(vis_utils.rot_z(-np.pi/2), np.zeros((3,1))), pcd)
+    #pcd = np.matmul(vis_utils.to_T(vis_utils.rot_y(np.pi/4+0.04), np.zeros((3,1))), pcd)
+    #pcd = np.matmul(vis_utils.to_T(vis_utils.rot_y(np.pi/2), np.zeros((3,1))), pcd)
     return pcd
 
 def to_pixel(cam_matrix, point_camera):
@@ -148,13 +171,13 @@ def get_box_corners(box):
 
     return corners
 
-def draw_box(image, T_cv, cam_matrix, box, color, line_width, draw_corner_pts = False):
+def draw_box(image, T_cv, T_iv, cam_matrix, box, color, line_width, draw_corner_pts = False):
     corners = get_box_corners(box)
 
     corners_camera = {}
     corners_pixel = {}
     for key, value in corners.items():
-        T_camera = temp_transform(T_cv, value)
+        T_camera = temp_transform(T_cv, T_iv, value)
         p_camera = T_camera[:,3]
         if p_camera[2] <= 1e-5:
             return
@@ -195,7 +218,7 @@ def draw_box(image, T_cv, cam_matrix, box, color, line_width, draw_corner_pts = 
     
     
 
-def render_image(label_file_path, data_file_paths, synced_cameras, idx, P_cam, T_iv, T_cv):
+def render_image(label_file_path, data_file_paths, synced_cameras, start_idx, idx, P_cam, T_iv, T_cv):
     label_file = open(label_file_path, 'r')
     data_file = open(data_file_paths[idx], 'r')
 
@@ -204,8 +227,7 @@ def render_image(label_file_path, data_file_paths, synced_cameras, idx, P_cam, T
 
     T, C = vis_utils.get_device_pose(data_json)
 
-    cubloids_raw = label_json[idx]
-    points, boxes = vis_utils.transform_data_to_sensor_frame(data_json, label_json[idx]['cuboids'])
+    points, boxes = vis_utils.transform_data_to_sensor_frame(data_json, label_json[start_idx+idx]['cuboids'], 0.7)
     #print(len(label_json))
     #print(len(cubloids_raw['cuboids']))
     #print(cubloids_raw['cuboids'])
@@ -220,7 +242,7 @@ def render_image(label_file_path, data_file_paths, synced_cameras, idx, P_cam, T
     
     # Lidar
     #points_camera_all = np.matmul(T_cv, np.matmul(np.linalg.inv(T_iv), points))
-    points_camera_all = temp_transform(T_cv, points)
+    points_camera_all = temp_transform(T_cv, T_iv, points)
     points_camera = np.array([])
     for i in range(points_camera_all.shape[1]):
         if points_camera_all[2,i] > 0:
@@ -242,27 +264,29 @@ def render_image(label_file_path, data_file_paths, synced_cameras, idx, P_cam, T
     for box in boxes:
 
         pose = vis_utils.to_T(box.rot, box.pos)
-        T_centroid_camera = temp_transform(T_cv, pose)
+        T_centroid_camera = temp_transform(T_cv, T_iv, pose)
         centroid_camera = T_centroid_camera[:,3]
         
         draw_point(image, P_cam, centroid_camera, [255, 255, 255], 3,4)
 
-        draw_box(image, T_cv,  P_cam, box, [0,0,255], 2, False)
+        draw_box(image, T_cv, T_iv, P_cam, box, [0,0,255], 2, False)
         
     cv2.destroyAllWindows()
-    cv2.imshow(image_file, image) 
+    cv2.imshow(image_file, image)
+    cv2.imwrite('./sample_dataset/output/testSeq{}.png'.format(start_idx+idx), image)
     cv2.waitKey(100)
      
 
 if __name__ == '__main__':
     P_cam, T_iv, T_cv = get_sensor_calibration("./calib/P_camera.txt","./calib/T_applanix_lidar.txt","./calib/T_camera_lidar.txt","./calib/T_radar_lidar.txt")
     
-    idx = 50
+    start_idx = 70
+    end_idx = 80
     label_file_path = "./sample_dataset/labels.json"
     data_file_paths = sorted(glob.glob('./sample_dataset/lidar_data/task_point_cloud*.json'), key=lambda x : int(''.join(filter(str.isdigit, x))))
     camera_file_paths = sorted(glob.glob('./sample_dataset/camera/*.png'), key=lambda x : int(''.join(filter(str.isdigit, x))))
 
-    #synced_cameras = sync_camera_lidar(data_file_paths, camera_file_paths)
-    #print(synced_cameras)
-    for id in range(50):
-        render_image(label_file_path, data_file_paths, camera_file_paths, id, P_cam, T_iv, T_cv)
+    synced_cameras = sync_camera_lidar(data_file_paths[start_idx:end_idx], camera_file_paths)
+
+    for id in range(end_idx-start_idx):
+        render_image(label_file_path, data_file_paths[start_idx:end_idx], synced_cameras, start_idx, id, P_cam, T_iv, T_cv)
