@@ -4,7 +4,7 @@ import os
 import pylgmath as lgmath
 import pysteam as steam
 from python.utils.utils import get_inverse_tf, rotationError, translationError, enforce_orthog
-
+from itertools import accumulate
 from pylgmath import Transformation
 from pysteam.trajectory import Time, TrajectoryInterface
 from pysteam.state import TransformStateVar, VectorSpaceStateVar
@@ -28,8 +28,8 @@ def interpolatePoses(poses, times, query_times):
     """Runs a steam optimization with locked poses and outputs poses queried at query_times
     Args:
         poses (List[np.ndarray]): list of 4x4 poses (T_v_i vehicle and inertial frames)
-        times (List[float or int]): list of times for poses (float for seconds or int for nanoseconds)
-        query_times (List[float or int]): list of query times (float for seconds or int for nanoseconds)
+        times (List[int]): list of times for poses (float for seconds or int for nanoseconds)
+        query_times (List[float or int]): list of query times (int for nanoseconds)
     Returns:
         (List[np.ndarray]): list of 4x4 poses (T_v_i vehicle and inertial frames) at query_times
     """
@@ -40,7 +40,7 @@ def interpolatePoses(poses, times, query_times):
     init_velocity = np.zeros((6, 1))
     states = [
         TrajStateVar(
-            Time(times[i]),
+            Time(nsecs=times[i]),
             TransformStateVar(Transformation(T_ba=poses[i]), copy=True),
             VectorSpaceStateVar(init_velocity, copy=True),
         ) for i in range(len(poses))
@@ -65,7 +65,7 @@ def interpolatePoses(poses, times, query_times):
 
     query_poses = []
     for time in query_times:
-        interp_eval = traj.get_interp_pose_eval(Time(time))
+        interp_eval = traj.get_interp_pose_eval(Time(nsecs=time))
         query_poses += [interp_eval.evaluate().matrix()]
 
     return query_poses
@@ -142,7 +142,7 @@ def getStats(err):
     r_err /= float(len(err))
     return t_err, r_err
 
-def computeKittiMetrics(T_gt, T_pred, times_gt, times_pred, seq_lens, step_size=10):
+def computeKittiMetrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, step_size=10):
     """Computes the translational (%) and rotational drift (deg/m) in the KITTI style.
         KITTI rotation and translation metrics are computed for each sequence individually and then
         averaged across the sequences.
@@ -154,26 +154,26 @@ def computeKittiMetrics(T_gt, T_pred, times_gt, times_pred, seq_lens, step_size=
         t_err: Average KITTI Translation ERROR (%)
         r_err: Average KITTI Rotation Error (deg / m)
     """
-    seq_indices = []
-    idx = 0
-    for s in seq_lens:
-        seq_indices.append(list(range(idx, idx + s - 1)))
-        idx += (s - 1)
+    # get start and end indices of each sequence
+    indices_gt = [0]
+    indices_gt.extend(list(accumulate(seq_lens_gt)))
+    indices_pred = [0]
+    indices_pred.extend(list(accumulate(seq_lens_pred)))
+
+    # loop for each sequence
     err_list = []
-    for indices in seq_indices:
-        T_gt_ = np.identity(4)
-        T_pred_ = np.identity(4)
-        poses_gt = []
-        poses_pred = []
-        # query pred at gt times
-        for i in indices:
-            T_gt_ = np.matmul(T_gt[i], T_gt_)
-            T_pred_ = np.matmul(T_pred[i], T_pred_)
-            enforce_orthog(T_gt_)
-            enforce_orthog(T_pred_)
-            poses_gt.append(T_gt_)
-            poses_pred.append(T_pred_)
-        err = calcSequenceErrors(poses_gt, poses_pred, step_size)
+    for i in range(len(seq_lens_pred)):
+        # get poses and times of current sequence
+        T_gt_seq = T_gt[indices_gt[i]:indices_gt[i+1]]
+        T_pred_seq = T_pred[indices_pred[i]:indices_pred[i+1]]
+        times_gt_seq = times_gt[indices_gt[i]:indices_gt[i+1]]
+        times_pred_seq = times_pred[indices_pred[i]:indices_pred[i+1]]
+
+        # TODO: enforce orthog
+        # query predicted trajectory at groundtruth times
+        T_query = interpolatePoses(T_pred_seq, times_pred_seq, times_gt_seq)
+
+        err = calcSequenceErrors(T_gt_seq, T_query, step_size)
         t_err, r_err = getStats(err)
         err_list.append([t_err, r_err])
     err_list = np.asarray(err_list)
@@ -192,25 +192,61 @@ def get_sequence_poses(path, seq):
     """Retrieves a list of the poses corresponding to the given sequences in the given file path."""
 
     # loop for each sequence
-    T = []
+    all_poses = []
+    all_times = []
     seq_lens = []
     for filename in seq:
-        # parse file for list of poses
-        file = open(os.path.join(path, filename))
-        counter = 0
+        # parse file for list of poses and times
+        poses, times = read_traj_file(os.path.join(path, filename))
+        seq_lens.append(len(times))
+        all_poses.extend(poses)
+        all_times.extend(times)
+
+    return all_poses, all_times, seq_lens
+
+def write_traj_file(path, poses, times):
+    """Writes trajectory into a space-separated txt file
+    Args:
+        path (string): file path including file name
+        poses (List[np.ndarray]): list of 4x4 poses (T_v_i vehicle and inertial frames)
+        times (List[int]): list of times for poses (int for nanoseconds)
+    """
+    with open(path, "w") as file:
+        # Writing each time and pose to file
+        for time, pose in zip(times, poses):
+            line = [time]
+            line.extend(pose.reshape(16)[:12].tolist())
+            # file.write(line)
+            file.write(' '.join(str(num) for num in line))
+            file.write('\n')
+            # file1.write("Hello \n")
+            # file1.writelines(L)
+
+def read_traj_file(path):
+    """Writes trajectory into a space-separated txt file
+    Args:
+        path (string): file path including file name
+    Returns:
+        (List[np.ndarray]): list of 4x4 poses
+        (List[int]): list of times in nanoseconds
+    """
+    with open(path, "r") as file:
+        # read each time and pose to lists
+        poses = []
+        times = []
+
         for line in file:
-            values = [float(v) for v in line.strip().split()]
+            line_split = line.strip().split()
+            values = [float(v) for v in line_split[1:]]
             pose = np.zeros((4, 4))
             pose[0, 0:4] = values[0:4]
             pose[1, 0:4] = values[4:8]
             pose[2, 0:4] = values[8:12]
             pose[3, 3] = 1.0
-            T.append(get_inverse_tf(pose))
-            counter += 1
-        seq_lens.append(counter)
+            poses.append(pose)
+            times.append(int(line_split[0]))
 
-    return T, seq_lens
-
+    return poses, times
 
 if __name__ == '__main__':
     # parse arguments
@@ -221,13 +257,11 @@ if __name__ == '__main__':
 
     # parse sequences
     seq = get_sequences(args.pred)
-    T_pred, seq_lens = get_sequence_poses(args.pred, seq[0:1])
-    T_gt, _ = get_sequence_poses(args.gt, seq)
+    T_pred, times_pred, seq_lens_pred = get_sequence_poses(args.pred, seq)
+    T_gt, times_gt, seq_lens_gt = get_sequence_poses(args.gt, seq)
 
     # compute errors
-    t_err, r_err = computeKittiMetrics(T_gt, T_pred, seq_lens, 10)
-
-    a = 1
+    t_err, r_err = computeKittiMetrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, step_size=10)
 
     # print out results
     # TODO
