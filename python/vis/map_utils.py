@@ -159,11 +159,11 @@ def draw_map_without_lanelet(filename, axes, x_origin, y_origin, rot_mtx=None, u
         if color == 1:
             type_dict = dict(color="black", linewidth=1, zorder=10)
             x_list, y_list = get_x_y_lists(way, point_dict)
-            plt.plot(x_list, y_list, **type_dict)
+            axes.plot(x_list, y_list, **type_dict)
         elif color == 0:
             type_dict = dict(color="gray", linewidth=1, zorder=10)
             x_list, y_list = get_x_y_lists(way, point_dict)
-            plt.plot(x_list, y_list, **type_dict)
+            axes.plot(x_list, y_list, **type_dict)
 
     if len(unknown_linestring_types) != 0:
         print("Found the following unknown types, did not plot them: " + str(unknown_linestring_types))
