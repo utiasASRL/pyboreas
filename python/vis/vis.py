@@ -10,6 +10,7 @@ from collections import OrderedDict
 from os import path
 import csv
 from math import sin, cos, pi
+from threading import Lock
 
 import cv2
 import open3d as o3d
@@ -17,6 +18,9 @@ import open3d.ml.torch as ml3d
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import cm
+from matplotlib.widgets import Button
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import tkinter as tk
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
@@ -130,8 +134,14 @@ class BoreasVisualizer:
         #     for label in tqdm(raw_labels):
         #         self.labels.append(label['cuboids'])
 
+        # For plot stuff
+        self.curr_ts_idx = 0
+        self.fig = None
+        self.ax = None
+        self.plot_update_mutex = Lock()
 
-    def visualize_track_topdown(self):
+
+    def visualize_track_topdown_o3d(self):
         pc_data = []
         # bb_data = []
 
@@ -157,37 +167,94 @@ class BoreasVisualizer:
         vis.show_geometries_under("task", True)
 
     def visualize_track_topdown_mpl(self, frame_idx, predictions=None):
+        self.curr_ts_idx = frame_idx
         curr_ts = self.timestamps[frame_idx]
-        curr_lidar_data = self.lidar_data[frame_idx]
+        curr_lidar_data = self.lidar_data[frame_idx][:]
         curr_lidar_pose = self.lidar_poses[curr_ts]
         # curr_lables = self.labels[frame_idx]
 
-        C_v_enu = curr_lidar_pose.get_C_v_enu().as_matrix()
-        C_i_enu = self.T_iv[0:3, 0:3] @ C_v_enu
-        C_iv = self.T_iv[0:3, 0:3]
-        z_min = -3
-        z_max = 5
-        colors = cm.jet(((curr_lidar_data[:, 2] - z_min) / (z_max - z_min)) + 0.2, 1)[:, 0:3]
+        self.fig, self.ax = plt.subplots(figsize=(7,7))
 
-        fig, ax = plt.subplots(figsize=(7,7))
-        ax.set_xlim(-75, 75)
-        ax.set_ylim(-75, 75)
+        button_ax = plt.axes([0.05, 0.05, 0.05, 0.05])
+        button_f = Button(button_ax, "<")
+        button_f.on_clicked(self.on_click_bkwd)
 
-        pcd_i = np.matmul(C_iv[0:2, 0:2].reshape(1,2,2), curr_lidar_data[:, 0:2].reshape(curr_lidar_data.shape[0], 2, 1)).squeeze(-1)
+        button_ax2 = plt.axes([0.90, 0.05, 0.05, 0.05])
+        button_f2 = Button(button_ax2, ">")
+        button_f2.on_clicked(self.on_click_fwd)
 
-        map_utils.draw_map_without_lanelet("./sample_boreas/boreas_lane.osm", ax, curr_lidar_pose.position[0], curr_lidar_pose.position[1], C_i_enu, utm=True)
-
-        ax.scatter(pcd_i[:, 0], pcd_i[:, 1], color=colors, s=0.1)
-
-        # for box in boxes:
-        #     box.render_bbox_2d(ax)
-
-        if predictions is not None:
-            for box in predictions:
-                box.render_bbox_2d(ax, color="k")
+        self.update_plot_topdown(self.ax, curr_lidar_data, curr_lidar_pose)
 
         plt.show()
-        plt.close()
+        plt.draw()
+
+    def on_click_fwd(self, event):
+        if not self.plot_update_mutex.acquire(timeout=0.5): return
+
+        try:
+            self.curr_ts_idx = min(self.curr_ts_idx + 1, len(self.timestamps) - 1)
+            print("Visualizing Timestep Index: {}/{}".format(self.curr_ts_idx, len(self.timestamps)))
+
+            self.ax.clear()
+            curr_ts = self.timestamps[self.curr_ts_idx]
+            curr_lidar_data = self.lidar_data[self.curr_ts_idx][:, :]
+            curr_lidar_pose = self.lidar_poses[curr_ts]
+
+            self.update_plot_topdown(self.ax, curr_lidar_data, curr_lidar_pose)
+
+            print("Done")
+        finally:
+            self.plot_update_mutex.release()
+
+    def on_click_bkwd(self, event):
+        if not self.plot_update_mutex.acquire(timeout=0.5): return
+
+        try:
+            self.curr_ts_idx = max(self.curr_ts_idx - 1, 0)
+            print("Visualizing Timestep Index: {}/{}".format(self.curr_ts_idx, len(self.timestamps)))
+
+            self.ax.clear()
+            curr_ts = self.timestamps[self.curr_ts_idx]
+            curr_lidar_data = self.lidar_data[self.curr_ts_idx][:, :]
+            curr_lidar_pose = self.lidar_poses[curr_ts]
+
+            self.update_plot_topdown(self.ax, curr_lidar_data, curr_lidar_pose)
+
+            print("Done")
+        finally:
+            self.plot_update_mutex.release()
+
+    def update_plot_topdown(self, ax, lidar_data, lidar_pose):
+        # Calculate transformations for current data
+        C_v_enu = lidar_pose.get_C_v_enu().as_matrix()
+        C_i_enu = self.T_iv[0:3, 0:3] @ C_v_enu
+        C_iv = self.T_iv[0:3, 0:3]
+
+        # Draw map
+        map_utils.draw_map_without_lanelet("./sample_boreas/boreas_lane.osm", ax, lidar_pose.position[0], lidar_pose.position[1], C_i_enu, utm=True)
+
+        # Calculate point colors
+        z_min = -3
+        z_max = 5
+        colors = cm.jet(((lidar_data[:, 2] - z_min) / (z_max - z_min)) + 0.2, 1)[:, 0:3]
+
+        # Draw lidar points
+        pcd_i = np.matmul(C_iv[0:2, 0:2].reshape(1, 2, 2), lidar_data[:, 0:2].reshape(lidar_data.shape[0], 2, 1)).squeeze(-1)
+        self.scatter = ax.scatter(pcd_i[:, 0], pcd_i[:, 1], color=colors, s=0.05)
+
+        # Draw predictions (TODO)
+        # for box in boxes:
+        #     box.render_bbox_2d(ax)
+        #
+        # if predictions is not None:
+        #     for box in predictions:
+        #         box.render_bbox_2d(ax, color="k")
+
+        # Set to scale labeling bounds
+        self.ax.set_xlim(-75, 75)
+        self.ax.set_ylim(-75, 75)
+
+        plt.draw()
 
     def get_cam2vel_transform(self, pcd):
         pcd = np.matmul(vis_utils.to_T(vis_utils.rot_z(-np.pi / 2), np.zeros((3, 1))), np.matmul(np.linalg.inv(self.T_cv), pcd))
@@ -270,5 +337,5 @@ class BoreasVisualizer:
 if __name__ == '__main__':
     dataset = BoreasVisualizer("./sample_boreas", ts_to_load=5)
     # dataset.visualize_track_topdown()
-    dataset.visualize_track_topdown_mpl(4)
+    dataset.visualize_track_topdown_mpl(0)
     # dataset.visualize_frame_persp(1)
