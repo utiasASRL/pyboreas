@@ -8,12 +8,13 @@ def to_T(C, r):
     T = np.concatenate((T, [[0, 0, 0, 1]]), axis=0)
     return T
 
-def get_transformation_matrix(raw_heading, r_io):
+def get_transformation_matrix(raw_heading, r_io, T_iv=None):
     """
     Computes matrices needed to move from GPS (odometry) frame
     to sensor (Velodyne) frame
     :param raw_heading:
     :param r_io:
+    :param T_iv:
     :return T_vo: Transformation matrix from odom to Velodyne
             C_vo_yaw: Yaw rotation matrix from odom to Velodyne
     """
@@ -28,13 +29,17 @@ def get_transformation_matrix(raw_heading, r_io):
     T_io = np.concatenate((T_io, [[0, 0, 0, 1]]), axis=0)
 
     # Transform matrix from IMU to Velodyne
-    C_iv = np.array([[0, -1, 0],
-                     [1, 0, 0],
-                     [0, 0, 1]])
-    C_vi = C_iv.T
-    r_vi = np.array([[0, 0, 0.45]]).T
-    r_iv = -np.matmul(C_vi, r_vi)
-    T_vi = to_T(C_vi, r_iv)
+    if T_iv is None:
+        C_iv = np.array([[0, -1, 0],
+                        [1, 0, 0],
+                        [0, 0, 1]])
+        C_vi = C_iv.T
+        r_vi = np.array([[0, 0, 0.45]]).T
+        r_iv = -np.matmul(C_vi, r_vi)
+        T_vi = to_T(C_vi, r_iv)
+    else:
+        T_vi = np.linalg.inv(T_iv)
+        C_vi = T_vi[0:3,0:3]
 
     # Transformation matrix from Odom to Velodyne
     T_vo = np.matmul(T_vi, T_io)
@@ -48,28 +53,35 @@ def get_transformation_matrix(raw_heading, r_io):
 
     return T_vo, C_vo_yaw
 
-def get_camera_timestamp(raw_data):
+def get_camera_timestamp(raw_data, offset=0):
     """
     Get GPS timestamp from recorded json data file
     :param raw_data: data from point cloud json file
     """
     lidar_time_stamp = raw_data['timestamp']
-    # print(lidar_time_stamp)
-    # camera_timestamp = int(-1.634e-07 * lidar_time_stamp + 2.675e+11 + lidar_time_stamp) + 18e9
-    camera_timestamp = lidar_time_stamp + 6.3e9
+    camera_timestamp = lidar_time_stamp + offset
     return lidar_time_stamp, camera_timestamp
+
+def get_dataset_offset_camera_ts(dataset):
+    if dataset == "scale":
+        return 6.3e9
+    elif dataset == "boreas":
+        return 0
+    else:
+        raise Exception('Unknown dataset!')
 
 def get_offset_camera_ts(timestamp):
     return int(-1.634e-07 * timestamp + 2.675e+11 + timestamp)
 
-def get_device_pose(raw_data):
+def get_device_pose(raw_data, T_iv=None):
     """
     Get pose of IMU from recorded json data file
     :param raw_data: data from point cloud json file
+    :param T_iv: transformation between IMU and Lidar
     """
     raw_heading = np.array(list(raw_data['device_heading'].values()))
     r_io = np.array([list(raw_data['device_position'].values())]).T
-    return get_transformation_matrix(raw_heading, r_io)
+    return get_transformation_matrix(raw_heading, r_io, T_iv)
 
 def transform_points(T, raw_pcd, keep_prob=1.0):
     """
@@ -110,18 +122,19 @@ def transform_bounding_boxes(T, C_yaw, raw_labels):
         boxes.append(box)
     return boxes
 
-def transform_data_to_sensor_frame(raw_data, raw_labels, pcd_down_sample_prob=1.0):
+def transform_data_to_sensor_frame(raw_data, raw_labels, pcd_down_sample_prob=1.0, T_iv=None):
     """
     Transforms point cloud and label data from GPS (odom) frame
     to sensor (Velodyne) frame
     :param raw_data: data from point cloud json file
     :param raw_labels: data from label csv file
+    :param T_iv: transformation between IMU and Lidar
     :return: point cloud numpy array and bounding boxes tuple in sensor frame
     """
     raw_pcd = raw_data['points']
     
     # Get transformation matrices
-    T_vo, C_vo_yaw = get_device_pose(raw_data)
+    T_vo, C_vo_yaw = get_device_pose(raw_data, T_iv)
 
     # Transform Points
     points = transform_points(T_vo, raw_pcd, pcd_down_sample_prob)
@@ -166,7 +179,7 @@ def rot_to_yaw_pitch_roll(C, eps=1e-15):
     return yaw, pitch, roll
 
 
-def get_sensor_calibration(P_cam_file, T_iv_file, T_cv_file, T_rv_file, verbose=True):
+def get_sensor_calibration(P_cam_file, T_iv_file, T_cv_file, T_rv_file, verbose=False):
     """
     Extract sensor calibration data (camera, lidar and radar)
      :param P_cam_file: file containing camera intrinsics file
@@ -220,3 +233,23 @@ def get_sensor_calibration(P_cam_file, T_iv_file, T_cv_file, T_rv_file, verbose=
         print(vec_ci)
         print('-------------------')
     return P_cam, T_iv, T_cv
+
+def get_sensor_calibration_alt(dataset, verbose=False):
+    """
+    Extract sensor calibration data (camera, lidar and radar)
+     :param dataset: name of dataset
+     :return P_cam: camera intrinsics matrix
+            T_vi: imu to velodyne extrinsics matrix
+            T_vc: camera to velodyne extrinsics matrix
+            T_vr: radar to velodyne extrinsics matrix
+    """
+    print("Loading Sensor Calibration...")
+
+    # Get paths
+    calib_folder = "./calib_" + dataset + "/"
+    P_cam_file = calib_folder + "P_camera.txt"
+    T_iv_file = calib_folder + "T_applanix_lidar.txt"
+    T_cv_file = calib_folder + "T_camera_lidar.txt"
+    T_rv_file = calib_folder + "T_radar_lidar.txt"
+
+    return get_sensor_calibration(P_cam_file, T_iv_file, T_cv_file, T_rv_file, verbose)
