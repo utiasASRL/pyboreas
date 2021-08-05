@@ -19,7 +19,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.widgets import Button
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import tkinter as tk
 import numpy as np
 from scipy.spatial.transform import Rotation as R
@@ -69,6 +69,8 @@ class BoreasVisualizer:
             raise ValueError("Error: lidar dir missing from dataroot")
         if not path.exists(path.join(dataroot, "applanix")):
             raise ValueError("Error: applnix dir missing from dataroot")
+        if not path.exists(path.join(dataroot, "calib")):
+            raise ValueError("Error: calib dir missing from dataroot")
         # if not path.exists(path.join(dataroot, "labels.json")):
         #     raise ValueError("Error: labels.json missing from dataroot")
 
@@ -87,10 +89,10 @@ class BoreasVisualizer:
         self.track_length = len(self.pcd_paths)     # Length of current track
 
         # Load transforms
-        self.P_cam, self.T_iv, self.T_cv = vis_utils.get_sensor_calibration("./calib/P_camera.txt",
-                                                                            "./calib/T_applanix_lidar.txt",
-                                                                            "./calib/T_camera_lidar.txt",
-                                                                            "./calib/T_radar_lidar.txt",
+        self.P_cam, self.T_iv, self.T_cv = vis_utils.get_sensor_calibration(path.join(dataroot, "calib", "P_camera.txt"),
+                                                                            path.join(dataroot, "calib", "T_applanix_lidar.txt"),
+                                                                            path.join(dataroot, "calib", "T_camera_lidar.txt"),
+                                                                            path.join(dataroot, "calib", "T_radar_lidar.txt"),
                                                                             verbose=False)
         self.C_enu_ned = np.array([
             [0, 1, 0],
@@ -166,7 +168,25 @@ class BoreasVisualizer:
         vis.visualize(pc_data)
         vis.show_geometries_under("task", True)
 
-    def visualize_track_topdown_mpl(self, frame_idx, predictions=None):
+    def export_video_topdown(self):
+        imgs = []
+        # Render the matplotlib figs to images
+        print("Exporting Topdown View to Video")
+        for i in tqdm(range(len(self.timestamps)), file=sys.stdout):
+            self.visualize_track_topdown_mpl(frame_idx=i, show=False)
+            canvas = FigureCanvas(self.fig)
+            canvas.draw()
+            graph_image = np.array(self.fig.canvas.get_renderer()._renderer)
+            graph_image = cv2.cvtColor(graph_image, cv2.COLOR_RGB2BGR)
+            imgs.append(graph_image)
+
+        # Write the images to video
+        out = cv2.VideoWriter('testing.avi', cv2.VideoWriter_fourcc(*'DIVX'), 15, (700, 700))
+        for i in range(len(imgs)):
+            out.write(imgs[i])
+        out.release()
+
+    def visualize_track_topdown_mpl(self, frame_idx, predictions=None, show=True):
         self.curr_ts_idx = frame_idx
         curr_ts = self.timestamps[frame_idx]
         curr_lidar_data = self.lidar_data[frame_idx][:]
@@ -185,8 +205,11 @@ class BoreasVisualizer:
 
         self.update_plot_topdown(self.ax, curr_lidar_data, curr_lidar_pose)
 
-        plt.show()
-        plt.draw()
+        if show:
+            plt.show()
+            plt.draw()
+        else:
+            plt.close(self.fig)
 
     def on_click_fwd(self, event):
         if not self.plot_update_mutex.acquire(timeout=0.5): return
@@ -254,7 +277,7 @@ class BoreasVisualizer:
         self.ax.set_xlim(-75, 75)
         self.ax.set_ylim(-75, 75)
 
-        plt.draw()
+        # plt.draw()
 
     def get_cam2vel_transform(self, pcd):
         pcd = np.matmul(vis_utils.to_T(vis_utils.rot_z(-np.pi / 2), np.zeros((3, 1))), np.matmul(np.linalg.inv(self.T_cv), pcd))
@@ -335,7 +358,8 @@ class BoreasVisualizer:
 
 
 if __name__ == '__main__':
-    dataset = BoreasVisualizer("./sample_boreas", ts_to_load=5)
+    dataset = BoreasVisualizer("./sample_boreas", ts_to_load=50)
     # dataset.visualize_track_topdown()
-    dataset.visualize_track_topdown_mpl(0)
+    # dataset.visualize_track_topdown_mpl(0)
     # dataset.visualize_frame_persp(1)
+    dataset.export_video_topdown()
