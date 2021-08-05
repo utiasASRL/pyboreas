@@ -20,7 +20,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.widgets import Button
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import tkinter as tk
 import numpy as np
 from scipy.spatial.transform import Rotation as R
@@ -70,6 +70,8 @@ class BoreasVisualizer:
             raise ValueError("Error: lidar dir missing from dataroot")
         if not path.exists(path.join(dataroot, "applanix")):
             raise ValueError("Error: applnix dir missing from dataroot")
+        if not path.exists(path.join(dataroot, "calib")):
+            raise ValueError("Error: calib dir missing from dataroot")
         # if not path.exists(path.join(dataroot, "labels.json")):
         #     raise ValueError("Error: labels.json missing from dataroot")
 
@@ -164,7 +166,25 @@ class BoreasVisualizer:
         vis.visualize(pc_data)
         vis.show_geometries_under("task", True)
 
-    def visualize_track_topdown_mpl(self, frame_idx, predictions=None):
+    def export_video_topdown(self):
+        imgs = []
+        # Render the matplotlib figs to images
+        print("Exporting Topdown View to Video")
+        for i in tqdm(range(len(self.timestamps)), file=sys.stdout):
+            self.visualize_track_topdown_mpl(frame_idx=i, show=False)
+            canvas = FigureCanvas(self.fig)
+            canvas.draw()
+            graph_image = np.array(self.fig.canvas.get_renderer()._renderer)
+            graph_image = cv2.cvtColor(graph_image, cv2.COLOR_RGB2BGR)
+            imgs.append(graph_image)
+
+        # Write the images to video
+        out = cv2.VideoWriter('testing.avi', cv2.VideoWriter_fourcc(*'DIVX'), 15, (700, 700))
+        for i in range(len(imgs)):
+            out.write(imgs[i])
+        out.release()
+
+    def visualize_track_topdown_mpl(self, frame_idx, predictions=None, show=True):
         self.curr_ts_idx = frame_idx
         curr_ts = self.timestamps[frame_idx]
         curr_lidar_data = self.lidar_data[frame_idx][:]
@@ -183,8 +203,11 @@ class BoreasVisualizer:
 
         self.update_plot_topdown(self.ax, curr_lidar_data, curr_lidar_pose)
 
-        plt.show()
-        plt.draw()
+        if show:
+            plt.show()
+            plt.draw()
+        else:
+            plt.close(self.fig)
 
     def on_click_fwd(self, event):
         if not self.plot_update_mutex.acquire(timeout=0.5): return
