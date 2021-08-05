@@ -122,7 +122,7 @@ def transform_bounding_boxes(T, C_yaw, raw_labels):
         boxes.append(box)
     return boxes
 
-def transform_data_to_sensor_frame(raw_data, raw_labels, pcd_down_sample_prob=1.0, T_iv=None):
+def transform_data_to_sensor_frame(raw_data, raw_labels=None, pcd_down_sample_prob=1.0, T_iv=None):
     """
     Transforms point cloud and label data from GPS (odom) frame
     to sensor (Velodyne) frame
@@ -140,7 +140,10 @@ def transform_data_to_sensor_frame(raw_data, raw_labels, pcd_down_sample_prob=1.
     points = transform_points(T_vo, raw_pcd, pcd_down_sample_prob)
 
     # Transform Labels into Bounding Boxes
-    boxes = transform_bounding_boxes(T_vo, C_vo_yaw, raw_labels)
+    if raw_labels != None:
+        boxes = transform_bounding_boxes(T_vo, C_vo_yaw, raw_labels)
+    else:
+        boxes = []
 
     return points, boxes
 

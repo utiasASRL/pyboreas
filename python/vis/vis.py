@@ -9,6 +9,7 @@ import glob
 from collections import OrderedDict
 from os import path
 import csv
+import copy
 from math import sin, cos, pi
 from threading import Lock
 
@@ -254,60 +255,36 @@ class BoreasVisualizer:
         plt.draw()
 
     def get_cam2vel_transform(self, pcd):
-        pcd = np.matmul(vis_utils.to_T(vis_utils.rot_z(-np.pi / 2), np.zeros((3, 1))), np.matmul(np.linalg.inv(self.T_cv), pcd))
-        pcd = np.matmul(vis_utils.to_T(vis_utils.rot_y(np.pi), np.zeros((3, 1))), pcd)
+        pcd = np.matmul(self.T_cv, pcd)
         return pcd
 
     def visualize_frame_persp(self, frame_idx):
-        raw_labels = self.labels[frame_idx]
-        raw_pcd = self.lidar_data[frame_idx]
-
-        # T, C = vis_utils.get_device_pose(raw_pcd)
-
-        points, boxes = vis_utils.transform_data_to_sensor_frame(raw_pcd, raw_labels)
-        image = self.images_synced[frame_idx]
-
+        points = self.lidar_data[frame_idx][:, 0:3]
+        points = points[np.random.choice(len(points), int(0.5*len(points)), replace=False)]
         points = points.T
+        points = np.vstack((points, np.ones(points.shape[1])))
+        image = copy.deepcopy(self.images_synced[frame_idx])
 
-        # points_camera_all = np.matmul(T_cv, np.matmul(np.linalg.inv(T_iv), points))
         points_camera_all = self.get_cam2vel_transform(points)
         points_camera = np.array([])
         for i in range(points_camera_all.shape[1]):
-            if points_camera_all[2, i] > 0:
-                points_camera = np.concatenate((points_camera, points_camera_all[:, i]))
-        points_camera = np.reshape(points_camera, (-1, 4)).T
-
+            if points_camera_all[2,i] > 0:
+                points_camera = np.concatenate((points_camera, points_camera_all[:,i]))
+        points_camera = np.reshape(points_camera, (-1,4)).T
         pixel_camera = np.matmul(self.P_cam, points_camera)
-        max_z = int(max(pixel_camera[2, :]) / 3)
-        for i in range(pixel_camera.shape[1]):
-            z = pixel_camera[2, i]
-            x = int(pixel_camera[0, i] / z)
-            y = int(pixel_camera[1, i] / z)
-            if x > 0 and x < image.shape[1] and y > 0 and y < image.shape[0]:
-                c = cv2.applyColorMap(np.array([int(pixel_camera[2, i] / max_z * 255)], dtype=np.uint8), cv2.COLORMAP_RAINBOW).squeeze().tolist()
-                cv2.circle(image, (x, y), 1, c, 1)
 
-        centroids_odom = np.array([]).reshape(3, 0)
-        for bb in boxes:
-            centroids_odom = np.hstack((centroids_odom, bb.pos))
-        centroids_odom = np.vstack((centroids_odom, np.ones((1, len(boxes)))))
-        centroids_camera_all = self.get_cam2vel_transform(centroids_odom)
-        centroids_camera = np.array([])
-        for i in range(centroids_camera_all.shape[1]):
-            if centroids_camera_all[2, i] > 0:
-                centroids_camera = np.concatenate((centroids_camera, centroids_camera_all[:, i]))
-        centroids_camera = np.reshape(centroids_camera, (-1, 4)).T
-        pixel_centroid_camera = np.matmul(self.P_cam, centroids_camera)
-        for i in range(pixel_centroid_camera.shape[1]):
-            z = pixel_centroid_camera[2, i]
-            x = int(pixel_centroid_camera[0, i] / z)
-            y = int(pixel_centroid_camera[1, i] / z)
+        max_z = int(max(pixel_camera[2,:])/3)
+        for i in range(pixel_camera.shape[1]):
+            z = pixel_camera[2,i]
+            x = int(pixel_camera[0,i] / z)
+            y = int(pixel_camera[1,i] / z)
             if x > 0 and x < image.shape[1] and y > 0 and y < image.shape[0]:
-                cv2.circle(image, (x, y), 5, [255, 255, 255], 10)
+                c = cv2.applyColorMap(np.array([int(pixel_camera[2,i] / max_z*255)], dtype=np.uint8), cv2.COLORMAP_RAINBOW).squeeze().tolist()
+                cv2.circle(image,(x,y), 1, c, 1)
 
         cv2.destroyAllWindows()
-        cv2.imshow("persp_img", image)
-        cv2.waitKey(0)
+        cv2.imshow("Image " + str(frame_idx), image)
+        cv2.waitKey(200)
 
     def _sync_camera_frames(self):
         # Helper function for finding closest timestamp
@@ -326,13 +303,16 @@ class BoreasVisualizer:
         camera_timestamps = [int(f.replace('/', '.').split('.')[-2]) for f in self.img_paths]
         for i in range(self.track_length):
             timestamp = self.timestamps[i]
-            corrected_timestamp = vis_utils.get_offset_camera_ts(timestamp)
+            corrected_timestamp = timestamp + vis_utils.get_dataset_offset_camera_ts("boreas")
             closet_idx, cloest_val = get_closest_ts(corrected_timestamp, camera_timestamps)
             self.images_synced.append(self.images_raw[closet_idx])
 
 
 if __name__ == '__main__':
-    dataset = BoreasVisualizer("./sample_boreas", ts_to_load=5)
+    ts_to_load=100
+    dataset = BoreasVisualizer("./sample_boreas", ts_to_load)
     # dataset.visualize_track_topdown()
-    dataset.visualize_track_topdown_mpl(0)
-    # dataset.visualize_frame_persp(1)
+    # dataset.visualize_track_topdown_mpl(0)
+
+    for i in tqdm(range(ts_to_load)):
+        dataset.visualize_frame_persp(i)
