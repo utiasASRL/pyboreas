@@ -89,10 +89,7 @@ class BoreasVisualizer:
         self.track_length = len(self.pcd_paths)     # Length of current track
 
         # Load transforms
-        self.P_cam, self.T_iv, self.T_cv = vis_utils.get_sensor_calibration(path.join(dataroot, "calib", "P_camera.txt"),
-                                                                            path.join(dataroot, "calib", "T_applanix_lidar.txt"),
-                                                                            path.join(dataroot, "calib", "T_camera_lidar.txt"),
-                                                                            path.join(dataroot, "calib", "T_radar_lidar.txt"),
+        self.P_cam, self.T_iv, self.T_cv = vis_utils.get_sensor_calibration_alt("boreas",
                                                                             verbose=False)
         self.C_enu_ned = np.array([
             [0, 1, 0],
@@ -277,7 +274,7 @@ class BoreasVisualizer:
         self.ax.set_xlim(-75, 75)
         self.ax.set_ylim(-75, 75)
 
-        # plt.draw()
+        plt.draw()
 
     def get_cam2vel_transform(self, pcd):
         pcd = np.matmul(vis_utils.to_T(vis_utils.rot_z(-np.pi / 2), np.zeros((3, 1))), np.matmul(np.linalg.inv(self.T_cv), pcd))

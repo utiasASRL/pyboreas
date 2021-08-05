@@ -201,13 +201,13 @@ def render_image(label_json, data_file_paths, synced_cameras, start_idx, idx, P_
 if __name__ == '__main__':
 
     dataset = "scale"
+    dataset_folder = "./sample_" + dataset + "/"
 
     P_cam, T_iv, T_cv = vis_utils.get_sensor_calibration_alt(dataset)
 
     start_idx = 10
     end_idx = 20
     
-    dataset_folder = "./sample_" + dataset + "/"
     label_file_path = dataset_folder + "labels.json"
     data_file_paths = sorted(glob.glob(dataset_folder+'lidar_data/task_point_cloud*.json'), key=lambda x : int(''.join(filter(str.isdigit, x))))
     camera_file_paths = sorted(glob.glob(dataset_folder+'camera/*.png'), key=lambda x : int(''.join(filter(str.isdigit, x))))
