@@ -87,10 +87,7 @@ class BoreasVisualizer:
         self.track_length = len(self.pcd_paths)     # Length of current track
 
         # Load transforms
-        self.P_cam, self.T_iv, self.T_cv = vis_utils.get_sensor_calibration("./calib/P_camera.txt",
-                                                                            "./calib/T_applanix_lidar.txt",
-                                                                            "./calib/T_camera_lidar.txt",
-                                                                            "./calib/T_radar_lidar.txt",
+        self.P_cam, self.T_iv, self.T_cv = vis_utils.get_sensor_calibration_alt("boreas",
                                                                             verbose=False)
         self.C_enu_ned = np.array([
             [0, 1, 0],
