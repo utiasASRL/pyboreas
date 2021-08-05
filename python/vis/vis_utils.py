@@ -246,7 +246,7 @@ def get_sensor_calibration_alt(dataset, verbose=False):
     print("Loading Sensor Calibration...")
 
     # Get paths
-    calib_folder = "./calib_" + dataset + "/"
+    calib_folder = "./sample_" + dataset + "/calib/"
     P_cam_file = calib_folder + "P_camera.txt"
     T_iv_file = calib_folder + "T_applanix_lidar.txt"
     T_cv_file = calib_folder + "T_camera_lidar.txt"
