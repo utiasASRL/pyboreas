@@ -3,6 +3,8 @@
 # TODO: render visualization as an image, (display it), (save it)
 # TODO: plot odometry results vs. ground truth
 
+# TODO: separate functions for plot one and plot interactive. add persp and BEV plot/video export. fix video export. make boreastransforms class
+
 import sys
 import json
 import glob
@@ -11,44 +13,25 @@ from os import path
 import csv
 import copy
 from math import sin, cos, pi
-from threading import Lock
+from pathlib import Path
 
 import cv2
 import open3d as o3d
 import open3d.ml.torch as ml3d
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib import cm
-from matplotlib.widgets import Button
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-import tkinter as tk
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
 
 import vis_utils
-import map_utils
+import plot_utils
+from lidar_scan import LidarScan
+from gps_pose import GPSPose
 
 matplotlib.use("tkagg")  # slu: for testing with ide
 
-class LidarPose:
-    def __init__(self, ros_ts, gps_ts, position, heading):
-        self.ros_ts = ros_ts
-        self.gps_ts = gps_ts
-        self.position = position
-        self.heading = heading  # roll, pitch, heading(yaw)
-
-    def get_C_v_enu(self):
-        return R.from_euler('xyz', self.heading)
-
-class GPSPose:
-    def __init__(self, gps_ts, position, heading):
-        self.gps_ts = gps_ts
-        self.position = position
-        self.heading = heading  # roll, pitch, heading(yaw)
-
-    def get_C_vo(self):
-        return R.from_euler('xyz', self.heading)
 
 class BoreasVisualizer:
     """Main class for loading the Boreas dataset for visualization.
@@ -81,8 +64,7 @@ class BoreasVisualizer:
         self.img_paths = sorted(glob.glob(path.join(dataroot, "camera", "*.png")))[0:ts_to_load]  # Paths to the camera images
         self.label_file = path.join(dataroot, "labels.json")  # Path to the label json
         self.timestamps = []                        # List of all timestamps (in order)
-        self.lidar_data = []                        # List of all loaded lidar jsons (in order)
-        self.lidar_poses = {}                       # Dict of all the lidar poses (by ros timestamp)
+        self.lidar_scans = {}                       # Dict of all the lidar poses (by ros timestamp)
         self.gps_poses = {}                         # Dict of all the gps poses (by GPS time)
         self.images_raw = []                        # List of all loaded cv2 images (in order, not 1-1 with timestamps)
         self.images_synced = []                     # List of all synced images (in order)
@@ -98,21 +80,24 @@ class BoreasVisualizer:
             [0, 0, -1]
         ])
 
-        # Load pointcloud data & timestamps
-        print("Loading Lidar Pointclouds...")
-        for pcd_path in tqdm(self.pcd_paths, file=sys.stdout):
-            self.timestamps.append(int(pcd_path.split("/")[-1][:-4]))
-            scan = np.fromfile(pcd_path, dtype=np.float32)
-            points = scan.reshape((-1, 6))[:, :6]
-            self.lidar_data.append(points)  # x, y, z, i, laser #, gps timestamp
-        # Load lidar poses
-        print("Loading Lidar Poses...")
+        # Load lidar scans and timestamps (currently we use lidar timestamps as the reference)
+        print("Loading Lidar Poses...")  # If dataset is complete, each entry in lidar pose should have its corresponding pointcloud file in ./lidar
         with open(path.join(self.dataroot, "applanix", "lidar_poses.csv")) as file:
             reader = csv.reader(file)
-            headers = next(reader)  # Extract headers
+            next(reader)  # Extract headers
+            missing_pcds = 0
             for row in tqdm(reader, file=sys.stdout):
-                lidar_pose = LidarPose(int(row[0]), float(row[1]), np.asarray(row[2:5], dtype=np.float32), np.asarray(row[8:11], dtype=np.float32))
-                self.lidar_poses[int(row[0])] = lidar_pose
+                timestamp = int(row[0])
+                pcd_path = path.join(self.dataroot, "lidar", str(timestamp) + ".bin")
+                if not path.exists(pcd_path):  # Only process pointclouds we have data for
+                    missing_pcds += 1
+                    continue
+                self.timestamps.append(timestamp)
+                scan = np.fromfile(pcd_path, dtype=np.float32)
+                points = scan.reshape((-1, 6))[:, :6]  # x, y, z, i, laser #, gps timestamp
+                lidar_scan = LidarScan(timestamp, float(row[1]), np.asarray(row[2:5], dtype=np.float32), np.asarray(row[8:11], dtype=np.float32), points)
+                self.lidar_scans[timestamp] = lidar_scan
+            print("Failed to get point cloud data for {} scans".format(missing_pcds))
         # Load gps poses
         print("Loading GPS Poses...")
         with open(path.join(self.dataroot, "applanix", "gps_post_process.csv")) as file:
@@ -126,7 +111,6 @@ class BoreasVisualizer:
         for img_path in tqdm(self.img_paths, file=sys.stdout):
             self.images_raw.append(cv2.imread(img_path, cv2.IMREAD_COLOR))
         self._sync_camera_frames()  # Sync each lidar frame to a corresponding camera frame
-
         # # Load label data
         # print("Loading Labels...", flush=True)
         # with open(self.label_file, 'r') as file:
@@ -134,19 +118,12 @@ class BoreasVisualizer:
         #     for label in tqdm(raw_labels):
         #         self.labels.append(label['cuboids'])
 
-        # For plot stuff
-        self.curr_ts_idx = 0
-        self.fig = None
-        self.ax = None
-        self.plot_update_mutex = Lock()
-
-
-    def visualize_track_topdown_o3d(self):
+    def visualize_thirdperson(self):
         pc_data = []
         # bb_data = []
 
         for i in range(self.track_length):
-            curr_lidar_data = self.lidar_data[i]
+            curr_lidar_data = self.lidar_scans[i].points
             curr_lables = self.labels[i]
 
             points, boxes = vis_utils.transform_data_to_sensor_frame(curr_lidar_data, curr_lables)
@@ -171,10 +148,10 @@ class BoreasVisualizer:
         # Render the matplotlib figs to images
         print("Exporting Topdown View to Video")
         for i in tqdm(range(len(self.timestamps)), file=sys.stdout):
-            self.visualize_track_topdown_mpl(frame_idx=i, show=False)
-            canvas = FigureCanvas(self.fig)
+            bplot = self.visualize_bev(frame_idx=i, show=False)
+            canvas = FigureCanvas(bplot.fig)
             canvas.draw()
-            graph_image = np.array(self.fig.canvas.get_renderer()._renderer)
+            graph_image = np.array(bplot.fig.canvas.get_renderer()._renderer)
             graph_image = cv2.cvtColor(graph_image, cv2.COLOR_RGB2BGR)
             imgs.append(graph_image)
 
@@ -184,98 +161,21 @@ class BoreasVisualizer:
             out.write(imgs[i])
         out.release()
 
-    def visualize_track_topdown_mpl(self, frame_idx, predictions=None, show=True):
+    def visualize_bev(self, frame_idx, predictions=None, show=True):
         self.curr_ts_idx = frame_idx
-        curr_ts = self.timestamps[frame_idx]
-        curr_lidar_data = self.lidar_data[frame_idx][:]
-        curr_lidar_pose = self.lidar_poses[curr_ts]
-        # curr_lables = self.labels[frame_idx]
+        curr_ts = self.timestamps[self.curr_ts_idx]
+        curr_lidar_scan = self.lidar_scans[curr_ts]
 
-        self.fig, self.ax = plt.subplots(figsize=(7,7))
-
-        button_ax = plt.axes([0.05, 0.05, 0.05, 0.05])
-        button_f = Button(button_ax, "<")
-        button_f.on_clicked(self.on_click_bkwd)
-
-        button_ax2 = plt.axes([0.90, 0.05, 0.05, 0.05])
-        button_f2 = Button(button_ax2, ">")
-        button_f2.on_clicked(self.on_click_fwd)
-
-        self.update_plot_topdown(self.ax, curr_lidar_data, curr_lidar_pose)
+        boreas_plot = plot_utils.BoreasPlotter(self.timestamps, self.T_iv, self.lidar_scans)
+        boreas_plot.update_plot_topdown(curr_lidar_scan)
 
         if show:
             plt.show()
             plt.draw()
         else:
-            plt.close(self.fig)
+            plt.close(boreas_plot.fig)
 
-    def on_click_fwd(self, event):
-        if not self.plot_update_mutex.acquire(timeout=0.5): return
-
-        try:
-            self.curr_ts_idx = min(self.curr_ts_idx + 1, len(self.timestamps) - 1)
-            print("Visualizing Timestep Index: {}/{}".format(self.curr_ts_idx, len(self.timestamps)))
-
-            self.ax.clear()
-            curr_ts = self.timestamps[self.curr_ts_idx]
-            curr_lidar_data = self.lidar_data[self.curr_ts_idx][:, :]
-            curr_lidar_pose = self.lidar_poses[curr_ts]
-
-            self.update_plot_topdown(self.ax, curr_lidar_data, curr_lidar_pose)
-
-            print("Done")
-        finally:
-            self.plot_update_mutex.release()
-
-    def on_click_bkwd(self, event):
-        if not self.plot_update_mutex.acquire(timeout=0.5): return
-
-        try:
-            self.curr_ts_idx = max(self.curr_ts_idx - 1, 0)
-            print("Visualizing Timestep Index: {}/{}".format(self.curr_ts_idx, len(self.timestamps)))
-
-            self.ax.clear()
-            curr_ts = self.timestamps[self.curr_ts_idx]
-            curr_lidar_data = self.lidar_data[self.curr_ts_idx][:, :]
-            curr_lidar_pose = self.lidar_poses[curr_ts]
-
-            self.update_plot_topdown(self.ax, curr_lidar_data, curr_lidar_pose)
-
-            print("Done")
-        finally:
-            self.plot_update_mutex.release()
-
-    def update_plot_topdown(self, ax, lidar_data, lidar_pose):
-        # Calculate transformations for current data
-        C_v_enu = lidar_pose.get_C_v_enu().as_matrix()
-        C_i_enu = self.T_iv[0:3, 0:3] @ C_v_enu
-        C_iv = self.T_iv[0:3, 0:3]
-
-        # Draw map
-        map_utils.draw_map_without_lanelet("./sample_boreas/boreas_lane.osm", ax, lidar_pose.position[0], lidar_pose.position[1], C_i_enu, utm=True)
-
-        # Calculate point colors
-        z_min = -3
-        z_max = 5
-        colors = cm.jet(((lidar_data[:, 2] - z_min) / (z_max - z_min)) + 0.2, 1)[:, 0:3]
-
-        # Draw lidar points
-        pcd_i = np.matmul(C_iv[0:2, 0:2].reshape(1, 2, 2), lidar_data[:, 0:2].reshape(lidar_data.shape[0], 2, 1)).squeeze(-1)
-        self.scatter = ax.scatter(pcd_i[:, 0], pcd_i[:, 1], color=colors, s=0.05)
-
-        # Draw predictions (TODO)
-        # for box in boxes:
-        #     box.render_bbox_2d(ax)
-        #
-        # if predictions is not None:
-        #     for box in predictions:
-        #         box.render_bbox_2d(ax, color="k")
-
-        # Set to scale labeling bounds
-        self.ax.set_xlim(-75, 75)
-        self.ax.set_ylim(-75, 75)
-
-        plt.draw()
+        return boreas_plot
 
     def get_cam2vel_transform(self, pcd):
         pcd = np.matmul(self.T_cv, pcd)
@@ -283,7 +183,7 @@ class BoreasVisualizer:
 
     def visualize_frame_persp(self, frame_idx):
         for i in tqdm(range(frame_idx, len(self.timestamps))):
-            points = self.lidar_data[i][:, 0:3]
+            points = self.lidar_scans[i].points[:, 0:3]
             points = points[np.random.choice(len(points), int(0.5*len(points)), replace=False)]
             points = points.T
             points = np.vstack((points, np.ones(points.shape[1])))
@@ -308,7 +208,7 @@ class BoreasVisualizer:
 
             cv2.destroyAllWindows()
             cv2.imshow("Image " + str(i), image)
-            cv2.waitKey(100)
+            cv2.waitKey(0)
 
     def _sync_camera_frames(self):
         # Helper function for finding closest timestamp
@@ -336,6 +236,6 @@ if __name__ == '__main__':
     ts_to_load=100
     dataset = BoreasVisualizer("./sample_boreas", ts_to_load)
     # dataset.visualize_track_topdown()
-    # dataset.visualize_track_topdown_mpl(0)
-
-    dataset.visualize_frame_persp(0)
+    # dataset.visualize_bev(0)
+    # dataset.visualize_frame_persp(0)
+    dataset.export_video_topdown()
