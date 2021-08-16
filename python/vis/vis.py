@@ -26,7 +26,8 @@ from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
 
 import vis_utils
-import plot_utils
+import boreas_plotter
+import boreas_transforms
 from lidar_scan import LidarScan
 from gps_pose import GPSPose
 
@@ -72,13 +73,7 @@ class BoreasVisualizer:
         self.track_length = len(self.pcd_paths)     # Length of current track
 
         # Load transforms
-        self.P_cam, self.T_iv, self.T_cv = vis_utils.get_sensor_calibration_alt("boreas",
-                                                                            verbose=False)
-        self.C_enu_ned = np.array([
-            [0, 1, 0],
-            [1, 0, 0],
-            [0, 0, -1]
-        ])
+        self.transforms = boreas_transforms.BoreasTransforms(path.join(dataroot, "calib"))
 
         # Load lidar scans and timestamps (currently we use lidar timestamps as the reference)
         print("Loading Lidar Poses...")  # If dataset is complete, each entry in lidar pose should have its corresponding pointcloud file in ./lidar
@@ -147,7 +142,7 @@ class BoreasVisualizer:
         curr_ts = self.timestamps[frame_idx]
         curr_lidar_scan = self.lidar_scans[curr_ts]
 
-        boreas_plot = plot_utils.BoreasPlotter(self.timestamps, frame_idx, self.T_iv, self.lidar_scans)
+        boreas_plot = boreas_plotter.BoreasPlotter(self.timestamps, frame_idx, self.transforms, self.lidar_scans)
         boreas_plot.update_plot_topdown(curr_lidar_scan)
 
         if show:
@@ -191,37 +186,35 @@ class BoreasVisualizer:
         return boreas_plot
 
     def get_cam2vel_transform(self, pcd):
-        pcd = np.matmul(self.T_cv, pcd)
+        pcd = np.matmul(self.transforms.T_cv, pcd)
         return pcd
 
     def visualize_frame_persp(self, frame_idx):
-        for i in tqdm(range(frame_idx, len(self.timestamps))):
-            points = self.lidar_scans[i].points[:, 0:3]
-            points = points[np.random.choice(len(points), int(0.5*len(points)), replace=False)]
-            points = points.T
-            points = np.vstack((points, np.ones(points.shape[1])))
-            image = copy.deepcopy(self.images_synced[i])
+        curr_ts = self.timestamps[frame_idx]
+        points = self.lidar_scans[curr_ts].points[:, 0:3]
+        points = points[np.random.choice(len(points), int(0.5*len(points)), replace=False)]
+        points = points.T
+        points = np.vstack((points, np.ones(points.shape[1])))
+        image = copy.deepcopy(self.images_synced[frame_idx])
 
-            points_camera_all = self.get_cam2vel_transform(points)
-            points_camera = np.array([])
-            for i in range(points_camera_all.shape[1]):
-                if points_camera_all[2,i] > 0:
-                    points_camera = np.concatenate((points_camera, points_camera_all[:,i]))
-            points_camera = np.reshape(points_camera, (-1,4)).T
-            pixel_camera = np.matmul(self.P_cam, points_camera)
+        points_camera_all = self.get_cam2vel_transform(points)
+        points_camera = np.array([])
+        for i in range(points_camera_all.shape[1]):
+            if points_camera_all[2,i] > 0:
+                points_camera = np.concatenate((points_camera, points_camera_all[:,i]))
+        points_camera = np.reshape(points_camera, (-1,4)).T
+        pixel_camera = np.matmul(self.transforms.P_cam, points_camera)
 
-            max_z = int(max(pixel_camera[2,:])/3)
-            for i in range(pixel_camera.shape[1]):
-                z = pixel_camera[2,i]
-                x = int(pixel_camera[0,i] / z)
-                y = int(pixel_camera[1,i] / z)
-                if x > 0 and x < image.shape[1] and y > 0 and y < image.shape[0]:
-                    c = cv2.applyColorMap(np.array([int(pixel_camera[2,i] / max_z*255)], dtype=np.uint8), cv2.COLORMAP_RAINBOW).squeeze().tolist()
-                    cv2.circle(image,(x,y), 1, c, 1)
+        max_z = int(max(pixel_camera[2,:])/3)
+        for i in range(pixel_camera.shape[1]):
+            z = pixel_camera[2,i]
+            x = int(pixel_camera[0,i] / z)
+            y = int(pixel_camera[1,i] / z)
+            if x > 0 and x < image.shape[1] and y > 0 and y < image.shape[0]:
+                c = cv2.applyColorMap(np.array([int(pixel_camera[2,i] / max_z*255)], dtype=np.uint8), cv2.COLORMAP_RAINBOW).squeeze().tolist()
+                cv2.circle(image,(x,y), 1, c, 1)
 
-            cv2.destroyAllWindows()
-            cv2.imshow("Image " + str(i), image)
-            cv2.waitKey(0)
+        return image
 
     def _sync_camera_frames(self):
         # Helper function for finding closest timestamp

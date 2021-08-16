@@ -12,9 +12,9 @@ class BoreasPlotter:
     """
     Class for plotting persp and BEV for boreas stuff
     """
-    def __init__(self, timestamps, curr_ts_idx, T_iv, lidar_scans=None, camera_data=None, camera_poses=None, labels=None):
+    def __init__(self, timestamps, curr_ts_idx, transforms, lidar_scans=None, camera_data=None, camera_poses=None, labels=None):
         # Transform
-        self.T_iv = T_iv
+        self.T = transforms
         # Data
         self.timestamps = timestamps
         self.lidar_scans = lidar_scans
@@ -70,8 +70,8 @@ class BoreasPlotter:
     def update_plot_topdown(self, lidar_scan, downsample_factor=0.3):
         # Calculate transformations for current data
         C_v_enu = lidar_scan.get_C_v_enu().as_matrix()
-        C_i_enu = self.T_iv[0:3, 0:3] @ C_v_enu
-        C_iv = self.T_iv[0:3, 0:3]
+        C_i_enu = self.T.T_iv[0:3, 0:3] @ C_v_enu
+        C_iv = self.T.T_iv[0:3, 0:3]
 
         # Draw map
         map_utils.draw_map_without_lanelet("./sample_boreas/boreas_lane.osm", self.ax, lidar_scan.position[0], lidar_scan.position[1], C_i_enu, utm=True)
