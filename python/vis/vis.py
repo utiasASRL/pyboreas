@@ -3,7 +3,7 @@
 # TODO: render visualization as an image, (display it), (save it)
 # TODO: plot odometry results vs. ground truth
 
-# TODO: separate functions for plot one and plot interactive. add persp and BEV plot/video export. fix video export. make boreastransforms class
+# TODO: separate functions for plot one and plot interactive. add persp and BEV plot/video export. fix video export. make boreastransforms class. fix ts_to_load
 
 import sys
 import json
@@ -40,7 +40,7 @@ class BoreasVisualizer:
     Currently only works for one track at a time.
     """
 
-    def __init__(self, dataroot, ts_to_load=None):
+    def __init__(self, dataroot):
         """Initialize the class with the corresponding data, transforms and labels.
 
         Args:
@@ -60,8 +60,8 @@ class BoreasVisualizer:
 
         # Instantiate class properties
         self.dataroot = dataroot  # Root directory for the dataset
-        self.pcd_paths = sorted(glob.glob(path.join(dataroot, "lidar", "*.bin")))[0:ts_to_load]  # Paths to the pointcloud jsons
-        self.img_paths = sorted(glob.glob(path.join(dataroot, "camera", "*.png")))[0:ts_to_load]  # Paths to the camera images
+        self.pcd_paths = sorted(glob.glob(path.join(dataroot, "lidar", "*.bin")))  # Paths to the pointcloud jsons
+        self.img_paths = sorted(glob.glob(path.join(dataroot, "camera", "*.png")))  # Paths to the camera images
         self.label_file = path.join(dataroot, "labels.json")  # Path to the label json
         self.timestamps = []                        # List of all timestamps (in order)
         self.lidar_scans = {}                       # Dict of all the lidar poses (by ros timestamp)
@@ -156,7 +156,7 @@ class BoreasVisualizer:
             imgs.append(graph_image)
 
         # Write the images to video
-        out = cv2.VideoWriter('testing.avi', cv2.VideoWriter_fourcc(*'DIVX'), 15, (700, 700))
+        out = cv2.VideoWriter('testing.avi', cv2.VideoWriter_fourcc(*'MJPG'), 15, (700, 700))
         for i in range(len(imgs)):
             out.write(imgs[i])
         out.release()
@@ -233,8 +233,7 @@ class BoreasVisualizer:
 
 
 if __name__ == '__main__':
-    ts_to_load=100
-    dataset = BoreasVisualizer("./sample_boreas", ts_to_load)
+    dataset = BoreasVisualizer("./sample_boreas")
     # dataset.visualize_track_topdown()
     # dataset.visualize_bev(0)
     # dataset.visualize_frame_persp(0)
