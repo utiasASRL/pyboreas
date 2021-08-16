@@ -3,7 +3,7 @@
 # TODO: render visualization as an image, (display it), (save it)
 # TODO: plot odometry results vs. ground truth
 
-# TODO: separate functions for plot one and plot interactive. add persp and BEV plot/video export. fix video export. make boreastransforms class. fix ts_to_load
+# TODO: separate functions for plot one and plot interactive. add persp and BEV plot/video export. make boreastransforms class.
 
 import sys
 import json
@@ -143,7 +143,21 @@ class BoreasVisualizer:
         vis.visualize(pc_data)
         vis.show_geometries_under("task", True)
 
-    def export_video_topdown(self):
+    def visualize_bev(self, frame_idx, predictions=None, show=True):
+        curr_ts = self.timestamps[frame_idx]
+        curr_lidar_scan = self.lidar_scans[curr_ts]
+
+        boreas_plot = plot_utils.BoreasPlotter(self.timestamps, frame_idx, self.T_iv, self.lidar_scans)
+        boreas_plot.update_plot_topdown(curr_lidar_scan)
+
+        if show:
+            plt.show(boreas_plot.fig)
+        else:
+            plt.close(boreas_plot.fig)
+
+        return boreas_plot
+
+    def export_video_bev(self):
         imgs = []
         # Render the matplotlib figs to images
         print("Exporting Topdown View to Video")
@@ -156,22 +170,21 @@ class BoreasVisualizer:
             imgs.append(graph_image)
 
         # Write the images to video
+        # MJPG encoder is part of cv2
         out = cv2.VideoWriter('testing.avi', cv2.VideoWriter_fourcc(*'MJPG'), 15, (700, 700))
         for i in range(len(imgs)):
             out.write(imgs[i])
         out.release()
 
     def visualize_bev(self, frame_idx, predictions=None, show=True):
-        self.curr_ts_idx = frame_idx
-        curr_ts = self.timestamps[self.curr_ts_idx]
+        curr_ts = self.timestamps[frame_idx]
         curr_lidar_scan = self.lidar_scans[curr_ts]
 
-        boreas_plot = plot_utils.BoreasPlotter(self.timestamps, self.T_iv, self.lidar_scans)
+        boreas_plot = plot_utils.BoreasPlotter(self.timestamps, frame_idx, self.T_iv, self.lidar_scans)
         boreas_plot.update_plot_topdown(curr_lidar_scan)
 
         if show:
-            plt.show()
-            plt.draw()
+            plt.show(boreas_plot.fig)
         else:
             plt.close(boreas_plot.fig)
 
