@@ -3,7 +3,7 @@
 # TODO: render visualization as an image, (display it), (save it)
 # TODO: plot odometry results vs. ground truth
 
-# TODO: separate functions for plot one and plot interactive. add persp and BEV plot/video export. make boreastransforms class.
+# TODO: sync frames and then only load the ones that got synced?
 
 import sys
 import json
@@ -138,26 +138,22 @@ class BoreasVisualizer:
         vis.visualize(pc_data)
         vis.show_geometries_under("task", True)
 
-    def visualize_bev(self, frame_idx, predictions=None, show=True):
-        curr_ts = self.timestamps[frame_idx]
-        curr_lidar_scan = self.lidar_scans[curr_ts]
-
-        boreas_plot = boreas_plotter.BoreasPlotter(self.timestamps, frame_idx, self.transforms, self.lidar_scans)
-        boreas_plot.update_plot_topdown(curr_lidar_scan)
-
+    def visualize(self, frame_idx, predictions=None, mode='both', show=True):
+        boreas_plot = boreas_plotter.BoreasPlotter(self.timestamps, frame_idx, self.transforms, lidar_scans=self.lidar_scans, camera_data=self.images_synced, mode=mode)
+        boreas_plot.update_plots(frame_idx)
         if show:
-            plt.show(boreas_plot.fig)
+            plt.show()
         else:
             plt.close(boreas_plot.fig)
 
         return boreas_plot
 
-    def export_video_bev(self):
+    def export_vis_video(self, mode='both'):
         imgs = []
         # Render the matplotlib figs to images
-        print("Exporting Topdown View to Video")
+        print("Exporting Visualization to Video")
         for i in tqdm(range(len(self.timestamps)), file=sys.stdout):
-            bplot = self.visualize_bev(frame_idx=i, show=False)
+            bplot = self.visualize(frame_idx=i, mode=mode, show=False)
             canvas = FigureCanvas(bplot.fig)
             canvas.draw()
             graph_image = np.array(bplot.fig.canvas.get_renderer()._renderer)
@@ -166,55 +162,10 @@ class BoreasVisualizer:
 
         # Write the images to video
         # MJPG encoder is part of cv2
-        out = cv2.VideoWriter('testing.avi', cv2.VideoWriter_fourcc(*'MJPG'), 15, (700, 700))
+        out = cv2.VideoWriter('testing.avi', cv2.VideoWriter_fourcc(*'MJPG'), 15, (graph_image.shape[1], graph_image.shape[0]))
         for i in range(len(imgs)):
             out.write(imgs[i])
         out.release()
-
-    def visualize_bev(self, frame_idx, predictions=None, show=True):
-        curr_ts = self.timestamps[frame_idx]
-        curr_lidar_scan = self.lidar_scans[curr_ts]
-
-        boreas_plot = plot_utils.BoreasPlotter(self.timestamps, frame_idx, self.T_iv, self.lidar_scans)
-        boreas_plot.update_plot_topdown(curr_lidar_scan)
-
-        if show:
-            plt.show(boreas_plot.fig)
-        else:
-            plt.close(boreas_plot.fig)
-
-        return boreas_plot
-
-    def get_cam2vel_transform(self, pcd):
-        pcd = np.matmul(self.transforms.T_cv, pcd)
-        return pcd
-
-    def visualize_frame_persp(self, frame_idx):
-        curr_ts = self.timestamps[frame_idx]
-        points = self.lidar_scans[curr_ts].points[:, 0:3]
-        points = points[np.random.choice(len(points), int(0.5*len(points)), replace=False)]
-        points = points.T
-        points = np.vstack((points, np.ones(points.shape[1])))
-        image = copy.deepcopy(self.images_synced[frame_idx])
-
-        points_camera_all = self.get_cam2vel_transform(points)
-        points_camera = np.array([])
-        for i in range(points_camera_all.shape[1]):
-            if points_camera_all[2,i] > 0:
-                points_camera = np.concatenate((points_camera, points_camera_all[:,i]))
-        points_camera = np.reshape(points_camera, (-1,4)).T
-        pixel_camera = np.matmul(self.transforms.P_cam, points_camera)
-
-        max_z = int(max(pixel_camera[2,:])/3)
-        for i in range(pixel_camera.shape[1]):
-            z = pixel_camera[2,i]
-            x = int(pixel_camera[0,i] / z)
-            y = int(pixel_camera[1,i] / z)
-            if x > 0 and x < image.shape[1] and y > 0 and y < image.shape[0]:
-                c = cv2.applyColorMap(np.array([int(pixel_camera[2,i] / max_z*255)], dtype=np.uint8), cv2.COLORMAP_RAINBOW).squeeze().tolist()
-                cv2.circle(image,(x,y), 1, c, 1)
-
-        return image
 
     def _sync_camera_frames(self):
         # Helper function for finding closest timestamp
@@ -243,4 +194,5 @@ if __name__ == '__main__':
     # dataset.visualize_track_topdown()
     # dataset.visualize_bev(0)
     # dataset.visualize_frame_persp(0)
-    dataset.export_video_topdown()
+    dataset.export_vis_video()
+    # dataset.visualize(0)
