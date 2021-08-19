@@ -152,5 +152,6 @@ class BoreasPlotter:
                     c = cv2.applyColorMap(np.array([int(pixel_camera[2, i] / max_z * 255)], dtype=np.uint8), cv2.COLORMAP_RAINBOW).squeeze().tolist()
                     cv2.circle(image, (x, y), 1, c, 1)
 
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             ax.imshow(image)
             plt.draw()

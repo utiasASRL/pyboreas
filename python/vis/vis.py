@@ -152,7 +152,7 @@ class BoreasVisualizer:
         imgs = []
         # Render the matplotlib figs to images
         print("Exporting Visualization to Video")
-        for i in tqdm(range(len(self.timestamps)), file=sys.stdout):
+        for i in tqdm(range(10), file=sys.stdout):
             bplot = self.visualize(frame_idx=i, mode=mode, show=False)
             canvas = FigureCanvas(bplot.fig)
             canvas.draw()
@@ -191,8 +191,5 @@ class BoreasVisualizer:
 
 if __name__ == '__main__':
     dataset = BoreasVisualizer("./sample_boreas")
-    # dataset.visualize_track_topdown()
-    # dataset.visualize_bev(0)
-    # dataset.visualize_frame_persp(0)
-    dataset.export_vis_video()
-    # dataset.visualize(0)
+    # dataset.export_vis_video()
+    dataset.visualize(0)
