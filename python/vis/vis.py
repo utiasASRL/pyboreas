@@ -148,11 +148,11 @@ class BoreasVisualizer:
 
         return boreas_plot
 
-    def export_vis_video(self, mode='both'):
+    def export_vis_video(self, name, mode='both'):
         imgs = []
         # Render the matplotlib figs to images
         print("Exporting Visualization to Video")
-        for i in tqdm(range(10), file=sys.stdout):
+        for i in tqdm(range(len(self.timestamps)), file=sys.stdout):
             bplot = self.visualize(frame_idx=i, mode=mode, show=False)
             canvas = FigureCanvas(bplot.fig)
             canvas.draw()
@@ -162,7 +162,7 @@ class BoreasVisualizer:
 
         # Write the images to video
         # MJPG encoder is part of cv2
-        out = cv2.VideoWriter('testing.avi', cv2.VideoWriter_fourcc(*'MJPG'), 15, (graph_image.shape[1], graph_image.shape[0]))
+        out = cv2.VideoWriter(name + ".avi", cv2.VideoWriter_fourcc(*'MJPG'), 15, (graph_image.shape[1], graph_image.shape[0]))
         for i in range(len(imgs)):
             out.write(imgs[i])
         out.release()
@@ -191,5 +191,6 @@ class BoreasVisualizer:
 
 if __name__ == '__main__':
     dataset = BoreasVisualizer("./sample_boreas")
-    # dataset.export_vis_video()
+    # for name in ["both", "persp", "bev"]:
+    #     dataset.export_vis_video(name, name)
     dataset.visualize(0)
