@@ -1,10 +1,12 @@
+import os
+
 import numpy as np
 import cv2
 import yaml
 
 from splits import *
-from utils import carrot, get_transform, load_lidar
-from radar import load_radar, radar_polar_to_cartesian
+from utils.utils import carrot, get_transform, load_lidar
+from utils.radar import load_radar, radar_polar_to_cartesian
 
 class PointCloud:
 	def __init__(self, points):
@@ -18,7 +20,7 @@ class PointCloud:
 			pbar = np.matmul(T, pbar)
 			self.points[i, :3] = pbar[:3, 0]
 	
-	def remove_motion(self, body_rate, tref=None, in_place=True):
+	def remove_motion(self, points, body_rate, tref=None, in_place=True):
 		# body_rate: (6, 1) [vx, vy, vz, wx, wy, wz] in body frame
 		# Note: modifies points contained in this class
 		assert(body_rate.shape[0] == 6 and body_rate.shape[1] == 1)
@@ -175,10 +177,12 @@ class Sequence:
 		return Radar(self.radarFrames[idx])
 
 	def visualize(self):
+		pass
 		# TODO: generate video for the entire sequences
 		# option 1: display video, option 2: save video to file
 
 	def get_pose(self, sensType, timestamp):
+		pass
 		# TODO
 
 class BoundingBoxes:
@@ -212,8 +216,8 @@ class BoreasDataset:
 			self.radarFrames += seq.radarFrames
 			self.seqDict[seq.seqID] = len(self.sequences) - 1
 
-	def get_seq_from_ID(seqID):
-		return self.sequences(seqDict[seqID])
+	def get_seq_from_ID(self, seqID):
+		return self.sequences[self.seqDict[seqID]]
 
 	@property
 	def cam0(self):
