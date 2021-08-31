@@ -42,7 +42,7 @@ def load_radar(example_path):
     return timestamps, azimuths, valid, fft_data
 
 def radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resolution, cart_pixel_width,
-                             interpolate_crossover=True, navtech_version=CTS350):
+                             interpolate_crossover=True, navtech_version=CIR204):
     """Convert a polar radar scan to cartesian.
     Args:
         azimuths (np.ndarray): Rotation for each polar radar azimuth (radians)
@@ -103,4 +103,4 @@ def radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resoluti
         sample_v = sample_v + 1
 
     polar_to_cart_warp = np.stack((sample_u, sample_v), -1)
-    return np.expand_dims(cv2.remap(fft_data, polar_to_cart_warp, None, cv2.INTER_LINEAR), axis=0)
+    return cv2.remap(fft_data, polar_to_cart_warp, None, cv2.INTER_LINEAR)

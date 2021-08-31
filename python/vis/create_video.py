@@ -77,6 +77,11 @@ def min_transform(prev_pose, df):
     df['dist'] = np.sqrt((x - df['x']) ** 2 + (y - df['y']) ** 2)
     df2 = df[df['dist'] < 3]
 
+    def get_rotation(heading):
+        return np.array([[np.cos(heading), -np.sin(heading), 0],
+                         [np.sin(heading), np.cos(heading), 0],
+                         [0, 0, 1]])
+
     df2['rotation_err'] = np.nan
     for idx, rows in df2.iterrows():
         n = vis_utils.rotationError(np.matmul(np.transpose(vis_utils.get_rotation(heading)), vis_utils.get_rotation(df.loc[idx, 'heading'])))

@@ -1,3 +1,4 @@
+import os
 import numpy as np
 
 def load_lidar(path, dim=6):
@@ -36,16 +37,29 @@ def rotToYawPitchRoll(C, eps = 1e-15):
         y = np.arctan2(-C[j, k], C[j, j])
     return y, p, r
 
+def get_transform(gt):
+    """Retrieve 4x4 homogeneous transform for a given parsed line of the ground truth pose csv
+    Args:
+        gt (List[float]): parsed line from ground truth csv file
+    Returns:
+        np.ndarray: 4x4 transformation matrix (pose of sensor)
+    """
+    T = np.identity(4, dtype=np.float64)
+    C_enu_sensor = yawPitchRollToRot(gt[10], gt[9], gt[8])
+    T[0, 3] = gt[2]
+    T[1, 3] = gt[3]
+    T[2, 3] = gt[4]
+    T[0:3, 0:3] = C_enu_sensor
+    return T
+
 def quaternionToRot(q):
     EPS = 1e-15
     if np.matmul(q.transpose(), q) < EPS:
         return np.identity(3)
     xi = q[0:3].reshape(3, 1)
     eta = q[3, 0]
-    def cross(v):
-        v = np.squeeze(v)
-        return np.array([[0, -v[2], v[1]],[v[2], 0, -v[0]],[-v[1], v[0], 0]])
-    C = (eta**2 - np.matmul(xi.transpose(), xi)) * np.identity(3) + 2 * np.matmul(xi, xi.transpose()) - 2 * eta * cross(xi)
+    C = (eta**2 - np.matmul(xi.transpose(), xi)) * np.identity(3) +
+        2 * np.matmul(xi, xi.transpose()) - 2 * eta * carrot(xi)
     return C.transpose()
 
 def rotToQuaternion(C):
@@ -74,34 +88,6 @@ def get_inverse_tf(T):
     T2[0:3, 0:3] = R.transpose()
     T2[0:3, 3:] = np.matmul(-1 * R.transpose(), t)
     return T2
-
-def get_transform(x, y, theta):
-    """Returns a 4x4 homogeneous 3D transform for a given 2D (x, y, theta).
-    Args:
-        x (float): x-translation
-        y (float): y-translation
-        theta (float): rotation
-    Returns:
-        np.ndarray: 4x4 transformation matrix
-    """
-    T = np.identity(4, dtype=np.float32)
-    T[0:2, 0:2] = np.array([[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]])
-    T[0, 3] = x
-    T[1, 3] = y
-    return T
-
-def get_transform2(R, t):
-    """Returns a 4x4 homogeneous 3D transform
-    Args:
-        R (np.ndarray): (3,3) rotation matrix
-        t (np.ndarray): (3,1) translation vector
-    Returns:
-        np.ndarray: 4x4 transformation matrix
-    """
-    T = np.identity(4, dtype=np.float32)
-    T[0:3, 0:3] = R
-    T[0:3, 3] = t.squeeze()
-    return T
 
 def enforce_orthog(T, dim=3):
     """Enforces orthogonality of a 3x3 rotation matrix within a 4x4 homogeneous transformation matrix.
@@ -273,9 +259,3 @@ def wrapto2pi(phi):
     elif phi >= 2 * np.pi:
         return (phi / (2 * np.pi) % 1) * 2 * np.pi
     return phi
-
-def get_rotation(heading):
-    return np.array([[np.cos(heading), -np.sin(heading), 0],
-                     [np.sin(heading), np.cos(heading), 0],
-                     [0, 0, 1]])
-
