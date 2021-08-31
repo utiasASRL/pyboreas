@@ -94,8 +94,8 @@ class BoreasPlotter:
     def update_plot_bev(self, ax, lidar_scan, downsample_factor=0.3):
         # Calculate transformations for current data
         C_v_enu = lidar_scan.get_C_v_enu().as_matrix()
-        C_i_enu = self.T.T_iv[0:3, 0:3] @ C_v_enu
-        C_iv = self.T.T_iv[0:3, 0:3]
+        C_i_enu = self.T.T_applanix_lidar[0:3, 0:3] @ C_v_enu
+        C_iv = self.T.T_applanix_lidar[0:3, 0:3]
 
         # Draw map
         map_utils.draw_map_without_lanelet("./sample_boreas/boreas_lane.osm", ax, lidar_scan.position[0], lidar_scan.position[1], C_i_enu, utm=True)
@@ -133,13 +133,13 @@ class BoreasPlotter:
             points = points.T
             points = np.vstack((points, np.ones(points.shape[1])))
 
-            points_camera_all = np.matmul(self.T.T_cv, points)
+            points_camera_all = np.matmul(self.T.T_camera_lidar, points)
             points_camera = np.array([])
             for i in range(points_camera_all.shape[1]):
                 if points_camera_all[2, i] > 0:
                     points_camera = np.concatenate((points_camera, points_camera_all[:, i]))
             points_camera = np.reshape(points_camera, (-1, 4)).T
-            pixel_camera = np.matmul(self.T.P_cam, points_camera)
+            pixel_camera = np.matmul(self.T.P0, points_camera)
 
             image = copy.deepcopy(camera_img)
 

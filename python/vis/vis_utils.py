@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from bbox import BBox
+from python.bounding_boxes import BoundingBox2D
 
 def to_T(C, r):
     T = np.concatenate((C, r), axis=1)
@@ -55,7 +55,7 @@ def get_transformation_matrix(raw_heading, r_io, T_iv=None):
 
 def get_camera_timestamp(raw_data, offset=0):
     """
-    Get GPS timestamp from recorded json data file
+    Get lidar and camera timestamp from the loaded json. Applies an offset to account for the camera-lidar timestamp differences.
     :param raw_data: data from point cloud json file
     """
     lidar_time_stamp = raw_data['timestamp']
@@ -118,7 +118,7 @@ def transform_bounding_boxes(T, C_yaw, raw_labels):
         rotation = np.matmul(C_yaw, rot_z(raw_labels[i]['yaw']))
         rot_to_yaw_pitch_roll(rotation)
         extent = np.array(list(raw_labels[i]['dimensions'].values())).reshape(3, 1)  # Convert to 2d
-        box = BBox(pos, rotation, extent, raw_labels[i]['label'])
+        box = BoundingBox2D(pos, rotation, extent, raw_labels[i]['label'])
         boxes.append(box)
     return boxes
 

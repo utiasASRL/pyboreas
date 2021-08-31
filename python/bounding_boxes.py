@@ -1,6 +1,15 @@
 import numpy as np
 
-class BBox:
+class BoundingBoxes:
+    def __init__(self, path):
+        # pose / sensor frame
+        # timestamp
+        # 3D
+        # BBs[]
+        pass
+    # load/save from/to file
+
+class BoundingBox2D:
     def __init__(self, position, rotation, extent, label=None):
         """Checks dimensional consistency of inputs and constructs points array
 
@@ -18,10 +27,10 @@ class BBox:
         self.extent = extent
         self.label = label
 
-        # Construct points array
+        # Construct array to extract points from extent
         dims_multiplier = np.array([[1, 1, 1], [-1, 1, 1], [-1, -1, 1], [1, -1, 1],
                                     [1, 1, -1], [-1, 1, -1], [-1, -1, -1], [1, -1, -1]])
-        
+
         #Todo: need orientation here
         points = []
         for i in range(dims_multiplier.shape[0]):
@@ -78,6 +87,8 @@ class BBox:
 
     def get_raw_data(self):
         return self.pos, self.rot, self.extent
+
+# class BoundingBox3D: TODO
 
     
 
