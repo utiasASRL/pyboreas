@@ -1,20 +1,21 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from python.bounding_boxes import BoundingBox2D
+from data_classes.bounding_boxes import BoundingBox2D
 
 def to_T(C, r):
     T = np.concatenate((C, r), axis=1)
     T = np.concatenate((T, [[0, 0, 0, 1]]), axis=0)
     return T
 
-def get_transformation_matrix(raw_heading, r_io, T_iv=None):
+def velodyne_frame_from_imu(raw_heading, r_io, T_iv=None):
     """
     Computes matrices needed to move from GPS (odometry) frame
-    to sensor (Velodyne) frame
-    :param raw_heading:
-    :param r_io:
-    :param T_iv:
+    to sensor (Velodyne) frame from transformation between IMU and odom frames.
+
+    :param raw_heading: IMU heading as quaternion
+    :param r_io: Vector from origin of odom frame to origin of IMU frame expressed in odom frame
+    :param T_iv: Transformation matrix from velodyne frame to IMU frame
     :return T_vo: Transformation matrix from odom to Velodyne
             C_vo_yaw: Yaw rotation matrix from odom to Velodyne
     """
@@ -81,7 +82,7 @@ def get_device_pose(raw_data, T_iv=None):
     """
     raw_heading = np.array(list(raw_data['device_heading'].values()))
     r_io = np.array([list(raw_data['device_position'].values())]).T
-    return get_transformation_matrix(raw_heading, r_io, T_iv)
+    return velodyne_frame_from_imu(raw_heading, r_io, T_iv)
 
 def transform_points(T, raw_pcd, keep_prob=1.0):
     """

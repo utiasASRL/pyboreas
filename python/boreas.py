@@ -1,6 +1,6 @@
-from splits import *
-from sequence import Sequence
-from sensors import Camera, Lidar, Radar
+from data_classes.splits import *
+from data_classes.sequence import Sequence
+from data_classes.sensors import Camera, Lidar, Radar
 
 class BoreasDataset:
 	def __init__(self, root='/data/boreas/', split=odom_sample):

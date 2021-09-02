@@ -58,7 +58,7 @@ def quaternionToRot(q):
         return np.identity(3)
     xi = q[0:3].reshape(3, 1)
     eta = q[3, 0]
-    C = (eta**2 - np.matmul(xi.transpose(), xi)) * np.identity(3) +
+    C = (eta**2 - np.matmul(xi.transpose(), xi)) * np.identity(3) + \
         2 * np.matmul(xi, xi.transpose()) - 2 * eta * carrot(xi)
     return C.transpose()
 

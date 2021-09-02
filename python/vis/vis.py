@@ -20,9 +20,9 @@ from tqdm import tqdm
 
 import vis_utils
 import boreas_plotter
-from python import calib
-from lidar_scan import LidarScan
-from gps_pose import GPSPose
+from data_classes import calib
+from data_classes.lidar_scan import LidarScan
+from data_classes.gps_pose import GPSPose
 
 matplotlib.use("tkagg")  # slu: for testing with ide
 
