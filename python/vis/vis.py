@@ -1,9 +1,7 @@
-# TODO: transform bounding box into sensor frame at time
-# TODO: project 3D bounding box onto 2D visualization (radar/lidar top-down, camera front-face)
-# TODO: render visualization as an image, (display it), (save it)
 # TODO: plot odometry results vs. ground truth
 
-# TODO: sync frames and then only load the ones that got synced?
+# TODO: improve data loading - only load when needed/only load synced
+# TODO: switch to using sequences
 
 import sys
 import glob
@@ -23,6 +21,7 @@ import boreas_plotter
 from data_classes import calib
 from data_classes.lidar_scan import LidarScan
 from data_classes.gps_pose import GPSPose
+from data_classes.sequence import Sequence
 
 matplotlib.use("tkagg")  # slu: for testing with ide
 
@@ -40,17 +39,6 @@ class BoreasVisualizer:
         Args:
             dataroot: Path to the directory where the dataset is stored
         """
-        # Check if dataroot paths are valid
-        if not path.exists(path.join(dataroot, "camera")):
-            raise ValueError("Error: images dir missing from dataroot")
-        if not path.exists(path.join(dataroot, "lidar")):
-            raise ValueError("Error: lidar dir missing from dataroot")
-        if not path.exists(path.join(dataroot, "applanix")):
-            raise ValueError("Error: applnix dir missing from dataroot")
-        if not path.exists(path.join(dataroot, "calib")):
-            raise ValueError("Error: calib dir missing from dataroot")
-        # if not path.exists(path.join(dataroot, "labels.json")):
-        #     raise ValueError("Error: labels.json missing from dataroot")
 
         # Instantiate class properties
         self.dataroot = dataroot  # Root directory for the dataset
@@ -177,8 +165,8 @@ class BoreasVisualizer:
         camera_timestamps = [int(f.replace('/', '.').split('.')[-2]) for f in self.img_paths]
         for i in range(self.track_length):
             timestamp = self.timestamps[i]
-            corrected_timestamp = timestamp + vis_utils.get_dataset_offset_camera_ts("boreas")
-            closet_idx, cloest_val = get_closest_ts(corrected_timestamp, camera_timestamps)
+            lidar_timestamp = timestamp + vis_utils.get_dataset_offset_camera_ts("boreas")
+            closet_idx, cloest_val = get_closest_ts(lidar_timestamp, camera_timestamps)
             self.images_synced.append(self.images_raw[closet_idx])
 
 

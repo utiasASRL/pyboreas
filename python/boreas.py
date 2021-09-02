@@ -1,6 +1,9 @@
+from os import path
+
 from data_classes.splits import *
 from data_classes.sequence import Sequence
 from data_classes.sensors import Camera, Lidar, Radar
+from vis.vis import BoreasVisualizer
 
 class BoreasDataset:
 	def __init__(self, root='/data/boreas/', split=odom_sample):
@@ -16,9 +19,9 @@ class BoreasDataset:
 		for seqSpec in split:
 			seq = Sequence(root, seqSpec)
 			self.sequences.append(seq)
-			self.cameraFrames += seq.cameraFrames
-			self.lidarFrames += seq.lidarFrames
-			self.radarFrames += seq.radarFrames
+			self.cameraFrames += seq.camera_paths
+			self.lidarFrames += seq.lidar_paths
+			self.radarFrames += seq.radar_paths
 			self.seqDict[seq.seqID] = len(self.sequences) - 1
 
 	def get_seq_from_ID(self, seqID):
@@ -47,6 +50,9 @@ class BoreasDataset:
 
 	def get_radar(self, idx):
 		return Radar(self.radarFrames[idx])
+
+	def get_sequence_visualizer(self, seqID):
+		return BoreasVisualizer(self.get_seq_from_ID(seqID))
 
 # These could either go here or in a separate file
 # getGroundTruthOdometry(seqID)
