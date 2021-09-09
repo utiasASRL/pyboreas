@@ -1,12 +1,14 @@
 from os import listdir, path
+from pathlib import Path
 import csv
 
-from calib import Calib
-from sensors import Camera, Lidar, Radar
+from data_classes.calib import Calib
+from data_classes.sensors import Camera, Lidar, Radar
 
 
 class Sequence:
     def __init__(self, boreas_root, seqSpec):
+        assert seqSpec[2] > seqSpec[1], 'Sequence timestamps must go forward in time'
         self.seqID = seqSpec[0]
         self.seq_root = path.join(boreas_root, self.seqID)
         self._check_dataroot_valid(self.seq_root)
@@ -15,23 +17,26 @@ class Sequence:
         self.lidar_root = path.join(self.seq_root, 'lidar')
         self.radar_root = path.join(self.seq_root, 'radar')
         self.applanix_root = path.join(self.seq_root, 'applanix')
+
         self.start_ts = str(seqSpec[1])
         self.end_ts = str(seqSpec[2])
-
         self.timestamps = sorted([int(path.splitext(f)[0]) for f in listdir(self.lidar_root)])  # Currently syncing to lidar timestamps
         self.seq_len = len(self.timestamps)
+
         self.lidar_paths = self._get_datapaths(self.lidar_root, self.start_ts, self.end_ts)
         self.camera_paths = self._get_datapaths(self.camera_root, self.start_ts, self.end_ts)
         self.radar_paths = self._get_datapaths(self.radar_root, self.start_ts, self.end_ts)
         self.calib = Calib(boreas_root + self.seqID + '/calib/')
 
-        self.camera_synced = self._sync_camera_frames()
+        self.ts_camera_synced = self._sync_camera_frames()
 
         self.lidar_dict = self._load_sensor_data(path.join(self.applanix_root, 'lidar_poses.csv'), self.lidar_paths, Lidar)
         self.camera_dict = self._load_sensor_data(path.join(self.applanix_root, 'camera_poses.csv'), self.camera_paths, Camera)
         self.radar_dict = self._load_sensor_data(path.join(self.applanix_root, 'radar_poses.csv'), self.radar_paths, Radar)
 
     # TODO: load printable metadata string
+    def __len__(self):
+        return len(self.timestamps)
 
     @property
     def cam0(self):
@@ -105,8 +110,8 @@ class Sequence:
         res = []
         camera_timestamps = [int(f.replace('/', '.').split('.')[-2]) for f in self.camera_paths]
         for i in range(self.seq_len):
-            closet_idx, closest_val = get_closest_ts(self.timestamps[i], camera_timestamps)
-            res.append(self.camera_paths[closet_idx])
+            closest_idx, closest_val = get_closest_ts(self.timestamps[i], camera_timestamps)
+            res.append(int(Path(self.camera_paths[closest_idx]).stem))
         return res
 
     def _load_sensor_data(self, pose_file, paths, Type):

@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 from scipy.spatial.transform import Rotation as R
 
-from pointcloud import PointCloud
+from data_classes.pointcloud import PointCloud
 from utils.utils import get_transform
 from utils.radar import load_radar, radar_polar_to_cartesian
 
@@ -57,8 +57,8 @@ class Lidar(Sensor, PointCloud):
 
     def load_points(self, dim=6):
         scan = np.fromfile(self.data_path, dtype=np.float32)
-        points = scan.reshape((-1, dim))[:, :dim]
-        return points
+        self.points = scan.reshape((-1, dim))[:, :dim]
+        return self.points
 
 
 # TODO: get_bounding_boxes()
@@ -71,6 +71,7 @@ class Camera(Sensor):
 
     def load_img(self):
         self.img = cv2.imread(self.data_path)
+        return self.img
 
 
 # TODO: get_bounding_boxes() # retrieve from file, cache to class variable
