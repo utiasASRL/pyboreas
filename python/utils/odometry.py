@@ -1,5 +1,6 @@
 import argparse
 import numpy as np
+import matplotlib.pyplot as plt
 import os
 import pylgmath as lgmath
 import pysteam as steam
@@ -41,7 +42,7 @@ def interpolatePoses(poses, times, query_times):
     states = [
         TrajStateVar(
             Time(nsecs=times[i]),
-            TransformStateVar(Transformation(T_ba=poses[i]), copy=True),
+            TransformStateVar(Transformation(T_ba=enforce_orthog(poses[i])), copy=True),
             VectorSpaceStateVar(init_velocity, copy=True),
         ) for i in range(len(poses))
     ]
@@ -73,7 +74,7 @@ def interpolatePoses(poses, times, query_times):
 def trajectoryDistances(poses):
     """Calculates path length along the trajectory.
     Args:
-        poses (List[np.ndarray]): list of 4x4 poses (T_2_1 from current to next)
+        poses (List[np.ndarray]): list of 4x4 poses (T_k_i, 'i' is a fixed reference frame)
     Returns:
         List[float]: distance along the trajectory, increasing as a function of time / list index
     """
@@ -83,7 +84,8 @@ def trajectoryDistances(poses):
         P2 = get_inverse_tf(poses[i])
         dx = P1[0, 3] - P2[0, 3]
         dy = P1[1, 3] - P2[1, 3]
-        dist.append(dist[i-1] + np.sqrt(dx**2 + dy**2))
+        dz = P1[2, 3] - P2[2, 3]
+        dist.append(dist[i-1] + np.sqrt(dx**2 + dy**2 + dz**2))
     return dist
 
 def lastFrameFromSegmentLength(dist, first_frame, length):
@@ -129,20 +131,68 @@ def calcSequenceErrors(poses_gt, poses_pred, step_size=4):
             num_frames = float(last_frame - first_frame + 1)
             speed = float(length) / (0.25 * num_frames)
             err.append([first_frame, r_err/float(length), t_err/float(length), length, speed])
-    return err
+    return err, lengths
 
-def getStats(err):
+def getStats(err, lengths):
     """Computes the average translation and rotation within a sequence (across subsequences of diff lengths)."""
     t_err = 0
     r_err = 0
+    len2id = {x: i for i, x in enumerate(lengths)}
+    t_err_len = [0.0]*len(len2id)
+    r_err_len = [0.0]*len(len2id)
+    len_count = [0]*len(len2id)
     for e in err:
         t_err += e[2]
         r_err += e[1]
+        j = len2id[e[3]]
+        t_err_len[j] += e[2]
+        r_err_len[j] += e[1]
+        len_count[j] += 1
     t_err /= float(len(err))
     r_err /= float(len(err))
-    return t_err, r_err
+    return t_err * 100, r_err * 180 / np.pi, [a/float(b) * 100 for a, b in zip(t_err_len, len_count)], \
+           [a/float(b) * 180 / np.pi for a, b in zip(r_err_len, len_count)]
 
-def computeKittiMetrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, step_size=10):
+def plotStats(seq, root, T_odom, T_gt, lengths, t_err, r_err):
+    path_odom = getPathFromTviList(T_odom)
+    path_gt = getPathFromTviList(T_gt)
+
+    # plot of path
+    plt.figure(figsize=(6, 6))
+    plt.plot(path_odom[:, 0], path_odom[:, 2], 'b', linewidth=0.5, label='estimate')
+    plt.plot(path_gt[:, 0], path_gt[:, 2], 'r', linewidth=0.5, label='groundtruth')
+    plt.xlabel('x [m]')
+    plt.ylabel('y [m]')
+    plt.axis('equal')
+    plt.legend(loc="upper right")
+    plt.savefig(os.path.join(root, seq[:-4] + '_path.pdf'), bbox_inches='tight')
+    plt.close()
+
+    # plot of translation error along path length
+    plt.figure(figsize=(6, 3))
+    plt.plot(lengths, t_err, 'bs', markerfacecolor='none')
+    plt.plot(lengths, t_err, 'b')
+    plt.xlabel('Path Length [m]')
+    plt.ylabel('Translation Error [%]')
+    plt.savefig(os.path.join(root, seq[:-4] + '_tl.pdf'), bbox_inches='tight')
+    plt.close()
+
+    # plot of rotation error along path length
+    plt.figure(figsize=(6, 3))
+    plt.plot(lengths, r_err, 'bs', markerfacecolor='none')
+    plt.plot(lengths, r_err, 'b')
+    plt.xlabel('Path Length [m]')
+    plt.ylabel('Rotation Error [deg/m]')
+    plt.savefig(os.path.join(root, seq[:-4] + '_rl.pdf'), bbox_inches='tight')
+    plt.close()
+
+def getPathFromTviList(Tvi_list):
+    path = np.zeros((len(Tvi_list), 3), dtype=np.float32)
+    for j, Tvi in enumerate(Tvi_list):
+        path[j] = (-Tvi[:3, :3].T @ Tvi[:3, 3:4]).squeeze()
+    return path
+
+def computeKittiMetrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, root, step_size=10):
     """Computes the translational (%) and rotational drift (deg/m) in the KITTI style.
         KITTI rotation and translation metrics are computed for each sequence individually and then
         averaged across the sequences.
@@ -169,18 +219,19 @@ def computeKittiMetrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_len
         times_gt_seq = times_gt[indices_gt[i]:indices_gt[i+1]]
         times_pred_seq = times_pred[indices_pred[i]:indices_pred[i+1]]
 
-        # TODO: enforce orthog
         # query predicted trajectory at groundtruth times
         T_query = interpolatePoses(T_pred_seq, times_pred_seq, times_gt_seq)
 
-        err = calcSequenceErrors(T_gt_seq, T_query, step_size)
-        t_err, r_err = getStats(err)
+        err, path_lengths = calcSequenceErrors(T_gt_seq, T_query, step_size)
+        t_err, r_err, t_err_len, r_err_len = getStats(err, path_lengths)
         err_list.append([t_err, r_err])
+        plotStats(seq[i], root, T_query, T_gt_seq, path_lengths, t_err_len, r_err_len)
     err_list = np.asarray(err_list)
     avg = np.mean(err_list, axis=0)
     t_err = avg[0]
     r_err = avg[1]
-    return t_err * 100, r_err * 180 / np.pi
+    # return t_err * 100, r_err * 180 / np.pi
+    return t_err, r_err
 
 def get_sequences(path, prefix=''):
     """Retrieves a list of all the sequences in the dataset with the given prefix."""
@@ -212,15 +263,13 @@ def write_traj_file(path, poses, times):
         times (List[int]): list of times for poses (int for nanoseconds)
     """
     with open(path, "w") as file:
-        # Writing each time and pose to file
+        # Writing each time (nanoseconds) and pose to file
         for time, pose in zip(times, poses):
             line = [time]
             line.extend(pose.reshape(16)[:12].tolist())
-            # file.write(line)
             file.write(' '.join(str(num) for num in line))
             file.write('\n')
-            # file1.write("Hello \n")
-            # file1.writelines(L)
+
 
 def read_traj_file(path):
     """Writes trajectory into a space-separated txt file
@@ -256,12 +305,14 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # parse sequences
-    seq = get_sequences(args.pred)
+    seq = get_sequences(args.pred, '.txt')
     T_pred, times_pred, seq_lens_pred = get_sequence_poses(args.pred, seq)
     T_gt, times_gt, seq_lens_gt = get_sequence_poses(args.gt, seq)
 
     # compute errors
-    t_err, r_err = computeKittiMetrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, step_size=10)
+    t_err, r_err = computeKittiMetrics(T_gt, T_pred, times_gt, times_pred,
+                                       seq_lens_gt, seq_lens_pred, seq, args.pred, step_size=10)
 
     # print out results
-    # TODO
+    print('Evaluated sequences: ', seq)
+    print('Overall error: ', t_err, ' %, ', r_err, ' deg/m')
