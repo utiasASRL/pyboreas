@@ -159,8 +159,9 @@ def plotStats(seq, root, T_odom, T_gt, lengths, t_err, r_err):
 
     # plot of path
     plt.figure(figsize=(6, 6))
-    plt.plot(path_odom[:, 0], path_odom[:, 2], 'b', linewidth=0.5, label='estimate')
-    plt.plot(path_gt[:, 0], path_gt[:, 2], 'r', linewidth=0.5, label='groundtruth')
+    plt.plot(path_odom[:, 0], path_odom[:, 1], 'b', linewidth=0.5, label='Estimate')
+    plt.plot(path_gt[:, 0], path_gt[:, 1], 'r', linewidth=0.5, label='Groundtruth')
+    plt.plot(path_gt[0, 0], path_gt[0, 1], 'ks', markerfacecolor='none', label='Sequence Start')
     plt.xlabel('x [m]')
     plt.ylabel('y [m]')
     plt.axis('equal')
