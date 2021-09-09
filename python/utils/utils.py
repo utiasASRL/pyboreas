@@ -1,11 +1,6 @@
 import os
 import numpy as np
 
-def load_lidar(path, dim=6):
-    scan = np.fromfile(path, dtype=np.float32)
-    points = scan.reshape((-1, dim))[:, :dim]
-    return points
-
 def roll(r):
     return np.array([[1, 0, 0], [0, np.cos(r), np.sin(r)], [0, -np.sin(r), np.cos(r)]], dtype=np.float64)
 

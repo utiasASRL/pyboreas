@@ -1,4 +1,5 @@
 from os import listdir, path
+import csv
 
 from calib import Calib
 from sensors import Camera, Lidar, Radar
@@ -13,6 +14,7 @@ class Sequence:
         self.camera_root = path.join(self.seq_root, 'camera')
         self.lidar_root = path.join(self.seq_root, 'lidar')
         self.radar_root = path.join(self.seq_root, 'radar')
+        self.applanix_root = path.join(self.seq_root, 'applanix')
         self.start_ts = str(seqSpec[1])
         self.end_ts = str(seqSpec[2])
 
@@ -24,6 +26,10 @@ class Sequence:
         self.calib = Calib(boreas_root + self.seqID + '/calib/')
 
         self.camera_synced = self._sync_camera_frames()
+
+        self.lidar_dict = self._load_sensor_data(path.join(self.applanix_root, 'lidar_poses.csv'), self.lidar_paths, Lidar)
+        self.camera_dict = self._load_sensor_data(path.join(self.applanix_root, 'camera_poses.csv'), self.camera_paths, Camera)
+        self.radar_dict = self._load_sensor_data(path.join(self.applanix_root, 'radar_poses.csv'), self.radar_paths, Radar)
 
     # TODO: load printable metadata string
 
@@ -103,6 +109,26 @@ class Sequence:
             res.append(self.camera_paths[closet_idx])
         return res
 
+    def _load_sensor_data(self, pose_file, paths, Type):
+        ts_to_path = {}
+        for p in paths:
+            timestamp = int(path.splitext(p.split('/')[-1])[0])
+            ts_to_path[timestamp] = p
+        # timestamps = set([int(path.splitext(p)[0]) for p in paths])  # Timestamps to look for. Use hashset for O(1) __contains__
+        res = {}
+        with open(pose_file) as file:
+            reader = csv.reader(file)
+            next(reader)  # Extract headers
+            for row in reader:
+                timestamp = int(row[0])
+                if timestamp in ts_to_path:
+                    sensor = Type(ts_to_path[timestamp])
+                    sensor.init_pose(row)
+                    res[timestamp] = sensor
+
+        return res
+
 if __name__ == "__main__":
     # for debugging
     seq = Sequence("/home/shichen/datasets/", ["boreas_mini", 1606417230037163312, 1606417239986391931])
+    print('hello')
