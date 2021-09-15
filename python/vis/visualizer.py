@@ -13,8 +13,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import numpy as np
 from tqdm import tqdm
 
-import vis_utils
-import boreas_plotter
+from vis import vis_utils
+from vis import boreas_plotter
 from data_classes.sequence import Sequence
 
 matplotlib.use("tkagg")  # slu: for testing with ide
@@ -31,7 +31,7 @@ class BoreasVisualizer:
         """Initialize the class with the corresponding data, transforms and labels.
 
         Args:
-            dataroot: Path to the directory where the dataset is stored
+            sequence: Sequence object to base the visualization on
         """
         self.sequence = sequence
         self.track_length = len(sequence)
@@ -44,12 +44,13 @@ class BoreasVisualizer:
         #         self.labels.append(label['cuboids'])
 
     def visualize_thirdperson(self):
+        # Currently not working
         pc_data = []
         # bb_data = []
 
         for i in range(self.track_length):
-            curr_lidar_data = self.lidar_scans[i].points
-            curr_lables = self.labels[i]
+            curr_lidar_data = self.sequence.lidar_scans[i].points
+            curr_lables = self.sequence.labels[i]
 
             points, boxes = vis_utils.transform_data_to_sensor_frame(curr_lidar_data, curr_lables)
             points = points.astype(np.float32)
@@ -69,6 +70,18 @@ class BoreasVisualizer:
         vis.show_geometries_under("task", True)
 
     def visualize(self, frame_idx, predictions=None, mode='both', show=True):
+        """
+        Visualize the sequence.
+
+        Args:
+            frame_idx: the frame index in the current sequence to visualize
+            predictions: user generated predictions to also be visualized
+            mode: 'persp' for perspective (camera) view, 'bev' for top down view, or 'both'
+            show: flag to show the matplotlib plot. Should only be off for exporting to video
+
+        Returns: the BoreasPlotter object used for visualizing
+
+        """
         boreas_plot = boreas_plotter.BoreasPlotter(self.sequence,
                                                    frame_idx,
                                                    mode=mode)
@@ -81,6 +94,13 @@ class BoreasVisualizer:
         return boreas_plot
 
     def export_vis_video(self, name, mode='both'):
+        """
+        Exports the current sequence visualization to video. Defaults to current working directory for save location.
+
+        Args:
+            name: name for the exported video file (don't include extension)
+            mode: 'persp' for perspective (camera) view, 'bev' for top down view, or 'both'
+        """
         imgs = []
         # Render the matplotlib figs to images
         print("Exporting Visualization to Video")

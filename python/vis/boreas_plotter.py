@@ -7,7 +7,7 @@ from matplotlib.widgets import Button
 import numpy as np
 import cv2
 
-import map_utils
+from vis import map_utils
 
 
 class BoreasPlotter:

@@ -42,6 +42,7 @@ class MapframeProjector:
 
 
 def get_way_points(element, point_dict):
+    # Get all points in a way in the osm file
     x_pts = []
     y_pts = []
     for nd in element.findall("nd"):
@@ -55,6 +56,7 @@ def get_way_points(element, point_dict):
 def draw_map(filename, axes, x_origin, y_origin, rot_mtx=None, utm=False):
     """
     Draws a map from an osm file on the given axis, wrt a given frame.
+
     Args:
         filename: path to the osm map file to draw
         axes: axes to draw the map on

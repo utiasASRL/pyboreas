@@ -62,12 +62,6 @@ class Sequence:
     def get_radar(self, idx):
         return Radar(self.radar_paths[idx])
 
-    def visualize(self):
-        pass
-
-    # TODO: generate video for the entire sequences -> use boreas visualizer
-    # option 1: display video, option 2: save video to file
-
     def get_pose(self, sensType, timestamp):
         pass
     # TODO
@@ -136,4 +130,5 @@ class Sequence:
 if __name__ == "__main__":
     # for debugging
     seq = Sequence("/home/shichen/datasets/", ["boreas_mini", 1606417230037163312, 1606417239986391931])
+    vis = seq.get_visualizer()
     print('hello')

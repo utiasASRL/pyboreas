@@ -3,7 +3,7 @@ from os import path
 from data_classes.splits import *
 from data_classes.sequence import Sequence
 from data_classes.sensors import Camera, Lidar, Radar
-from vis.vis import BoreasVisualizer
+from vis.visualizer import BoreasVisualizer
 
 class BoreasDataset:
 	def __init__(self, root='/data/boreas/', split=odom_sample):
