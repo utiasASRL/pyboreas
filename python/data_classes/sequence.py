@@ -25,14 +25,14 @@ class Sequence:
 
         self.lidar_paths = self._get_datapaths(self.lidar_root, self.start_ts, self.end_ts)
         self.camera_paths = self._get_datapaths(self.camera_root, self.start_ts, self.end_ts)
-        self.radar_paths = self._get_datapaths(self.radar_root, self.start_ts, self.end_ts)
+        # self.radar_paths = self._get_datapaths(self.radar_root, self.start_ts, self.end_ts)
         self.calib = Calib(boreas_root + self.seqID + '/calib/')
 
         self.ts_camera_synced = self._sync_camera_frames()
 
         self.lidar_dict = self._load_sensor_data(path.join(self.applanix_root, 'lidar_poses.csv'), self.lidar_paths, Lidar)
         self.camera_dict = self._load_sensor_data(path.join(self.applanix_root, 'camera_poses.csv'), self.camera_paths, Camera)
-        self.radar_dict = self._load_sensor_data(path.join(self.applanix_root, 'radar_poses.csv'), self.radar_paths, Radar)
+        # self.radar_dict = self._load_sensor_data(path.join(self.applanix_root, 'radar_poses.csv'), self.radar_paths, Radar)
 
     # TODO: load printable metadata string
     def __len__(self):

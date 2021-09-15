@@ -100,7 +100,7 @@ class BoreasPlotter:
         lidar_points = lidar_scan.load_points()
 
         # Draw map CURRENTLY HARDCODED
-        map_utils.draw_map_without_lanelet("./python/vis/boreas_lane.osm", ax, lidar_scan.position[0], lidar_scan.position[1], C_i_enu, utm=True)
+        map_utils.draw_map("./python/vis/boreas_lane.osm", ax, lidar_scan.position[0], lidar_scan.position[1], C_i_enu, utm=True)
 
         # Calculate point colors
         z_min = -3
