@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import cv2
 import yaml
@@ -21,8 +23,8 @@ class PointCloud:
 		# body_rate: (6, 1) [vx, vy, vz, wx, wy, wz] in body frame
 		# Note: modifies points contained in this class
 		assert(body_rate.shape[0] == 6 and body_rate.shape[1] == 1)
-		tmin = np.min(points[:, 5])
-		tmax = np.max(points[:, 5])
+		tmin = np.min(self.points[:, 5])
+		tmax = np.max(self.points[:, 5])
 		if tref is None:
 			tref = (tmin + tmax) / 2
 		# Precompute transforms for compute speed
@@ -33,7 +35,7 @@ class PointCloud:
 			t = tmin + i * delta
 			T_undistorts.append(se3ToSE3((t - tref) * body_rate))
 		if not in_place:
-			ptemp = np.copy(points)
+			ptemp = np.copy(self.points)
 		for i in range(self.points.shape[0]):
 			pbar = np.vstack((self.points[i, :3], np.array([1])))
 			index = int((self.points[i, 5] - tmin) / delta)
@@ -171,10 +173,12 @@ class Sequence:
 		return Radar(self.radarFrames[idx])
 
 	def visualize(self):
+		pass
 		# TODO: generate video for the entire sequences
 		# option 1: display video, option 2: save video to file
 
 	def get_pose(self, sensType, timestamp):
+		pass
 		# TODO
 
 class BoundingBoxes:
@@ -208,8 +212,8 @@ class BoreasDataset:
 			self.radarFrames += seq.radarFrames
 			self.seqDict[seq.seqID] = len(self.sequences) - 1
 
-	def get_seq_from_ID(seqID):
-		return self.sequences(seqDict[seqID])
+	def get_seq_from_ID(self, seqID):
+		return self.sequences[self.seqDict[seqID]]
 
 	@property
 	def cam0(self):
