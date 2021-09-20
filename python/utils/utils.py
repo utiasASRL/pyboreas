@@ -2,8 +2,9 @@ import os
 import numpy as np
 
 def load_lidar(path, dim=6):
-    scan = np.fromfile(path, dtype=np.float32)
-    points = scan.reshape((-1, dim))[:, :dim]
+    points = np.fromfile(path, dtype=np.float32).reshape((-1, 6)).astype(np.float64)
+    t = float(path.split('/')[-1].split('.')[0]) * 1e-6
+    points[:, 5] += t
     return points
 
 def roll(r):
@@ -45,10 +46,10 @@ def get_transform(gt):
         np.ndarray: 4x4 transformation matrix (pose of sensor)
     """
     T = np.identity(4, dtype=np.float64)
-    C_enu_sensor = yawPitchRollToRot(gt[10], gt[9], gt[8])
-    T[0, 3] = gt[2]
-    T[1, 3] = gt[3]
-    T[2, 3] = gt[4]
+    C_enu_sensor = yawPitchRollToRot(gt[9], gt[8], gt[7])
+    T[0, 3] = gt[1]
+    T[1, 3] = gt[2]
+    T[2, 3] = gt[3]
     T[0:3, 0:3] = C_enu_sensor
     return T
 
@@ -82,7 +83,7 @@ def get_inverse_tf(T):
     Returns:
         np.ndarray: inv(T)
     """
-    T2 = np.identity(4, dtype=np.float32)
+    T2 = np.identity(4, dtype=T.dtype)
     R = T[0:3, 0:3]
     t = T[0:3, 3].reshape(3, 1)
     T2[0:3, 0:3] = R.transpose()
@@ -174,7 +175,7 @@ def se3ToSE3(xi):
     T[0:3, 3:] = rho
     return T
 
-def SE3tose3(T):
+def SE3Tose3(T):
     """Converts 4x4 homogeneous transforms in SE(3) to 6x1 vectors representing the Lie Algebra, se(3)
         SE(3) T = [C, r; 0 0 0 1] (4 x 4) --> Lie Vector xi = [rho, phi]^T (6 x 1)
     Args:

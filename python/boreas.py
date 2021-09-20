@@ -3,7 +3,7 @@ import cv2
 import yaml
 
 from splits import *
-from utils import carrot, get_transform, load_lidar
+from utils import se3ToSE3, get_transform, load_lidar
 from radar import load_radar, radar_polar_to_cartesian
 
 class PointCloud:
@@ -13,10 +13,9 @@ class PointCloud:
 
 	def transform(self, T):
 		assert(T.shape[0] == 4 and T.shape[1] == 4)
-		for i in range(self.points.shape[0]):
-			pbar = np.vstack((self.points[i, :3], np.array([1])))
-			pbar = np.matmul(T, pbar)
-			self.points[i, :3] = pbar[:3, 0]
+		p = np.hstack((self.points[:, :3], np.ones((self.points.shape[0], 1))))
+		p = np.matmul(p, T.T)
+		self.points[:, :3] = p[:, :3]
 	
 	def remove_motion(self, body_rate, tref=None, in_place=True):
 		# body_rate: (6, 1) [vx, vy, vz, wx, wy, wz] in body frame
@@ -28,11 +27,11 @@ class PointCloud:
 			tref = (tmin + tmax) / 2
 		# Precompute transforms for compute speed
 		bins = 101
-		delta = (tmax - tmin) / (bins - 1)
+		delta = (tmax - tmin) / float(bins - 1)
 		T_undistorts = []
 		for i in range(bins):
 			t = tmin + i * delta
-			T_undistorts.append((t - tref) * carrot(body_rate))
+			T_undistorts.append(se3ToSE3((t - tref) * body_rate))
 		if not in_place:
 			ptemp = np.copy(points)
 		for i in range(self.points.shape[0]):
@@ -51,14 +50,14 @@ class PointCloud:
 class Sensor:
 	def __init__(self, path):
 		self.path = path
-		self.frame = path.split('/')[-1]
+		self.frame = path.split('/')[-1].split('.')[0]
 		self.sensType = path.split('/')[-2]
 		self.seqID = path.split('/')[-3]
 		self.root = '/'.join(path.split('/')[:-2] + [''])
 		self.pose = None
 		self.velocity = None
 		self.body_rate = None
-		self.timestamp = None
+		self.timestamp = float(self.frame) * 1e-6
 
 	def get_pose(self):
 		if self.pose is not None:
@@ -71,12 +70,11 @@ class Sensor:
 					gt = [float(x) for x in line.split(',')]
 					self.pose = get_transform(gt)
 					wbar = np.array([gt[12], gt[11], gt[10]]).reshape(3, 1)
-					wbar = np.matmul(self.pose[:3, :3], wbar)
+					wbar = np.matmul(self.pose[:3, :3], wbar).squeeze()
 					self.velocity = np.array([gt[4], gt[5], gt[6], wbar[0], wbar[1], wbar[2]]).reshape(6, 1)
 					vbar = np.array([gt[4], gt[5], gt[6]]).reshape(3, 1)
-					vbar = np.matmul(self.pose[:3, :3].T, vbar)
-					self.body_rate = np.array([vbar[0], vbar[1], vbar[2], gt[12], gt[11], gt[10]])
-					self.timestamp = gt[1]
+					vbar = np.matmul(self.pose[:3, :3].T, vbar).squeeze()
+					self.body_rate = np.array([vbar[0], vbar[1], vbar[2], gt[12], gt[11], gt[10]]).reshape(6, 1)
 					return self.pose
 
 	def get_velocity(self):
@@ -90,8 +88,6 @@ class Sensor:
 		return self.body_rate
 
 	def get_timestamp(self):
-		if self.timestamp is None:
-			self.get_pose()
 		return self.timestamp
 
 class Lidar(Sensor, PointCloud):
