@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from time import time
 from python.utils.utils import get_inverse_tf, rotationError, translationError, enforce_orthog
 from itertools import accumulate
 from pylgmath import Transformation
@@ -23,12 +24,13 @@ class TrajStateVar:
         self.pose: TransformStateVar = pose
         self.velocity: VectorSpaceStateVar = velocity
 
-def interpolatePoses(poses, times, query_times):
+def interpolatePoses(poses, times, query_times, init_finite_diff=False):
     """Runs a steam optimization with locked poses and outputs poses queried at query_times
     Args:
         poses (List[np.ndarray]): list of 4x4 poses (T_v_i vehicle and inertial frames)
         times (List[int]): list of times for poses (float for seconds or int for nanoseconds)
         query_times (List[float or int]): list of query times (int for nanoseconds)
+        init_finite_diff (bool): if set to true, initialize velocities using finite difference of poses
     Returns:
         (List[np.ndarray]): list of 4x4 poses (T_v_i vehicle and inertial frames) at query_times
     """
@@ -36,14 +38,29 @@ def interpolatePoses(poses, times, query_times):
     Qc_inv = np.diag(1 / np.array([1.0, 0.001, 0.001, 0.001, 0.001, 1.0]))
 
     # steam state variables
-    init_velocity = np.zeros((6, 1))
-    states = [
-        TrajStateVar(
-            Time(nsecs=times[i]),
-            TransformStateVar(Transformation(T_ba=enforce_orthog(poses[i])), copy=True),
-            VectorSpaceStateVar(init_velocity, copy=True),
-        ) for i in range(len(poses))
-    ]
+    if init_finite_diff:
+        states = []
+        for i in range(len(poses)):
+            if i == 0:
+                dt = (times[1] - times[0])*1e-9
+                dT = Transformation(T_ba=enforce_orthog(poses[1])) @ Transformation(T_ba=enforce_orthog(poses[0]))
+            else:
+                dt = (times[i] - times[i-1])*1e-9
+                dT = Transformation(T_ba=enforce_orthog(poses[i])) @ Transformation(T_ba=enforce_orthog(poses[i-1]))
+            velocity = dT.vec() / dt
+            states += [TrajStateVar(
+                            Time(nsecs=times[i]),
+                            TransformStateVar(Transformation(T_ba=enforce_orthog(poses[i])), copy=True),
+                            VectorSpaceStateVar(velocity, copy=True))]
+    else:
+        init_velocity = np.zeros((6, 1))
+        states = [
+            TrajStateVar(
+                Time(nsecs=times[i]),
+                TransformStateVar(Transformation(T_ba=enforce_orthog(poses[i])), copy=True),
+                VectorSpaceStateVar(init_velocity, copy=True),
+            ) for i in range(len(poses))
+        ]
 
     # setup trajectory
     traj = TrajectoryInterface(Qc_inv=Qc_inv, allow_extrapolation=True)
@@ -241,6 +258,8 @@ def computeKittiMetrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_len
     # loop for each sequence
     err_list = []
     for i in range(len(seq_lens_pred)):
+        ts = time()  # start time
+        print('processing sequence', seq[i], '...')
         # get poses and times of current sequence
         T_gt_seq = T_gt[indices_gt[i]:indices_gt[i+1]]
         T_pred_seq = T_pred[indices_pred[i]:indices_pred[i+1]]
@@ -253,6 +272,9 @@ def computeKittiMetrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_len
         err, path_lengths = calcSequenceErrors(T_gt_seq, T_query, step_size)
         t_err, r_err, t_err_len, r_err_len = getStats(err, path_lengths)
         err_list.append([t_err, r_err])
+
+        print(seq[i], 'took', str(time() - ts), ' seconds')
+
         plotStats(seq[i], root, T_query, T_gt_seq, path_lengths, t_err_len, r_err_len)
     err_list = np.asarray(err_list)
     avg = np.mean(err_list, axis=0)
