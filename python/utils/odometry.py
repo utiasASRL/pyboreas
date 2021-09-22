@@ -2,8 +2,6 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-import pylgmath as lgmath
-import pysteam as steam
 from python.utils.utils import get_inverse_tf, rotationError, translationError, enforce_orthog
 from itertools import accumulate
 from pylgmath import Transformation
@@ -14,7 +12,7 @@ from pysteam.solver import GaussNewtonSolver
 from pysteam.evaluator import TransformStateEvaluator
 
 class TrajStateVar:
-    """This class defines a trajectory state variable."""
+    """This class defines a trajectory state variable for steam."""
     def __init__(
           self,
           time: Time,
@@ -109,7 +107,8 @@ def calcSequenceErrors(poses_gt, poses_pred, step_size=4):
         T_gt (List[np.ndarray]): each entry in list is 4x4 transformation matrix, ground truth transforms
         T_pred (List[np.ndarray]): each entry in list is 4x4 transformation matrix, predicted transforms
     Returns:
-        err (List[Tuple]) each entry in list is [first_frame, r_err, t_err, length, speed]
+        err (List[Tuple]): each entry in list is [first_frame, r_err, t_err, length, speed]
+        lengths (List[int]): list of lengths that odometry is evaluated at
     """
     lengths = [100, 200, 300, 400, 500, 600, 700, 800]
     err = []
@@ -134,7 +133,13 @@ def calcSequenceErrors(poses_gt, poses_pred, step_size=4):
     return err, lengths
 
 def getStats(err, lengths):
-    """Computes the average translation and rotation within a sequence (across subsequences of diff lengths)."""
+    """Computes the average translation and rotation within a sequence (across subsequences of diff lengths).
+    Args:
+        err (List[Tuple]): each entry in list is [first_frame, r_err, t_err, length, speed]
+        lengths (List[int]): list of lengths that odometry is evaluated at
+    Returns:
+        average translation (%) and rotation (deg/m) errors
+    """
     t_err = 0
     r_err = 0
     len2id = {x: i for i, x in enumerate(lengths)}
@@ -154,6 +159,16 @@ def getStats(err, lengths):
            [a/float(b) * 180 / np.pi for a, b in zip(r_err_len, len_count)]
 
 def plotStats(seq, root, T_odom, T_gt, lengths, t_err, r_err):
+    """Outputs plots of calculated statistics to specified directory.
+    Args:
+        seq (List[string]): list of sequence file names
+        root (string): directory path for plot outputs
+        T_odom (List[np.ndarray]): list of 4x4 estimated poses T_vk_i (vehicle frame at time k and fixed frame i)
+        T_gt (List[np.ndarray]): List of 4x4 groundtruth poses T_vk_i (vehicle frame at time k and fixed frame i)
+        lengths (List[int]): list of lengths that odometry is evaluated at
+        t_err (List[float]): list of average translation error corresponding to lengths
+        r_err (List[float]): list of average rotation error corresponding to lengths
+    """
     path_odom = getPathFromTviList(T_odom)
     path_gt = getPathFromTviList(T_gt)
 
@@ -188,6 +203,12 @@ def plotStats(seq, root, T_odom, T_gt, lengths, t_err, r_err):
     plt.close()
 
 def getPathFromTviList(Tvi_list):
+    """Gets 3D path (xyz) from list of poses T_vk_i (transform between vehicle frame at time k and fixed frame i).
+    Args:
+        Tvi_list (List[np.ndarray]): K length list of 4x4 poses T_vk_i
+    Returns:
+        path (np.ndarray): K x 3 numpy array of xyz coordinates
+    """
     path = np.zeros((len(Tvi_list), 3), dtype=np.float32)
     for j, Tvi in enumerate(Tvi_list):
         path[j] = (-Tvi[:3, :3].T @ Tvi[:3, 3:4]).squeeze()
@@ -200,7 +221,13 @@ def computeKittiMetrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_len
     Args:
         T_gt (List[np.ndarray]): List of 4x4 homogeneous transforms (fixed reference frame to frame t)
         T_pred (List[np.ndarray]): List of 4x4 homogeneous transforms (fixed reference frame to frame t)
-        seq_lens (List[int]): List of sequence lengths
+        times_gt (List[int]): List of times (nanoseconds) corresponding to T_gt
+        times_pred (List[int]): List of times (nanoseconds) corresponding to T_pred
+        seq_lens_gt (List[int]): List of sequence lengths corresponding to T_gt
+        seq_lens_pred (List[int]): List of sequence lengths corresponding to T_pred
+        seq (List[string]): List of sequence file names
+        root (string): path to output directory for plots
+        step_size (int): step size applied for classifying distances travelled
     Returns:
         t_err: Average KITTI Translation ERROR (%)
         r_err: Average KITTI Rotation Error (deg / m)
@@ -231,17 +258,31 @@ def computeKittiMetrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_len
     avg = np.mean(err_list, axis=0)
     t_err = avg[0]
     r_err = avg[1]
-    # return t_err * 100, r_err * 180 / np.pi
+
     return t_err, r_err
 
-def get_sequences(path, prefix=''):
-    """Retrieves a list of all the sequences in the dataset with the given prefix."""
-    sequences = [f for f in os.listdir(path) if prefix in f]
+def get_sequences(path, file_ext=''):
+    """Retrieves a list of all the sequences in the dataset with the given prefix.
+    Args:
+        path (string): directory path to where the files are
+        file_ext (string): string identifier to look for (e.g., '.txt')
+    Returns:
+        sequences (List[string]): list of sequence file names
+    """
+    sequences = [f for f in os.listdir(path) if file_ext in f]
     sequences.sort()
     return sequences
 
 def get_sequence_poses(path, seq):
-    """Retrieves a list of the poses corresponding to the given sequences in the given file path."""
+    """Retrieves a list of the poses corresponding to the given sequences in the given file path.
+    Args:
+        path (string): directory path to where the files are
+        seq (List[string]): list of sequence file names
+    Returns:
+        all_poses (List[np.ndarray]): list of 4x4 poses from all sequence files
+        all_times (List[int]): list of times in nanoseconds from all sequence files
+        seq_lens (List[int]): list of sequence lengths
+    """
 
     # loop for each sequence
     all_poses = []
