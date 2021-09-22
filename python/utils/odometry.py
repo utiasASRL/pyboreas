@@ -145,7 +145,7 @@ def calcSequenceErrors(poses_gt, poses_pred, step_size=4):
             t_err = translationError(pose_error)
             # Approx speed
             num_frames = float(last_frame - first_frame + 1)
-            speed = float(length) / (0.25 * num_frames)
+            speed = float(length) / (0.1 * num_frames)
             err.append([first_frame, r_err/float(length), t_err/float(length), length, speed])
     return err, lengths
 
