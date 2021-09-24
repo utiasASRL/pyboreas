@@ -1,7 +1,7 @@
 import numpy as np
-from scipy.spatial.transform import Rotation as R
 
 from data_classes.bounding_boxes import BoundingBox2D
+from utils.utils import quaternionToRot
 
 def to_T(C, r):
     T = np.concatenate((C, r), axis=1)
@@ -24,7 +24,7 @@ def velodyne_frame_from_imu(raw_heading, r_io, T_iv=None):
     raw_heading[0] = -raw_heading[0]
     raw_heading[1] = -raw_heading[1]
     raw_heading[2] = -raw_heading[2]
-    C_io = R.from_quat(raw_heading).as_matrix()
+    C_io = quaternionToRot(raw_heading)
     r_oi = -np.matmul(C_io, r_io)
     T_io = np.concatenate((C_io, r_oi), axis=1)
     T_io = np.concatenate((T_io, [[0, 0, 0, 1]]), axis=0)
@@ -49,7 +49,7 @@ def velodyne_frame_from_imu(raw_heading, r_io, T_iv=None):
     raw_heading_yaw = raw_heading
     raw_heading_yaw[0] = 0  # Pitch to 0
     raw_heading_yaw[1] = 0  # Roll to 0
-    C_io_yaw = R.from_quat(raw_heading_yaw).as_matrix()
+    C_io_yaw = quaternionToRot(raw_heading_yaw)
     C_vo_yaw = np.matmul(C_vi, C_io_yaw)
 
     return T_vo, C_vo_yaw

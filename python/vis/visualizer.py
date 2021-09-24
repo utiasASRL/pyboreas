@@ -2,7 +2,6 @@
 
 import sys
 import glob
-from os import path
 import csv
 
 import cv2
@@ -19,6 +18,11 @@ from data_classes.sequence import Sequence
 
 matplotlib.use("tkagg")  # slu: for testing with ide
 
+def get_closest_frame(query_time, target_times, targets):
+    times = np.array(target_times)
+    closest = np.argmin(np.abs(times - query_time))
+    assert(np.abs(query_time - times[closest]) < 1.0), "closest time to query: {} in rostimes not found.".format(query_time)
+    return targets[closest]
 
 class BoreasVisualizer:
     """Main class for loading the Boreas dataset for visualization.
@@ -34,8 +38,16 @@ class BoreasVisualizer:
             sequence: Sequence object to base the visualization on
         """
         self.sequence = sequence
-        self.track_length = len(sequence)
-        self.timestamps = sequence.timestamps
+        self.calib = sequence.calib
+        self.track_length = len(sequence.lidar_frames)
+        self.lidar_frames = sequence.lidar_frames
+        lstamps = [frame.timestamp for frame in sequence.lidar_frames]
+        cstamps = [frame.timestamp for frame in sequence.camera_frames]
+        rstamps = [frame.timestamp for frame in sequence.radar_frames]
+        # Get corresponding camera and radar frame for each lidar frame
+        self.camera_frames = [get_closest_frame(lstamp, cstamps, sequence.camera_frames) for lstamp in lstamps]
+        self.radar_frames = [get_closest_frame(lstamp, rstamps, sequence.radar_frames) for lstamp in lstamps]
+
         # # Load label data
         # print("Loading Labels...", flush=True)
         # with open(self.label_file, 'r') as file:
@@ -49,7 +61,7 @@ class BoreasVisualizer:
         # bb_data = []
 
         for i in range(self.track_length):
-            curr_lidar_data = self.sequence.lidar_scans[i].points
+            curr_lidar_data = self.lidar_frames[i].load_data()
             curr_lables = self.sequence.labels[i]
 
             points, boxes = vis_utils.transform_data_to_sensor_frame(curr_lidar_data, curr_lables)
@@ -82,7 +94,7 @@ class BoreasVisualizer:
         Returns: the BoreasPlotter object used for visualizing
 
         """
-        boreas_plot = boreas_plotter.BoreasPlotter(self.sequence,
+        boreas_plot = boreas_plotter.BoreasPlotter(self,
                                                    frame_idx,
                                                    mode=mode)
         boreas_plot.update_plots(frame_idx)
@@ -104,7 +116,7 @@ class BoreasVisualizer:
         imgs = []
         # Render the matplotlib figs to images
         print("Exporting Visualization to Video")
-        for i in tqdm(range(len(self.timestamps)), file=sys.stdout):
+        for i in tqdm(range(len(self.lidar_frames)), file=sys.stdout):
             bplot = self.visualize(frame_idx=i, mode=mode, show=False)
             canvas = FigureCanvas(bplot.fig)
             canvas.draw()

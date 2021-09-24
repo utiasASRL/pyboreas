@@ -14,13 +14,14 @@ class BoreasPlotter:
     """
     Class for plotting persp and BEV for boreas stuff
     """
-    def __init__(self, sequence, curr_ts_idx, labels=None, mode='both'):
+    def __init__(self, visualizer, curr_ts_idx, labels=None, mode='both'):
         # Data
-        self.sequence = sequence
-        self.calib = sequence.calib
-        self.lidar_scans = sequence.lidar_dict
-        self.camera_imgs = sequence.camera_dict
-        assert not (self.lidar_scans is None and self.camera_imgs is None)  # We must have something to plot
+        self.calib = visualizer.calib
+        self.lidar_frames = visualizer.lidar_frames
+        self.camera_frames = visualizer.camera_frames
+        self.radar_frames = visualizer.radar_frames
+        
+        assert not (self.lidar_frames is None and self.camera_frames is None)  # We must have something to plot
 
         # For plotting
         self.mode = mode
@@ -56,8 +57,8 @@ class BoreasPlotter:
         if not self.plot_update_mutex.acquire(timeout=0.5):
             return
         try:
-            self.curr_ts_idx = min(self.curr_ts_idx + 1, len(self.sequence) - 1)
-            print("Visualizing Timestep Index: {}/{}...".format(self.curr_ts_idx, len(self.sequence)), end=" ")
+            self.curr_ts_idx = min(self.curr_ts_idx + 1, len(self.lidar_frames) - 1)
+            print("Visualizing Timestep Index: {}/{}...".format(self.curr_ts_idx, len(self.lidar_frames)), end=" ")
             self.update_plots(self.curr_ts_idx)
             print("Done")
         finally:
@@ -68,7 +69,7 @@ class BoreasPlotter:
             return
         try:
             self.curr_ts_idx = max(self.curr_ts_idx - 1, 0)
-            print("Visualizing Timestep Index: {}/{}...".format(self.curr_ts_idx, len(self.sequence)), end=" ")
+            print("Visualizing Timestep Index: {}/{}...".format(self.curr_ts_idx, len(self.lidar_frames)), end=" ")
             self.update_plots(self.curr_ts_idx)
             print("Done")
         finally:
@@ -76,31 +77,28 @@ class BoreasPlotter:
 
     def update_plots(self, frame_idx):
         if self.mode == 'bev' or self.mode == 'both':
-            curr_ts = self.sequence.timestamps[frame_idx]
-            curr_lidar_scan = self.lidar_scans[curr_ts]
+            lidar_frame = self.lidar_frames[frame_idx]
             self.bev_ax.clear()
-            self.update_plot_bev(self.bev_ax, curr_lidar_scan)
+            self.update_plot_bev(self.bev_ax, lidar_frame)
 
         if self.mode == 'persp' or self.mode == 'both':
-            cam_ts = self.sequence.ts_camera_synced[frame_idx]
-            curr_camera_img = self.camera_imgs[cam_ts]
-            if self.lidar_scans is not None:
-                curr_ts = self.sequence.timestamps[frame_idx]
-                curr_lidar_scan = self.lidar_scans[curr_ts]
+            camera_frame = self.camera_frames[frame_idx]
+            if self.lidar_frames is not None:
+                lidar_frame = self.lidar_frames[frame_idx]
             else:
-                curr_lidar_scan = None
+                lidar_frame = None
             self.persp_ax.clear()
-            self.update_plot_persp(self.persp_ax, curr_camera_img, curr_lidar_scan)
+            self.update_plot_persp(self.persp_ax, camera_frame, lidar_frame)
 
-    def update_plot_bev(self, ax, lidar_scan, downsample_factor=0.3):
+    def update_plot_bev(self, ax, lidar_frame, downsample_factor=0.3):
         # Calculate transformations for current data
-        C_v_enu = lidar_scan.get_C_v_enu().as_matrix()
-        C_i_enu = self.calib.T_applanix_lidar[0:3, 0:3] @ C_v_enu
-        C_iv = self.calib.T_applanix_lidar[0:3, 0:3]
-        lidar_points = lidar_scan.load_points()
+        C_l_enu = lidar_frame.pose[:3, :3].T
+        C_a_enu = self.calib.T_applanix_lidar[0:3, 0:3] @ C_l_enu
+        C_av = self.calib.T_applanix_lidar[0:3, 0:3]
+        lidar_points = lidar_frame.load_data()
 
         # Draw map CURRENTLY HARDCODED
-        map_utils.draw_map("./python/vis/boreas_lane.osm", ax, lidar_scan.position[0], lidar_scan.position[1], C_i_enu, utm=True)
+        map_utils.draw_map("./python/vis/boreas_lane.osm", ax, lidar_frame.pose[0, 0], lidar_frame.pose[0, 1], C_a_enu, utm=True)
 
         # Calculate point colors
         z_min = -3
@@ -108,7 +106,7 @@ class BoreasPlotter:
         colors = cm.jet(((lidar_points[:, 2] - z_min) / (z_max - z_min)) + 0.2, 1)[:, 0:3]
 
         # Draw lidar points
-        pcd_i = np.matmul(C_iv[0:2, 0:2].reshape(1, 2, 2), lidar_points[:, 0:2].reshape(lidar_points.shape[0], 2, 1)).squeeze(-1)
+        pcd_i = np.matmul(C_av[0:2, 0:2].reshape(1, 2, 2), lidar_points[:, 0:2].reshape(lidar_points.shape[0], 2, 1)).squeeze(-1)
         rand_idx = np.random.choice(pcd_i.shape[0], size=int(pcd_i.shape[0]*downsample_factor), replace=False)
         self.scatter = ax.scatter(pcd_i[rand_idx, 0], pcd_i[rand_idx, 1], color=colors[rand_idx, :], s=0.05)
 
@@ -126,11 +124,11 @@ class BoreasPlotter:
 
         plt.draw()
 
-    def update_plot_persp(self, ax, camera_data, lidar_scan, downsample_factor=0.3):
-        if lidar_scan is None:  # If there is no lidar points, just show image
-            ax.imshow(camera_data.load_img())
+    def update_plot_persp(self, ax, camera_data, lidar_frame, downsample_factor=0.3):
+        if lidar_frame is None:  # If there is no lidar points, just show image
+            ax.imshow(camera_data.load_data())
         else:
-            points = lidar_scan.load_points()[:, 0:3]
+            points = lidar_frame.load_data()[:, 0:3]
             points = points[np.random.choice(points.shape[0], size=int(points.shape[0]*downsample_factor), replace=False)]
             points = points.T
             points = np.vstack((points, np.ones(points.shape[1])))
@@ -143,7 +141,7 @@ class BoreasPlotter:
             points_camera = np.reshape(points_camera, (-1, 4)).T
             pixel_camera = np.matmul(self.calib.P0, points_camera)
 
-            image = copy.deepcopy(camera_data.load_img())
+            image = copy.deepcopy(camera_data.load_data())
 
             max_z = int(max(pixel_camera[2, :]) / 3)
             for i in range(pixel_camera.shape[1]):

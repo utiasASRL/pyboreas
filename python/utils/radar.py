@@ -14,9 +14,9 @@
 
 import numpy as np
 import cv2
+from utils.utils import get_time_from_filename
 
-CTS350 = 0    # Oxford
-CIR204 = 1    # Boreas
+upgrade_time = 1632182400  # before: resolution = 0.0596, after: resolution = 0.04381
 
 def load_radar(example_path):
     """Decode a single Oxford Radar RobotCar Dataset radar example
@@ -38,11 +38,14 @@ def load_radar(example_path):
     fft_data = raw_example_data[:, 11:].astype(np.float32)[:, :, np.newaxis] / 255.
     fft_data[:, :42] = 0
     fft_data = np.squeeze(fft_data)
-
-    return timestamps, azimuths, valid, fft_data
+    resolution = 0.0596
+    t = get_time_from_filename(example_path)
+    if t > upgrade_time:
+        resolution = 0.04381
+    return timestamps, azimuths, valid, fft_data, resolution
 
 def radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resolution, cart_pixel_width,
-                             interpolate_crossover=True, navtech_version=CIR204):
+                             interpolate_crossover=True, fix_wobble=True):
     """Convert a polar radar scan to cartesian.
     Args:
         azimuths (np.ndarray): Rotation for each polar radar azimuth (radians)
@@ -68,13 +71,14 @@ def radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resoluti
     sample_angle += (sample_angle < 0).astype(np.float32) * 2. * np.pi
 
     # Interpolate Radar Data Coordinates
-    azimuth_step = azimuths[1] - azimuths[0]
+    azimuth_step = (azimuths[-1] - azimuths[0]) / (azimuths.shape[0] - 1)
     sample_u = (sample_range - radar_resolution / 2) / radar_resolution
     sample_v = (sample_angle - azimuths[0]) / azimuth_step
-    if navtech_version == CIR204:
+    # This fixes the wobble in the old CIR204 data from Boreas (keenan)
+    if fix_wobble and radar_resolution == 0.0596:
         azimuths = azimuths.reshape((1, 1, 400))  # 1 x 1 x 400
         sample_angle = np.expand_dims(sample_angle, axis=-1)  # H x W x 1
-        diff =  np.abs(azimuths - sample_angle)
+        diff = np.abs(azimuths - sample_angle)
         c3 = np.argmin(diff, axis=2)
         azimuths = azimuths.squeeze()
         c3 = c3.reshape(cart_pixel_width, cart_pixel_width)  # azimuth indices (closest)
@@ -104,3 +108,18 @@ def radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resoluti
 
     polar_to_cart_warp = np.stack((sample_u, sample_v), -1)
     return cv2.remap(fft_data, polar_to_cart_warp, None, cv2.INTER_LINEAR)
+
+def mean_intensity_mask(polar_data, multiplier=3.0):
+    """Thresholds on multiplier*np.mean(azimuth_data) to create a polar mask of likely target points.
+    Args:
+        polar_data (np.ndarray): num_azimuths x num_range_bins polar data
+        multiplier (float): multiple of mean that we treshold on
+    Returns:
+        np.ndarray: binary polar mask corresponding to likely target points
+    """
+    num_azimuths, range_bins = polar_data.shape
+    mask = np.zeros((num_azimuths, range_bins))
+    for i in range(num_azimuths):
+        m = np.mean(polar_data[i, :])
+        mask[i, :] = polar_data[i, :] > multiplier * m
+    return mask

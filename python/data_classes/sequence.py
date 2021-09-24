@@ -1,96 +1,80 @@
-from os import listdir, path
+import os.path as osp
 from pathlib import Path
-import csv
 
 from data_classes.calib import Calib
 from data_classes.sensors import Camera, Lidar, Radar
 
-
 class Sequence:
     def __init__(self, boreas_root, seqSpec):
-        assert seqSpec[2] > seqSpec[1], 'Sequence timestamps must go forward in time'
         self.seqID = seqSpec[0]
-        self.seq_root = path.join(boreas_root, self.seqID)
+        if len(seqSpec) > 2:
+            assert seqSpec[2] > seqSpec[1], 'Sequence timestamps must go forward in time'
+            self.start_ts = str(seqSpec[1])
+            self.end_ts = str(seqSpec[2])
+        else:
+            self.start_ts = '0'  # dummy start and end if not specified
+            self.end_ts = '9' * 21
+        self.seq_root = osp.join(boreas_root, self.seqID)
+        self.applanix_root = osp.join(self.seq_root, 'applanix')
+        self.calib_root = osp.join(self.seq_root, 'calib')
+        self.camera_root = osp.join(self.seq_root, 'camera')
+        self.lidar_root = osp.join(self.seq_root, 'lidar')
+        self.radar_root = osp.join(self.seq_root, 'radar')
+
         self._check_dataroot_valid(self.seq_root)
 
-        self.camera_root = path.join(self.seq_root, 'camera')
-        self.lidar_root = path.join(self.seq_root, 'lidar')
-        self.radar_root = path.join(self.seq_root, 'radar')
-        self.applanix_root = path.join(self.seq_root, 'applanix')
+        self.calib = Calib(self.calib_root)
 
-        self.start_ts = str(seqSpec[1])
-        self.end_ts = str(seqSpec[2])
+        cfile = osp.join(self.applanix_root, 'camera_poses.csv')
+        lfile = osp.join(self.applanix_root, 'lidar_poses.csv')
+        rfile = osp.join(self.applanix_root, 'radar_poses.csv')
+        self.camera_frames = self._get_frames(cfile, self.camera_root, '.png', Camera)
+        self.lidar_frames = self._get_frames(lfile, self.lidar_root, '.bin', Lidar)
+        self.radar_frames = self._get_frames(rfile, self.radar_root, '.png', Radar)
+
         self.timestamps = sorted([int(path.splitext(f)[0]) for f in listdir(self.lidar_root)])  # Currently syncing to lidar timestamps
-        self.seq_len = len(self.timestamps)
-
-        self.lidar_paths = self._get_datapaths(self.lidar_root, self.start_ts, self.end_ts)
-        self.camera_paths = self._get_datapaths(self.camera_root, self.start_ts, self.end_ts)
-        # self.radar_paths = self._get_datapaths(self.radar_root, self.start_ts, self.end_ts)
-        self.calib = Calib(boreas_root + self.seqID + '/calib/')
-
-        self.ts_camera_synced = self._sync_camera_frames()
-
-        self.lidar_dict = self._load_sensor_data(path.join(self.applanix_root, 'lidar_poses.csv'), self.lidar_paths, Lidar)
-        self.camera_dict = self._load_sensor_data(path.join(self.applanix_root, 'camera_poses.csv'), self.camera_paths, Camera)
-        # self.radar_dict = self._load_sensor_data(path.join(self.applanix_root, 'radar_poses.csv'), self.radar_paths, Radar)
-
-    # TODO: load printable metadata string
-    def __len__(self):
-        return len(self.timestamps)
-
-    @property
-    def cam0(self):
-        for f in self.camera_paths:
-            yield Camera(f)
+        self.seq_len = len(self.timestamps)        
+        self.ts_camera_synced = self._sync_camera_frames()  # move this out of here into the visualization class
 
     def get_camera(self, idx):
-        return Camera(self.camera_paths[idx])
-
-    @property
-    def lidar(self):
-        for f in self.lidar_paths:
-            yield Lidar(f)
+        return self.camera_frames[idx]
 
     def get_lidar(self, idx):
-        return Lidar(self.lidar_paths[idx])
-
-    @property
-    def radar(self):
-        for f in self.radar_paths:
-            yield Radar(f)
+        return self.lidar_frames[idx]
 
     def get_radar(self, idx):
-        return Radar(self.radar_paths[idx])
-
-    def get_pose(self, sensType, timestamp):
-        pass
-    # TODO
+        return self.radar_frames[idx]
 
     def _check_dataroot_valid(self, dataroot):
-        # Check if dataroot paths are valid
-        if not path.exists(path.join(dataroot, "camera")):
-            raise ValueError("Error: images dir missing from dataroot")
-        if not path.exists(path.join(dataroot, "lidar")):
-            raise ValueError("Error: lidar dir missing from dataroot")
-        if not path.exists(path.join(dataroot, "applanix")):
-            raise ValueError("Error: applnix dir missing from dataroot")
-        if not path.exists(path.join(dataroot, "calib")):
+        if not osp.exists(self.applanix_root):
+            raise ValueError("Error: applanix dir missing from dataroot")
+        if not osp.exists(self.calib_root):
             raise ValueError("Error: calib dir missing from dataroot")
-        # if not path.exists(path.join(dataroot, "labels.json")):
-        #     raise ValueError("Error: labels.json missing from dataroot")
+        if not osp.exists(self.camera_root):
+            print("Warning: images dir missing from dataroot")
+        if not osp.exists(self.lidar_root):
+            print("Warning: lidar dir missing from dataroot")
+        if not osp.exists(self.radar_root):
+            print("Warning: radar dir missing from dataroot")
 
-    def _get_datapaths(self, dataroot, start_ts, end_ts):
-        res = []
-        for filename in listdir(dataroot):
-            timestamp = path.splitext(filename)[0]
-            if start_ts <= timestamp <= end_ts:  # Note, we are comparing strings here
-                res.append(path.join(dataroot, filename))
-        return sorted(res)
+    def _get_frames(self, posefile, root, ext, SensorType):
+        frames = []
+        if osp.exists(posefile) and osp.exists(root):
+            with open(posefile, 'r') as f:
+                f.readline()
+                for line in f:
+                    data = line.split(',')
+                    ts = data[0]
+                    if self.start_ts <= ts and ts <= self.end_ts:
+                        frame = SensorType(osp.join(self.root, ts + ext))
+                        frame.init_pose(data)
+                        frames.append(frame)
+        return frames
 
     def _sync_camera_frames(self):
         # Helper function for finding closest timestamp
         def get_closest_ts(query_time, targets):
-            min_delta = 1e33  # Temp set to this, should be 1e9
+            min_delta = 1e9  # Temp set to this, should be 1e9
             closest = -1
             for i in range(len(targets)):
                 delta = abs(query_time - targets[i])
@@ -106,25 +90,7 @@ class Sequence:
         for i in range(self.seq_len):
             closest_idx, closest_val = get_closest_ts(self.timestamps[i], camera_timestamps)
             res.append(int(Path(self.camera_paths[closest_idx]).stem))
-        return res
-
-    def _load_sensor_data(self, pose_file, paths, Type):
-        ts_to_path = {}
-        for p in paths:
-            timestamp = int(path.splitext(p.split('/')[-1])[0])
-            ts_to_path[timestamp] = p
-        # timestamps = set([int(path.splitext(p)[0]) for p in paths])  # Timestamps to look for. Use hashset for O(1) __contains__
-        res = {}
-        with open(pose_file) as file:
-            reader = csv.reader(file)
-            next(reader)  # Extract headers
-            for row in reader:
-                timestamp = int(row[0])
-                if timestamp in ts_to_path:
-                    sensor = Type(ts_to_path[timestamp])
-                    sensor.init_pose(row)
-                    res[timestamp] = sensor
-
+            res.append(int(self.camera_paths[closest_idx].split('/')[-1].split('.')[0]))
         return res
 
 if __name__ == "__main__":
