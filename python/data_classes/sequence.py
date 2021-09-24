@@ -32,10 +32,6 @@ class Sequence:
         self.lidar_frames = self._get_frames(lfile, self.lidar_root, '.bin', Lidar)
         self.radar_frames = self._get_frames(rfile, self.radar_root, '.png', Radar)
 
-        self.timestamps = sorted([int(path.splitext(f)[0]) for f in listdir(self.lidar_root)])  # Currently syncing to lidar timestamps
-        self.seq_len = len(self.timestamps)        
-        self.ts_camera_synced = self._sync_camera_frames()  # move this out of here into the visualization class
-
     def get_camera(self, idx):
         return self.camera_frames[idx]
 
@@ -70,31 +66,3 @@ class Sequence:
                         frame.init_pose(data)
                         frames.append(frame)
         return frames
-
-    def _sync_camera_frames(self):
-        # Helper function for finding closest timestamp
-        def get_closest_ts(query_time, targets):
-            min_delta = 1e9  # Temp set to this, should be 1e9
-            closest = -1
-            for i in range(len(targets)):
-                delta = abs(query_time - targets[i])
-                if delta < min_delta:
-                    min_delta = delta
-                    closest = i
-            assert (closest >= 0), "closest time to query: {} in rostimes not found.".format(query_time)
-            return closest, targets[closest]
-
-        # Find closest lidar timestamp for each camera frame
-        res = []
-        camera_timestamps = [int(f.replace('/', '.').split('.')[-2]) for f in self.camera_paths]
-        for i in range(self.seq_len):
-            closest_idx, closest_val = get_closest_ts(self.timestamps[i], camera_timestamps)
-            res.append(int(Path(self.camera_paths[closest_idx]).stem))
-            res.append(int(self.camera_paths[closest_idx].split('/')[-1].split('.')[0]))
-        return res
-
-if __name__ == "__main__":
-    # for debugging
-    seq = Sequence("/home/shichen/datasets/", ["boreas_mini", 1606417230037163312, 1606417239986391931])
-    vis = seq.get_visualizer()
-    print('hello')
