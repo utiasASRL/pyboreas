@@ -79,3 +79,30 @@ def draw_map(filename, axes, x_origin, y_origin, rot_mtx=None, utm=False):
         type_dict = dict(color="black", linewidth=1, zorder=10)
         x_list, y_list = get_way_points(way, point_dict)
         axes.plot(x_list, y_list, **type_dict)
+
+def draw_map_plotly(filename, fig, x_origin, y_origin, rot_mtx=None, utm=False):
+    """
+    Draws a map from an osm file on the given axis, wrt a given frame. Uses plotly instead of mpl
+
+    Args:
+        filename: path to the osm map file to draw
+        axes: axes to draw the map on
+        x_origin: x coords of origin frame
+        y_origin: y coords of origin frame
+        rot_mtx: rotation matrix of the map from wrt to an ENU frame
+        utm: flag for whether the origin is expressed in UTM or lat/long. If using lat/long, x is long, y is lat
+    """
+    map_data = xml.parse(filename).getroot()
+    projector = MapframeProjector(x_origin, y_origin, rot_mtx, utm)
+
+    point_dict = {}
+    for node in map_data.findall("node"):
+        point = Point()
+        point.x, point.y = projector.proj_latlon(float(node.get('lat')), float(node.get('lon')))
+        point_dict[int(node.get('id'))] = point
+
+    for way in map_data.findall('way'):  # RN: just plot everything as black
+        type_dict = dict(color="black", linewidth=1, zorder=10)
+        x_list, y_list = get_way_points(way, point_dict)
+        fig.add_scatter(x=x_list, y=y_list, mode="lines", marker_color="black", line_width=0.5)
+

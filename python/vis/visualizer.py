@@ -15,7 +15,16 @@ from tqdm import tqdm
 
 from vis import vis_utils
 from vis import boreas_plotter
+from vis import boreas_plotly
 from data_classes.sequence import Sequence
+
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
+import plotly.express as px
+import map_utils
+import plotly.graph_objects as go
 
 matplotlib.use("tkagg")  # slu: for testing with ide
 
@@ -82,16 +91,17 @@ class BoreasVisualizer:
         Returns: the BoreasPlotter object used for visualizing
 
         """
-        boreas_plot = boreas_plotter.BoreasPlotter(self.sequence,
-                                                   frame_idx,
-                                                   mode=mode)
-        boreas_plot.update_plots(frame_idx)
-        if show:
-            plt.show()
-        else:
-            plt.close(boreas_plot.fig)
-
-        return boreas_plot
+        # boreas_plot = boreas_plotter.BoreasPlotter(self.sequence,
+        #                                            frame_idx,
+        #                                            mode=mode)
+        # boreas_plot.update_plots(frame_idx)
+        # if show:
+        #     plt.show()
+        # else:
+        #     plt.close(boreas_plot.fig)
+        #
+        # return boreas_plot
+        boreas_plotly.visualize(self.sequence, frame_idx)
 
     def export_vis_video(self, name, mode='both'):
         """
@@ -121,8 +131,67 @@ class BoreasVisualizer:
 
 
 if __name__ == '__main__':
-    sequence = Sequence("/home/shichen/datasets/", ["boreas_mini", 1606417230036848128, 1606417239992609024])
-    dataset = BoreasVisualizer(sequence)
-    # for name in ["both", "persp", "bev"]:
-    #     dataset.export_vis_video(name, name)
-    dataset.visualize(0)
+    seq = Sequence("/home/shichen/datasets/", ["boreas_mini", 1606417230036848128, 1606417239992609024])
+
+    calib = seq.calib
+
+    def get_pcd(idx):
+        # load points
+        curr_ts = seq.timestamps[idx]
+        lidar_scan = seq.lidar_dict[curr_ts]
+
+        # Calculate transformations for current data
+        C_v_enu = lidar_scan.get_C_v_enu().as_matrix()
+        C_i_enu = calib.T_applanix_lidar[0:3, 0:3] @ C_v_enu
+        C_iv = calib.T_applanix_lidar[0:3, 0:3]
+        lidar_points = lidar_scan.load_points()
+        # Draw lidar points
+        pcd_i = np.matmul(C_iv[0:2, 0:2].reshape(1, 2, 2), lidar_points[:, 0:2].reshape(lidar_points.shape[0], 2, 1)).squeeze(-1)
+        rand_idx = np.random.choice(pcd_i.shape[0], size=int(pcd_i.shape[0] * 0.5), replace=False)
+        return pcd_i[rand_idx, 0], pcd_i[rand_idx, 1], lidar_scan, C_i_enu
+
+    app = dash.Dash(__name__)
+
+    app.layout = html.Div([
+        dcc.Graph(id='graph-with-slider'),
+        dcc.Slider(
+            id='timestep-slider',
+            min=0,
+            max=seq.seq_len,
+            value=0,
+            marks={str(idx): str(idx) for idx in range(0, seq.seq_len, 5)},
+            step=1
+        )
+    ])
+
+    @app.callback(
+        Output('graph-with-slider', 'figure'),
+        Input('timestep-slider', 'value'))
+    def update_figure(idx):
+        pcd_x, pcd_y, lidar_scan, C_i_enu = get_pcd(idx)
+        fig = go.Figure()
+        # fig = px.scatter(x=pcd_x, y=pcd_y)
+        map_utils.draw_map_plotly("/home/shichen/datasets/boreas_mini/boreas_lane.osm", fig, lidar_scan.position[0], lidar_scan.position[1], C_i_enu, utm=True)
+        fig.add_trace(
+                    go.Scattergl(x=pcd_x, y=pcd_y, mode='markers', visible=True, marker_size=0.5, marker_color='blue')
+                )
+        fig.update_traces(marker_size=0.5)
+        fig.update_layout(
+            autosize=False,
+            width=1000,
+            height=1000
+        )
+        fig.update_xaxes(range=[-75, 75])
+        fig.update_yaxes(range=[-75, 75])
+
+        fig.update_layout(showlegend=False)
+
+        return fig
+
+    app.run_server(debug=True)
+
+
+    # dataset = BoreasVisualizer(sequence)
+    # # for name in ["both", "persp", "bev"]:
+    # #     dataset.export_vis_video(name, name)
+    # dataset.visualize(0)
