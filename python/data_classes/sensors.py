@@ -4,7 +4,7 @@ import cv2
 from pathlib import Path
 
 from data_classes.pointcloud import PointCloud
-from utils.utils import get_transform, yawPitchRollToRot, get_time_from_filename
+from utils.utils import get_transform, yawPitchRollToRot, get_time_from_filename, load_lidar
 from utils.utils import get_gt_data_for_frame
 from utils.radar import load_radar, radar_polar_to_cartesian
 
@@ -84,7 +84,9 @@ class Radar(Sensor):
             self.mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
         return self.timestamps, self.azimuths, self.polar
 
-    def get_cartesian(self, cart_resolution, cart_pixel_width, polar=self.polar):
+    def get_cartesian(self, cart_resolution, cart_pixel_width, polar=None):
+        if polar is None:
+            polar = self.polar
         self.cartesian = radar_polar_to_cartesian(self.azimuths, polar, self.resolution,
                                         cart_resolution, cart_pixel_width)
 

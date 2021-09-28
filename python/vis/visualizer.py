@@ -133,7 +133,7 @@ class BoreasVisualizer:
 
 
 if __name__ == '__main__':
-    sequence = Sequence("/home/shichen/datasets/", ["boreas_mini", 1606417230036848128, 1606417239992609024])
+    sequence = Sequence("/home/shichen/datasets/", ["boreas_mini_v2", 1616518050000000, 1616518060000000])
     dataset = BoreasVisualizer(sequence)
     # for name in ["both", "persp", "bev"]:
     #     dataset.export_vis_video(name, name)

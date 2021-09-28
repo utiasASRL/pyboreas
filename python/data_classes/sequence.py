@@ -62,7 +62,7 @@ class Sequence:
                     data = line.split(',')
                     ts = data[0]
                     if self.start_ts <= ts and ts <= self.end_ts:
-                        frame = SensorType(osp.join(self.root, ts + ext))
+                        frame = SensorType(osp.join(root, ts + ext))
                         frame.init_pose(data)
                         frames.append(frame)
         return frames
