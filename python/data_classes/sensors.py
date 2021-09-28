@@ -15,10 +15,7 @@ class Sensor:
         self.frame = p.stem
         self.sensType = p.parts[-2]
         self.seqID = p.parts[-3]
-        root = Path(p.parts[0])
-        for i in range(1, len(p.parts) - 2):
-            root = root / p.parts[i]
-        self.seq_root = str(root)
+        self.seq_root = str(Path(*p.parts[:-2]))
         self.sensor_root = osp.join(self.seq_root, self.sensType)
         self.pose = np.identity(4, dtype=np.float64)
         self.velocity = np.zeros((6, 1))   # 6 x 1 velocity in ENU frame [v_se_in_e; w_se_in_e] 

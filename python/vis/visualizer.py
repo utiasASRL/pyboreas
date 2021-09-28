@@ -5,7 +5,6 @@ import glob
 import csv
 
 import cv2
-import open3d.ml.torch as ml3d
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
@@ -54,32 +53,6 @@ class BoreasVisualizer:
         #     raw_labels = json.load(file)
         #     for label in tqdm(raw_labels):
         #         self.labels.append(label['cuboids'])
-
-    def visualize_thirdperson(self):
-        # Currently not working
-        pc_data = []
-        # bb_data = []
-
-        for i in range(self.track_length):
-            curr_lidar_data = self.lidar_frames[i].load_data()
-            curr_lables = self.sequence.labels[i]
-
-            points, boxes = vis_utils.transform_data_to_sensor_frame(curr_lidar_data, curr_lables)
-            points = points.astype(np.float32)
-
-            frame_data = {
-                'name': 'lidar_points/frame_{}'.format(i),
-                'points': points
-            }
-
-            # bbox = ml3d.vis.BoundingBox3D()
-
-            pc_data.append(frame_data)
-
-        # Open3d ML Visualizer
-        vis = ml3d.vis.Visualizer()
-        vis.visualize(pc_data)
-        vis.show_geometries_under("task", True)
 
     def visualize(self, frame_idx, predictions=None, mode='both', show=True):
         """
@@ -137,4 +110,4 @@ if __name__ == '__main__':
     dataset = BoreasVisualizer(sequence)
     # for name in ["both", "persp", "bev"]:
     #     dataset.export_vis_video(name, name)
-    dataset.visualize(0)
+    dataset.visualize(50)
