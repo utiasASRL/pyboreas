@@ -1,5 +1,5 @@
 {
-    "root": "/data/boreas/"
+    "root": "/data/boreas/",
     "window_size": 2,
     "batch_size": 1,
     "sensor_type": "radar",

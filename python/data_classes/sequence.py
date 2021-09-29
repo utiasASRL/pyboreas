@@ -1,5 +1,4 @@
 import os.path as osp
-from pathlib import Path
 
 from data_classes.calib import Calib
 from data_classes.sensors import Camera, Lidar, Radar
@@ -55,9 +54,9 @@ class Sequence:
 
     def _get_frames(self, posefile, root, ext, SensorType):
         frames = []
-        if osp.exists(posefile) and osp.exists(root):
+        if osp.exists(posefile) and osp.isdir(root):
             with open(posefile, 'r') as f:
-                f.readline()
+                f.readline()  # header
                 for line in f:
                     data = line.split(',')
                     ts = data[0]
