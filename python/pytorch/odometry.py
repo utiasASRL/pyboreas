@@ -1,185 +1,106 @@
-"""
-    PyTorch dataset class for The University of Toronto Boreas Dataset.
-    Authors: Keenan Burnett
-"""
 # TODO: clean this up, make it more generalizable, test it
-# TODO: turn this into a generic odometry pytorch dataset class (radar, lidar, vision)
+
 import torch
 import numpy as np
 import cv2
-from torch.utils.data import DataLoader
+import json
+import argparse
+from torch.utils.data import Dataset, DataLoader
+
+from boreas import BoreasDataset
+from data_classes.sequence import Sequence
+from data_classes.splits import odom_sample, odom_train, odom_valid, odom_test
+from utils.radar import load_radar, radar_polar_to_cartesian, mean_intensity_mask
+from utils.utils import get_inverse_tf, get_transform3
+from utils.odometry import computeKittiMetrics
 from pytorch.custom_sampler import RandomWindowBatchSampler, SequentialWindowBatchSampler
-from utils.radar import load_radar, radar_polar_to_cartesian
-from utils.utils import get_inverse_tf, get_transform
-from pytorch.oxford import OxfordDataset, mean_intensity_mask
 
-CTS350 = 0    # Oxford
-CIR204 = 1    # Boreas
-T_prime = np.array([[1, 0, 0, 0],[0, 1, 0, 0],[0, 0, 1, 0],[0, 0, 0, 1]])
-
-def roll(r):
-    return np.array([[1, 0, 0], [0, np.cos(r), np.sin(r)], [0, -np.sin(r), np.cos(r)]], dtype=np.float64)
-
-def pitch(p):
-    return np.array([[np.cos(p), 0, -np.sin(p)], [0, 1, 0], [np.sin(p), 0, np.cos(p)]], dtype=np.float64)
-
-def yaw(y):
-    return np.array([[np.cos(y), np.sin(y), 0], [-np.sin(y), np.cos(y), 0], [0, 0, 1]], dtype=np.float64)
-
-def yawPitchRollToRot(y, p, r):
-    """Converts yaw-pitch-roll angles into a 3x3 rotation matrix: SO(3)
-    Args:
-        y (float): yaw
-        p (float): pitch
-        r (float): roll
-    Returns:
-        np.ndarray: 3x3 rotation matrix
-    """
-    Y = yaw(y)
-    P = pitch(p)
-    R = roll(r)
-    C = np.matmul(P, Y)
-    return np.matmul(R, C)
-
-def rotToYawPitchRoll(C):
-    """Converts a 3x3 rotation matrix SO(3) to yaw-pitch-roll angles
-    Args:
-        C (np.ndarray): 3x3 rotation matrix
-    Returns:
-        List[float]: yaw, pitch, roll angles
-    """
-    i = 2
-    j = 1
-    k = 0
-    c_y = np.sqrt(C[i, i]**2 + C[j, i]**2)
-    if c_y > 1e-15:
-        r = np.arctan2(C[j, i], C[i, i])
-        p = np.arctan2(-C[k, i], c_y)
-        y = np.arctan2(C[k, j], C[k, k])
-    else:
-        r = 0
-        p = np.arctan2(-C[k, i], c_y)
-        y = np.arctan2(-C[j, k], C[j, j])
-    return y, p, r
-
-def get_transform_boreas(gt):
-    """Retrieve 4x4 homogeneous transform for a given parsed line of the ground truth pose csv
-    Args:
-        gt (List[float]): parsed line from ground truth csv file
-    Returns:
-        np.ndarray: 4x4 transformation matrix (pose of sensor)
-    """
-    T = np.identity(4, dtype=np.float64)
-    C_enu_sensor = yawPitchRollToRot(gt[10], gt[9], gt[8])
-    T[0, 3] = gt[2]
-    T[1, 3] = gt[3]
-    T[2, 3] = gt[4]
-    T[0:3, 0:3] = C_enu_sensor
-    return T
-
-class BoreasDataset(OxfordDataset):
+class BoreasOdomTorch(BoreasDataset, Dataset):
     """Boreas Radar Dataset"""
-    def __init__(self, config, split='train'):
-        super().__init__(config, split)
-        self.navtech_version = CIR204
-        #self.dataloader = dataloadercpp.DataLoader(self.config['radar_resolution'], self.config['cart_resolution'],
-        #                                           self.config['cart_pixel_width'], self.navtech_version)
+    def __init__(self, config, split=odom_sample):
+        self.root = config['root']
+        self.config = config
+        self.split = split
+        self.camera_frames = []
+        self.lidar_frames = []
+        self.radar_frames = []
+        self.sequences = []
+        self.seqDict = {}  # seq string to index
+        self.map = None  # TODO: Load the HD map data
 
-    def get_frames_with_gt(self, frames, gt_path):
-        """Retrieves the subset of frames that have groundtruth
-        Args:
-            frames (List[AnyStr]): List of file names
-            gt_path (AnyStr): path to the ground truth csv file
-        Returns:
-            List[AnyStr]: List of file names with ground truth
-        """
         drop = self.config['window_size'] - 1
-        return frames[:-drop]
+        for seqSpec in split:
+            seq = Sequence(root, seqSpec)
+            seq.camera_frames = seq.camera_frames[:-drop]
+            seq.lidar_frames = seq.lidar_frames[:-drop]
+            seq.radar_frames = seq.radar_frames[:-drop]
+            self.sequences.append(seq)
+            self.camera_frames += seq.camera_frames
+            self.lidar_frames += seq.lidar_frames
+            self.radar_frames += seq.radar_frames
+            self.seqDict[seq.seqID] = len(self.sequences) - 1
 
-    def get_groundtruth_odometry(self, radar_time, gt_path):
+        if config['sensor_type'] == 'camera':
+            self.frames = self.camera_frames
+        elif config['sensor_type'] == 'lidar':
+            self.frames = self.lidar_frames
+        else:
+            self.frames = self.radar_frames
+
+    def __len__(self):
+        return len(self.frames)
+
+    def get_groundtruth_odometry(self, curr_frame, next_frame, make_se2=False):
         """Retrieves the groundtruth 4x4 transform from current time to next
         Args:
-            radar_time (int): UNIX INT64 time stamp that we want groundtruth for (also the filename for radar)
-            gt_path (AnyStr): path to the ground truth csv file
+            curr_frame (SensorType): current frame object that contains sensor data, stamp, pose
+            next_frame (SensorType)
         Returns:
             np.ndarray: 4x4 transformation matrix from current time to next (T_2_1)
         """
-        def parse(gps_line):
-            out = [float(x) for x in gps_line.split(',')]
-            out[0] = int(gps_line.split(',')[0])
-            return out
-        gtfound = False
-        min_delta = 0.1
-        T_2_1 = np.identity(4, dtype=np.float32)
-        with open(gt_path, 'r') as f:
-            f.readline()
-            lines = f.readlines()
-            for i in range(len(lines) - 1):
-                gt1 = parse(lines[i])
-                delta = abs(float(gt1[0] - radar_time) / 1.0e9)
-                if delta < min_delta:
-                    gt2 = parse(lines[i + 1])
-                    T_enu_r1 = np.matmul(get_transform_boreas(gt1), T_prime)
-                    T_enu_r2 = np.matmul(get_transform_boreas(gt2), T_prime)
-                    T_r2_r1 = np.matmul(get_inverse_tf(T_enu_r2), T_enu_r1)  # 4x4 SE(3)
-                    heading, _, _ = rotToYawPitchRoll(T_r2_r1[0:3, 0:3])
-                    T_2_1 = get_transform(T_r2_r1[0, 3], T_r2_r1[1, 3], heading)  # 4x4 SE(2)
-                    min_delta = delta
-                    gtfound = True
-        assert(gtfound), 'ground truth transform for {} not found in {}'.format(radar_time, gt_path)
+
+        # Note: frame.pose is T_enu_sensor
+        T_2_1 = np.matmul(get_inverse_tf(next_frame.pose), curr_frame.pose)  # 4x4 SE(3)
+        if make_se2:
+            heading, _, _ = rotToYawPitchRoll(T_2_1[:3, :3])
+            T_2_1 = get_transform3(T_2_1[0, 3], T_2_1[1, 3], heading)  # 4x4 SE(2)
         return T_2_1
 
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
-        seq = self.get_seq_from_idx(idx)
-        frame = self.data_dir + seq + '/radar/' + self.frames[idx]
-        cart_frame = self.data_dir + seq + '/radar/cart/' + self.frames[idx]
-        mask_frame = self.data_dir + seq + '/radar/mask/' + self.frames[idx]
-        cart_pixel_width = self.config['cart_pixel_width']
-        num_azimuths = 400
-        range_bins = 3768
-        if self.navtech_version == CIR204:
-            range_bins = 3360
+        frame = self.frames[idx]
+        next_frame = self.frames[idx + 1]
 
-        # Numpy arrays need to be sized correctly before passing them to the dataloader.
-        '''timestamps = np.zeros((num_azimuths, 1), dtype=np.int64)
-        azimuths = np.zeros((num_azimuths, 1), dtype=np.float32)
-        polar = np.zeros((num_azimuths, range_bins), dtype=np.float32)
-        data = np.zeros((cart_pixel_width, cart_pixel_width), dtype=np.float32)
-        mask = np.zeros((cart_pixel_width, cart_pixel_width), dtype=np.float32)
+        frame.load_data()
 
-        self.dataloader.load_radar(frame, timestamps, azimuths, polar)
-        self.dataloader.polar_to_cartesian(azimuths, polar, data)
-        data = np.expand_dims(data, axis=0)
+        out_dict = {}
 
-        polar_mask = mean_intensity_mask(polar)
-        self.dataloader.polar_to_cartesian(azimuths, polar_mask, mask)
-        mask = np.expand_dims(mask, axis=0)'''
+        if config['sensor'] == 'camera':
+            data = np.transpose(frame.img, (2, 0, 1))  # HWC --> CHW
+            data = np.expand_dims(data.astype(np.float32), axis=0) / 255.0
+        if config['sensor'] == 'radar':
+            polar = np.expand_dims(frame.polar.astype(np.float32), axis=0) / 255.0
+            data = np.expand_dims(frame.cartesian.astype(np.float32), axis=0) / 255.0
+            mask = np.expand_dims(frame.mask.astype(np.float32), axis=0) / 255.0
+            # polar_mask = mean_intensity_mask(polar)
+            # data = frame.get_cartesian(self.config['cart_resolution'], self.config['cart_pixel_width'])
+            # mask = frame.get_cartesian(self.config['cart_resolution'], self.config['cart_pixel_width'], polar_mask)
+            out_dict['mask'] = mask
+            out_dict['polar'] = polar
+            out_dict['timestamps'] = np.expand_dims(frame.timestamps, axis=0)
+            out_dict['azimuths'] = np.expand_dims(frame.azimuths, axis=0)
+        if config['sensor'] == 'lidar':
+            data = np.expand_dims(frame.points, axis=0)
+            # TODO: voxelize pointcloud data
+        out_dict['data'] = data
 
-        # Requires that the cartesian images and masks are pre-computed and stored alongside the dataset
-        ###########
-        timestamps, azimuths, _, polar = load_radar(frame)
-        data = np.expand_dims(cv2.imread(cart_frame, cv2.IMREAD_GRAYSCALE).astype(np.float32), axis=0) / 255.0
-        mask = np.expand_dims(cv2.imread(mask_frame, cv2.IMREAD_GRAYSCALE).astype(np.float32), axis=0) / 255.0
-        ###########
+        t1 = frame.timestamp
+        t2 = next_frame.timestamp
+        t_ref = np.array([t1, t2]).reshape(1, 2)
+        return {'data': data, 'T_2_1': T_2_1, 't_ref': t_ref}
 
-        # Get ground truth transform between this frame and the next
-        radar_time = int(self.frames[idx].split('.')[0])
-        T_21 = self.get_groundtruth_odometry(radar_time, self.data_dir + seq + '/applanix/radar_poses.csv')
-        time1 = timestamps[0, 0]
-        if idx + 1 < len(self.frames):
-            timestamps2, _, _, _ = load_radar(self.data_dir + seq + '/radar/' + self.frames[idx + 1])
-            time2 = timestamps2[0, 0]
-        else:
-            time2 = time1 + 250000
-        t_ref = np.array([time1, time2]).reshape(1, 2)
-        azimuths = np.expand_dims(azimuths, axis=0)
-        timestamps = np.expand_dims(timestamps, axis=0)
-        return {'data': data, 'T_21': T_21, 't_ref': t_ref, 'mask': mask,
-                'azimuths': azimuths, 'timestamps': timestamps}
-
-def get_dataloaders_boreas(config):
+def get_dataloaders(config):
     """Returns the dataloaders for training models in pytorch.
     Args:
         config (json): parsed configuration file
@@ -190,9 +111,9 @@ def get_dataloaders_boreas(config):
     """
     vconfig = dict(config)
     vconfig['batch_size'] = 1
-    train_dataset = BoreasDataset(config, 'train')
-    valid_dataset = BoreasDataset(vconfig, 'validation')
-    test_dataset = BoreasDataset(vconfig, 'test')
+    train_dataset = BoreasOdomTorch(config, config['train_split'])
+    valid_dataset = BoreasOdomTorch(vconfig, config['valid_split'])
+    test_dataset = BoreasOdomTorch(vconfig, config['test_split'])
     train_sampler = RandomWindowBatchSampler(config['batch_size'], config['window_size'], train_dataset.seq_lens)
     valid_sampler = SequentialWindowBatchSampler(1, config['window_size'], valid_dataset.seq_lens)
     test_sampler = SequentialWindowBatchSampler(1, config['window_size'], test_dataset.seq_lens)
@@ -200,3 +121,68 @@ def get_dataloaders_boreas(config):
     valid_loader = DataLoader(valid_dataset, batch_sampler=valid_sampler, num_workers=config['num_workers'])
     test_loader = DataLoader(test_dataset, batch_sampler=test_sampler, num_workers=config['num_workers'])
     return train_loader, valid_loader, test_loader
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', default='pytorch/odom_config.json', type=str, help='config file path')
+    parser.add_argument('--pretrain', default=None, type=str, help='pretrain checkpoint path')
+    args = parser.parse_args()
+    with open(args.config) as f:
+        config = json.load(f)
+
+    config['train_split'] = odom_train
+    config['valid_split'] = odom_valid
+    config['test_split'] = odom_test
+
+    train_loader, valid_loader, test_loader = get_dataloaders(config)
+
+    model = YourModel(config).to(config['gpuid'])
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
+
+    ckpt_path = None
+    if args.pretrain is not None:
+        ckpt_path = args.pretrain
+
+    if ckpt_path is not None:
+        checkpoint = torch.load(ckpt_path, map_location=torch.device(config['gpuid']))
+        model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+    # training:
+    model.train()
+    for batchi, batch in enumerate(train_loader):
+        optimizer.zero_grad()
+        out = model(batch)
+        loss = loss_fn(out, batch)
+        if loss.requires_grad:
+            loss.backward()
+        optimizer.step()
+
+    # TODO: write code for testing
+    model.eval()
+    t_errs = []
+    r_errs = []
+    for seqSpec in odom_test:
+        config['test_split'] = seqSpec
+        _, _, test_loader = get_dataloaders(config)
+        T_gt = []
+        T_pred = []
+        for batchi, batch in enumerate(test_loader):
+            with torch.no_grad()
+                out = model(batch)
+            T_gt.append(batch['T_2_1'][0].numpy().squeeze())
+            T_pred.append(out['T_2_1'][0].numpy().squeeze())
+        t_err, r_err = computeKittiMetrics(T_gt, T_pred, [len(T_gt)])
+        t_errs.append(t_err)
+        r_errs.append(r_err)
+        print('KITTI t_err: {} %'.format(t_err))
+        print('KITTI r_err: {} deg/m'.format(r_err))
+
+    t_err = np.mean(t_errs)
+    r_err = np.mean(r_errs)
+    print('Average KITTI metrics over all test sequences:')
+    print('KITTI t_err: {} %'.format(t_err))
+    print('KITTI r_err: {} deg/m'.format(r_err))
+
+

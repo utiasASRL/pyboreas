@@ -1,5 +1,5 @@
 import numpy as np
-from utils.utils import carrot
+from utils.utils import se3ToSE3
 
 class PointCloud:
     def __init__(self, points):
@@ -13,23 +13,22 @@ class PointCloud:
             pbar = np.matmul(T, pbar)
             self.points[i, :3] = pbar[:3, 0]
 
-    def remove_motion(self, points, body_rate, tref=None, in_place=True):
+    def remove_motion(self, body_rate, tref=None, in_place=True):
         # body_rate: (6, 1) [vx, vy, vz, wx, wy, wz] in body frame
-        # Note: modifies points contained in this class
-        assert (body_rate.shape[0] == 6 and body_rate.shape[1] == 1)
-        tmin = np.min(points[:, 5])
-        tmax = np.max(points[:, 5])
+        assert(body_rate.shape[0] == 6 and body_rate.shape[1] == 1)
+        tmin = np.min(self.points[:, 5])
+        tmax = np.max(self.points[:, 5])
         if tref is None:
             tref = (tmin + tmax) / 2
-        # Precompute transforms for compute speed
+        # Precompute finite number of transforms for speed
         bins = 101
-        delta = (tmax - tmin) / (bins - 1)
+        delta = (tmax - tmin) / float(bins - 1)
         T_undistorts = []
         for i in range(bins):
             t = tmin + i * delta
-            T_undistorts.append((t - tref) * carrot(body_rate))
+            T_undistorts.append(se3ToSE3((t - tref) * body_rate))
         if not in_place:
-            ptemp = np.copy(points)
+            ptemp = np.copy(self.points)
         for i in range(self.points.shape[0]):
             pbar = np.vstack((self.points[i, :3], np.array([1])))
             index = int((self.points[i, 5] - tmin) / delta)

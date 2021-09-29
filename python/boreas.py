@@ -1,4 +1,4 @@
-from os import path
+import os.path as osp
 
 from data_classes.splits import *
 from data_classes.sequence import Sequence
@@ -9,9 +9,9 @@ class BoreasDataset:
 	def __init__(self, root='/data/boreas/', split=odom_sample):
 		self.root = root
 		self.split = split
-		self.cameraFrames = []
-		self.lidarFrames = []
-		self.radarFrames = []
+		self.camera_frames = []
+		self.lidar_frames = []
+		self.radar_frames = []
 		self.sequences = []
 		self.seqDict = {}  # seq string to index
 		self.map = None  # TODO: Load the HD map data
@@ -19,37 +19,25 @@ class BoreasDataset:
 		for seqSpec in split:
 			seq = Sequence(root, seqSpec)
 			self.sequences.append(seq)
-			self.cameraFrames += seq.camera_paths
-			self.lidarFrames += seq.lidar_paths
-			self.radarFrames += seq.radar_paths
+			self.camera_frames += seq.camera_frames
+			self.lidar_frames += seq.lidar_frames
+			self.radar_frames += seq.radar_frames
 			self.seqDict[seq.seqID] = len(self.sequences) - 1
 
 	def get_seq_from_ID(self, seqID):
 		return self.sequences[self.seqDict[seqID]]
 
-	@property
-	def cam0(self):
-		for f in self.cameraFrames:
-			yield Camera(f)
+	def get_seq(self, idx):
+		return self.sequences[idx]
 
 	def get_camera(self, idx):
-		return Camera(self.cameraFrames[idx])
-
-	@property
-	def lidar(self):
-		for f in self.lidarFrames:
-			yield Lidar(f)
+		return self.camera_frames[idx]
 
 	def get_lidar(self, idx):
-		return Lidar(self.lidarFrames[idx])
-
-	@property
-	def radar(self):
-		for f in self.radarFrames:
-			yield Radar(f)
+		return self.lidar_frames[idx]
 
 	def get_radar(self, idx):
-		return Radar(self.radarFrames[idx])
+		return self.radar_frames[idx]
 
 	def get_sequence_visualizer(self, seqID):
 		return BoreasVisualizer(self.get_seq_from_ID(seqID))
