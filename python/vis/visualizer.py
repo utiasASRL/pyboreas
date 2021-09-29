@@ -81,6 +81,10 @@ class BoreasVisualizer:
 
         return boreas_plot
 
+    def visualize_plotly(self, frame_idx, predictions=None, mode='both', show=True):
+        boreas_plot = boreas_plotly.BoreasPlotly(self)
+        boreas_plot.visualize(frame_idx)
+
     def export_vis_video(self, name, mode='both'):
         """
         Exports the current sequence visualization to video. Defaults to current working directory for save location.
@@ -109,17 +113,13 @@ class BoreasVisualizer:
 
 
 if __name__ == '__main__':
-    seq = Sequence("/home/shichen/datasets/", ["boreas_mini", 1606417230036848128, 1606417239992609024])
-    visualizer = boreas_plotly.BoreasPlotly(seq)
-    visualizer.visualize(0)
+    seq = Sequence("/home/shichen/datasets/", ["boreas_mini_v2", 1616518050000000, 1616518060000000])
+    visualizer = BoreasVisualizer(seq)
+    visualizer.visualize_plotly(0)
 
 
+    # sequence = Sequence("/home/shichen/datasets/", ["boreas_mini_v2", 1616518050000000, 1616518060000000])
     # dataset = BoreasVisualizer(sequence)
     # # for name in ["both", "persp", "bev"]:
     # #     dataset.export_vis_video(name, name)
-    # dataset.visualize(0)
-    sequence = Sequence("/home/shichen/datasets/", ["boreas_mini_v2", 1616518050000000, 1616518060000000])
-    dataset = BoreasVisualizer(sequence)
-    # for name in ["both", "persp", "bev"]:
-    #     dataset.export_vis_video(name, name)
-    dataset.visualize(50)
+    # dataset.visualize(50)
