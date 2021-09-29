@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# (SLU) sample data
+sample_scale
+sample_boreas

@@ -1,8 +1,12 @@
 import numpy as np
+import os.path as osp
+from pathlib import Path
 
 def load_lidar(path, dim=6):
-    scan = np.fromfile(path, dtype=np.float32)
-    points = scan.reshape((-1, dim))[:, :dim]
+    points = np.fromfile(path, dtype=np.float32).reshape((-1, 6)).astype(np.float64)
+    t = float(Path(path).stem) * 1e-6
+    t = get_time_from_filename(path)
+    points[:, 5] += t
     return points
 
 def roll(r):
@@ -21,12 +25,12 @@ def yawPitchRollToRot(y, p, r):
     C = np.matmul(P, Y)
     return np.matmul(R, C)
 
-def rotToYawPitchRoll(C, eps = 1e-15):
+def rotToYawPitchRoll(C):
     i = 2
     j = 1
     k = 0
     c_y = np.sqrt(C[i, i]**2 + C[j, i]**2)
-    if c_y > eps:
+    if c_y > 1e-14:
         r = np.arctan2(C[j, i], C[i, i])
         p = np.arctan2(-C[k, i], c_y)
         y = np.arctan2(C[k, j], C[k, k])
@@ -36,58 +40,19 @@ def rotToYawPitchRoll(C, eps = 1e-15):
         y = np.arctan2(-C[j, k], C[j, j])
     return y, p, r
 
-def quaternionToRot(q):
-    EPS = 1e-15
-    if np.matmul(q.transpose(), q) < EPS:
-        return np.identity(3)
-    xi = q[0:3].reshape(3, 1)
-    eta = q[3, 0]
-    def cross(v):
-        v = np.squeeze(v)
-        return np.array([[0, -v[2], v[1]],[v[2], 0, -v[0]],[-v[1], v[0], 0]])
-    C = (eta**2 - np.matmul(xi.transpose(), xi)) * np.identity(3) + 2 * np.matmul(xi, xi.transpose()) - 2 * eta * cross(xi)
-    return C.transpose()
-
-def rotToQuaternion(C):
-    phi = np.arccos((np.trace(C) - 1) / 2)
-    evalues, evectors = np.linalg.eig(C)
-    abar = None
-    for i, evalue in enumerate(evalues):
-        if evalue.imag == 0 and evalue.real != 0:
-            abar = evectors[i]
-    assert(abar is not None)
-    xi = abar * np.sin(phi / 2)
-    eta = np.cos(phi / 2)
-    q = np.array([xi[0], x[1], x[2], eta]).reshape(4, 1)
-    return q
-
-def get_inverse_tf(T):
-    """Returns the inverse of a given 4x4 homogeneous transform.
+def get_transform(gt):
+    """Retrieve 4x4 homogeneous transform for a given parsed line of the ground truth pose csv
     Args:
-        T (np.ndarray): 4x4 transformation matrix
+        gt (List[float]): parsed line from ground truth csv file
     Returns:
-        np.ndarray: inv(T)
+        np.ndarray: 4x4 transformation matrix (pose of sensor)
     """
-    T2 = np.identity(4, dtype=np.float32)
-    R = T[0:3, 0:3]
-    t = T[0:3, 3].reshape(3, 1)
-    T2[0:3, 0:3] = R.transpose()
-    T2[0:3, 3:] = np.matmul(-1 * R.transpose(), t)
-    return T2
-
-def get_transform(x, y, theta):
-    """Returns a 4x4 homogeneous 3D transform for a given 2D (x, y, theta).
-    Args:
-        x (float): x-translation
-        y (float): y-translation
-        theta (float): rotation
-    Returns:
-        np.ndarray: 4x4 transformation matrix
-    """
-    T = np.identity(4, dtype=np.float32)
-    T[0:2, 0:2] = np.array([[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]])
-    T[0, 3] = x
-    T[1, 3] = y
+    T = np.identity(4, dtype=np.float64)
+    C_enu_sensor = yawPitchRollToRot(gt[9], gt[8], gt[7])
+    T[0, 3] = gt[1]
+    T[1, 3] = gt[2]
+    T[2, 3] = gt[3]
+    T[0:3, 0:3] = C_enu_sensor
     return T
 
 def get_transform2(R, t):
@@ -98,10 +63,64 @@ def get_transform2(R, t):
     Returns:
         np.ndarray: 4x4 transformation matrix
     """
-    T = np.identity(4, dtype=np.float32)
+    T = np.identity(4, dtype=R.dtype)
     T[0:3, 0:3] = R
     T[0:3, 3] = t.squeeze()
     return T
+
+def get_transform3(x, y, theta, dtype=np.float32):
+    """Returns a 4x4 homogeneous 3D transform for a given 2D (x, y, theta).
+    Args:
+        x (float): x-translation
+        y (float): y-translation
+        theta (float): rotation
+    Returns:
+        np.ndarray: 4x4 transformation matrix
+    """
+    T = np.identity(4, dtype=dtype)
+    T[0:2, 0:2] = np.array([[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]])
+    T[0, 3] = x
+    T[1, 3] = y
+    return T
+
+def quaternionToRot(qin):
+    q = qin.copy().reshape(4, 1)
+    if np.matmul(q.transpose(), q) < 1e-14:
+        return np.identity(3)
+    xi = q[:3].reshape(3, 1)
+    eta = q[3, 0]
+    C = (eta**2 - np.matmul(xi.transpose(), xi)) * np.identity(3) + \
+        2 * np.matmul(xi, xi.transpose()) - 2 * eta * carrot(xi)
+    return C
+
+# Note that the space of unit-length quaternions is a double-cover of SO(3)
+# Meaning, C maps to +/- q, so q --> C --> +/- q
+def rotToQuaternion(C):
+    eta = 0.5 * np.sqrt((1 + np.trace(C)))
+    if np.abs(eta) < 1e-14:
+        eta = 0
+        xi = np.sqrt(np.diag(0.5 * (C + np.identity(3))))
+        q = np.array([xi[0], xi[1], xi[2], eta]).reshape(4, 1)
+    else:
+        phi = wrapto2pi(2 * np.arccos(eta))
+        eta = np.cos(phi / 2)
+        xi_cross = (C.T - C) / (4 * eta)
+        q = np.array([xi_cross[2, 1], xi_cross[0, 2], xi_cross[1, 0], eta]).reshape(4, 1)
+    return q
+
+def get_inverse_tf(T):
+    """Returns the inverse of a given 4x4 homogeneous transform.
+    Args:
+        T (np.ndarray): 4x4 transformation matrix
+    Returns:
+        np.ndarray: inv(T)
+    """
+    T2 = np.identity(4, dtype=T.dtype)
+    R = T[:3, :3]
+    t = T[:3, 3:]
+    T2[:3, :3] = R.transpose()
+    T2[:3, 3:] = np.matmul(-1 * R.transpose(), t)
+    return T2
 
 def enforce_orthog(T, dim=3):
     """Enforces orthogonality of a 3x3 rotation matrix within a 4x4 homogeneous transformation matrix.
@@ -188,7 +207,7 @@ def se3ToSE3(xi):
     T[0:3, 3:] = rho
     return T
 
-def SE3tose3(T):
+def SE3Tose3(T):
     """Converts 4x4 homogeneous transforms in SE(3) to 6x1 vectors representing the Lie Algebra, se(3)
         SE(3) T = [C, r; 0 0 0 1] (4 x 4) --> Lie Vector xi = [rho, phi]^T (6 x 1)
     Args:
@@ -240,32 +259,6 @@ def translationError(T, dim=2):
         return np.sqrt(T[0, 3]**2 + T[1, 3]**2)
     return np.sqrt(T[0, 3]**2 + T[1, 3]**2 + T[2, 3]**2)
 
-def computeMedianError(T_gt, T_pred):
-    """Computes the median translation and rotation errors along with their standard deviations.
-    Args:
-        T_gt (List[np.ndarray]): each entry in list is 4x4 transformation matrix
-        T_pred (List[np.ndarray]): each entry in list is 4x4 transformation matrix
-    Returns:
-        t_err_med (float): median translation error
-        t_err_std (float): standard dev translation error
-        r_err_med (float): median rotation error
-        r_err_std (float): standard dev rotation error
-        t_err_mean (float): mean translation error
-        r_err_mean (float): mean rotation error
-        t_error (List[float]): list of all translation errors
-        r_error (List[float]): list of all rotation errors
-    """
-    t_error = []
-    r_error = []
-    for i, T in enumerate(T_gt):
-        T_error = np.matmul(T, get_inverse_tf(T_pred[i]))
-        t_error.append(translationError(T_error))
-        r_error.append(180 * rotationError(T_error) / np.pi)
-    t_error = np.array(t_error)
-    r_error = np.array(r_error)
-    return [np.median(t_error), np.std(t_error), np.median(r_error), np.std(r_error), np.mean(t_error),
-            np.mean(r_error), t_error, r_error]
-
 def wrapto2pi(phi):
     """Ensures that the output angle phi is within the interval [0, 2*pi)"""
     if phi < 0:
@@ -274,8 +267,70 @@ def wrapto2pi(phi):
         return (phi / (2 * np.pi) % 1) * 2 * np.pi
     return phi
 
-def get_rotation(heading):
-    return np.array([[np.cos(heading), -np.sin(heading), 0],
-                     [np.sin(heading), np.cos(heading), 0],
-                     [0, 0, 1]])
+def get_time_from_filename(file):
+    tstr = str(Path(file).stem)
+    gpstime = float(tstr)
+    timeconvert = 1e-9
+    if len(tstr) < 19:
+        timeconvert = 10**(-1* (len(tstr) - 10))
+    return gpstime * timeconvert
 
+EARTH_SEMIMAJOR = 6378137.0
+EARTH_SEMIMINOR = 6356752.0
+EARTH_ECCEN     = 0.081819190842622
+a = EARTH_SEMIMAJOR
+eccSquared = EARTH_ECCEN**2
+eccPrimeSquared = (eccSquared) / (1 - eccSquared)
+k0 = 0.9996     # scale factor
+DEG_TO_RAD = np.pi / 180
+RAD_TO_DEG = 1.0 / DEG_TO_RAD
+
+def LLtoUTM(latitude, longitude):
+    while longitude < -1 * np.pi:
+        longitude += 2 * np.pi
+    while longitude >= np.pi:
+        longitude -= 2 * np.pi
+    longDeg = longitude * RAD_TO_DEG
+    latDeg = latitude * RAD_TO_DEG
+    zoneNumber = int((longDeg + 180) / 6) + 1
+    # +3 puts origin in middle of zone
+    longOrigin = (zoneNumber - 1) * 6 - 180 + 3
+    longOriginRad = longOrigin * DEG_TO_RAD
+    N = a / np.sqrt(1 - eccSquared * np.sin(latitude) * np.sin(latitude))
+    T = np.tan(latitude) * np.tan(latitude)
+    C = eccPrimeSquared * np.cos(latitude) * np.cos(latitude)
+    A = np.cos(latitude) * (longitude - longOriginRad)
+    M = a * ((1 - eccSquared / 4 - 3 * eccSquared * eccSquared / 64 - 5 * eccSquared * eccSquared * eccSquared / 256) * latitude -
+        (3 * eccSquared / 8 + 3 * eccSquared * eccSquared / 32 + 45 * eccSquared * eccSquared * eccSquared / 1024) * np.sin(2 * latitude) +
+        (15 * eccSquared * eccSquared / 256 + 45 * eccSquared * eccSquared * eccSquared / 1024) * np.sin(4 * latitude) -
+        (35 * eccSquared * eccSquared * eccSquared / 3072) * np.sin(6 * latitude))
+    UTMEasting = k0 * N * (A + (1 - T + C) * A * A * A / 6 +
+        (5 - 18 * T + T * T + 72 * C - 58 * eccPrimeSquared) * A * A * A * A * A / 120) + 500000.0
+    UTMNorthing = k0 * (M + N * np.tan(latitude) *
+        (A * A / 2 + (5 - T + 9 * C + 4 * C * C) * A * A * A * A / 24 +
+        (61 - 58 * T + T * T + 600 * C - 330 * eccPrimeSquared) * A * A * A * A * A * A / 720))
+
+    if latitude < 0:
+        # 10000000 meter offset for southern hemisphere
+        UTMNorthing += 10000000.0
+
+    return UTMEasting, UTMNorthing, zoneNumber
+
+def undistort(img, K, dist, roi=None, P=None):
+    dst = cv2.undistort(img, K, dist, None, P)
+    if roi is not None and P is not None:
+        h, w, _ = img.shape
+        x, y, w2, h2 = roi
+        dst = dst[y:y+h2, x:x+w2]
+        dst = cv2.resize(dst, (w, h))
+    return dst
+
+def get_gt_data_for_frame(root, sensType, frame):
+    posepath = osp.join(root, 'applanix', sensType + '_poses.csv')
+    with open(posepath, 'r') as f:
+        f.readline()  # header
+        for line in f:
+            if line.split(',')[0] == frame:
+                return [float(x) for x in line.split(',')]
+    assert(0), 'gt not found for root: {} sensType: {} frame: {}'.format(root, sensType, frame)
+    return None

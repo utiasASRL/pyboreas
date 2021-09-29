@@ -1,6 +1,0 @@
-image_size: [2448.000000, 2048.000000]
-focal_length: [1475.605190, 1475.366667]
-principal_points: [1226.003331, 1031.566565]
-radial_distortion: [0.012243, 0.007737]
-tangential_distortion: [0.000000, 0.000000]
-skew: 0.000000
