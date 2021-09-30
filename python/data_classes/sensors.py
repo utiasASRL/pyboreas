@@ -54,7 +54,8 @@ class Camera(Sensor):
         self.img = None
 
     def load_data(self):
-        self.img = cv2.imread(self.path)
+        img = cv2.imread(self.path)
+        self.img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         return self.img
 
 # TODO: get_bounding_boxes() # retrieve from file, cache to class variable
