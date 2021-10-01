@@ -3,8 +3,8 @@ import unittest
 import numpy as np
 
 from pylgmath import Transformation, se3op
-from python.utils.utils import get_inverse_tf
-from python.utils.odometry import interpolatePoses, write_traj_file, read_traj_file
+from utils.utils import get_inverse_tf
+from utils.odometry import interpolatePoses, write_traj_file, read_traj_file
 
 class OdometryTestCase(unittest.TestCase):
     """This class contains tests for the odometry benchmark script."""
@@ -51,8 +51,8 @@ class OdometryTestCase(unittest.TestCase):
         write_times = [int(i*delt*1e9) for i in range(num_poses)]     # nanoseconds
 
         # write out trajectory to file, then read it back
-        write_traj_file('python/test/test_traj.txt', write_poses, write_times)
-        read_poses, read_times = read_traj_file('python/test/test_traj.txt')
+        write_traj_file('test/test_traj.txt', write_poses, write_times)
+        read_poses, read_times = read_traj_file('test/test_traj.txt')
 
         # compare write and read
         for wpose, wtime, rpose, rtime in zip(write_poses, write_times, read_poses, read_times):
@@ -62,4 +62,5 @@ class OdometryTestCase(unittest.TestCase):
 
 
 if __name__ == '__main__':
+    # run 'python -m unittest' from 'boreas-devkit/python' directory
     unittest.main()

@@ -1,9 +1,8 @@
-import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import os
 from time import time
-from python.utils.utils import get_inverse_tf, rotationError, translationError, enforce_orthog
+from utils.utils import get_inverse_tf, rotationError, translationError, enforce_orthog
 from itertools import accumulate
 from pylgmath import Transformation
 from pysteam.trajectory import Time, TrajectoryInterface
@@ -360,23 +359,3 @@ def read_traj_file(path):
             times.append(int(line_split[0]))
 
     return poses, times
-
-if __name__ == '__main__':
-    # parse arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--pred', default='config/steam.json', type=str, help='path to prediction files')
-    parser.add_argument('--gt', default=None, type=str, help='path to groundtruth files')
-    args = parser.parse_args()
-
-    # parse sequences
-    seq = get_sequences(args.pred, '.txt')
-    T_pred, times_pred, seq_lens_pred = get_sequence_poses(args.pred, seq)
-    T_gt, times_gt, seq_lens_gt = get_sequence_poses(args.gt, seq)
-
-    # compute errors
-    t_err, r_err = computeKittiMetrics(T_gt, T_pred, times_gt, times_pred,
-                                       seq_lens_gt, seq_lens_pred, seq, args.pred, step_size=10)
-
-    # print out results
-    print('Evaluated sequences: ', seq)
-    print('Overall error: ', t_err, ' %, ', r_err, ' deg/m')
