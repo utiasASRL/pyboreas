@@ -4,7 +4,7 @@ import numpy as np
 
 from pylgmath import Transformation, se3op
 from utils.utils import get_inverse_tf
-from utils.odometry import interpolatePoses, write_traj_file, read_traj_file
+from utils.odometry import interpolate_poses, write_traj_file, read_traj_file
 
 class OdometryTestCase(unittest.TestCase):
     """This class contains tests for the odometry benchmark script."""
@@ -26,7 +26,7 @@ class OdometryTestCase(unittest.TestCase):
                  @ init_pose.matrix() for i in range(num_poses)]
         times = [int(i*delt*1e9) for i in range(num_poses)]     # nanoseconds
 
-        query_poses = interpolatePoses(poses[::2], times[::2], times[1:-1:2])
+        query_poses = interpolate_poses(poses[::2], times[::2], times[1:-1:2])
         gt_poses = poses[1:-1:2]
         for query_pose, gt_pose in zip(query_poses, gt_poses):
             delta = gt_pose@get_inverse_tf(query_pose)

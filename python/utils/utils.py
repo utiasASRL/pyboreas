@@ -236,7 +236,7 @@ def SE3Tose3(T):
     xi[3:, 0:] = phi * abar
     return xi
 
-def rotationError(T):
+def rotation_error(T):
     """Calculates a single rotation value corresponding to the upper-left 3x3 rotation matrix.
         Uses axis-angle representation to get a single number for rotation
     Args:
@@ -247,7 +247,7 @@ def rotationError(T):
     d = 0.5 * (np.trace(T[0:3, 0:3]) - 1)
     return np.arccos(max(min(d, 1.0), -1.0))
 
-def translationError(T, dim=3):
+def translation_error(T, dim=3):
     """Calculates a euclidean distance corresponding to the translation vector within a 4x4 transform.
     Args:
         T (np.ndarray): 4x4 transformation matrix T = [C, r; 0 0 0 1]

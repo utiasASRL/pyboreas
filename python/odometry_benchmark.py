@@ -1,5 +1,5 @@
 import argparse
-from utils.odometry import get_sequences, get_sequence_poses, computeKittiMetrics
+from utils.odometry import get_sequences, get_sequence_poses, compute_kitti_metrics
 
 if __name__ == '__main__':
     # parse arguments
@@ -14,7 +14,7 @@ if __name__ == '__main__':
     T_gt, times_gt, seq_lens_gt = get_sequence_poses(args.gt, seq)
 
     # compute errors
-    t_err, r_err = computeKittiMetrics(T_gt, T_pred, times_gt, times_pred,
+    t_err, r_err = compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred,
                                        seq_lens_gt, seq_lens_pred, seq, args.pred, step_size=10)
 
     # print out results

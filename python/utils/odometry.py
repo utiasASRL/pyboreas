@@ -1,9 +1,9 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import os
 from time import time
-from utils.utils import get_inverse_tf, rotationError, translationError, enforce_orthog
 from itertools import accumulate
+import numpy as np
+import matplotlib.pyplot as plt
+from utils.utils import get_inverse_tf, rotation_error, translation_error, enforce_orthog
 from pylgmath import Transformation
 from pysteam.trajectory import Time, TrajectoryInterface
 from pysteam.state import TransformStateVar, VectorSpaceStateVar
@@ -23,7 +23,7 @@ class TrajStateVar:
         self.pose: TransformStateVar = pose
         self.velocity: VectorSpaceStateVar = velocity
 
-def interpolatePoses(poses, times, query_times, init_finite_diff=False):
+def interpolate_poses(poses, times, query_times, init_finite_diff=False):
     """Runs a steam optimization with locked poses and outputs poses queried at query_times
     Args:
         poses (List[np.ndarray]): list of 4x4 poses (T_v_i vehicle and inertial frames)
@@ -85,7 +85,7 @@ def interpolatePoses(poses, times, query_times, init_finite_diff=False):
 
     return query_poses
 
-def trajectoryDistances(poses):
+def trajectory_distances(poses):
     """Calculates path length along the trajectory.
     Args:
         poses (List[np.ndarray]): list of 4x4 poses (T_k_i, 'i' is a fixed reference frame)
@@ -102,7 +102,7 @@ def trajectoryDistances(poses):
         dist.append(dist[i-1] + np.sqrt(dx**2 + dy**2 + dz**2))
     return dist
 
-def lastFrameFromSegmentLength(dist, first_frame, length):
+def last_frame_from_segment_length(dist, first_frame, length):
     """Retrieves the index of the last frame for our current analysis.
         last_frame should be 'dist' meters away from first_frame in terms of distance traveled along the trajectory.
     Args:
@@ -117,7 +117,7 @@ def lastFrameFromSegmentLength(dist, first_frame, length):
             return i
     return -1
 
-def calcSequenceErrors(poses_gt, poses_pred, step_size=4):
+def calc_sequence_errors(poses_gt, poses_pred, step_size=4):
     """Calculate the translation and rotation error for each subsequence across several different lengths.
     Args:
         T_gt (List[np.ndarray]): each entry in list is 4x4 transformation matrix, ground truth transforms
@@ -129,26 +129,26 @@ def calcSequenceErrors(poses_gt, poses_pred, step_size=4):
     lengths = [100, 200, 300, 400, 500, 600, 700, 800]
     err = []
     # Pre-compute distances from ground truth as reference
-    dist = trajectoryDistances(poses_gt)
+    dist = trajectory_distances(poses_gt)
 
     for first_frame in range(0, len(poses_gt), step_size):
         for length in lengths:
-            last_frame = lastFrameFromSegmentLength(dist, first_frame, length)
+            last_frame = last_frame_from_segment_length(dist, first_frame, length)
             if last_frame == -1:
                 continue
             # Compute rotational and translation errors
             pose_delta_gt = np.matmul(poses_gt[last_frame], get_inverse_tf(poses_gt[first_frame]))
             pose_delta_res = np.matmul(poses_pred[last_frame], get_inverse_tf(poses_pred[first_frame]))
             pose_error = np.matmul(pose_delta_gt, get_inverse_tf(pose_delta_res))
-            r_err = rotationError(pose_error)
-            t_err = translationError(pose_error)
+            r_err = rotation_error(pose_error)
+            t_err = translation_error(pose_error)
             # Approx speed
             num_frames = float(last_frame - first_frame + 1)
             speed = float(length) / (0.1 * num_frames)
             err.append([first_frame, r_err/float(length), t_err/float(length), length, speed])
     return err, lengths
 
-def getStats(err, lengths):
+def get_stats(err, lengths):
     """Computes the average translation and rotation within a sequence (across subsequences of diff lengths).
     Args:
         err (List[Tuple]): each entry in list is [first_frame, r_err, t_err, length, speed]
@@ -174,7 +174,7 @@ def getStats(err, lengths):
     return t_err * 100, r_err * 180 / np.pi, [a/float(b) * 100 for a, b in zip(t_err_len, len_count)], \
            [a/float(b) * 180 / np.pi for a, b in zip(r_err_len, len_count)]
 
-def plotStats(seq, root, T_odom, T_gt, lengths, t_err, r_err):
+def plot_stats(seq, root, T_odom, T_gt, lengths, t_err, r_err):
     """Outputs plots of calculated statistics to specified directory.
     Args:
         seq (List[string]): list of sequence file names
@@ -185,8 +185,8 @@ def plotStats(seq, root, T_odom, T_gt, lengths, t_err, r_err):
         t_err (List[float]): list of average translation error corresponding to lengths
         r_err (List[float]): list of average rotation error corresponding to lengths
     """
-    path_odom = getPathFromTviList(T_odom)
-    path_gt = getPathFromTviList(T_gt)
+    path_odom = get_path_from_Tvi_list(T_odom)
+    path_gt = get_path_from_Tvi_list(T_gt)
 
     # plot of path
     plt.figure(figsize=(6, 6))
@@ -218,7 +218,7 @@ def plotStats(seq, root, T_odom, T_gt, lengths, t_err, r_err):
     plt.savefig(os.path.join(root, seq[:-4] + '_rl.pdf'), bbox_inches='tight')
     plt.close()
 
-def getPathFromTviList(Tvi_list):
+def get_path_from_Tvi_list(Tvi_list):
     """Gets 3D path (xyz) from list of poses T_vk_i (transform between vehicle frame at time k and fixed frame i).
     Args:
         Tvi_list (List[np.ndarray]): K length list of 4x4 poses T_vk_i
@@ -230,7 +230,7 @@ def getPathFromTviList(Tvi_list):
         path[j] = (-Tvi[:3, :3].T @ Tvi[:3, 3:4]).squeeze()
     return path
 
-def computeKittiMetrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, root, step_size=10):
+def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, root, step_size=10):
     """Computes the translational (%) and rotational drift (deg/m) in the KITTI style.
         KITTI rotation and translation metrics are computed for each sequence individually and then
         averaged across the sequences.
@@ -266,15 +266,15 @@ def computeKittiMetrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_len
         times_pred_seq = times_pred[indices_pred[i]:indices_pred[i+1]]
 
         # query predicted trajectory at groundtruth times
-        T_query = interpolatePoses(T_pred_seq, times_pred_seq, times_gt_seq)
+        T_query = interpolate_poses(T_pred_seq, times_pred_seq, times_gt_seq)
 
-        err, path_lengths = calcSequenceErrors(T_gt_seq, T_query, step_size)
-        t_err, r_err, t_err_len, r_err_len = getStats(err, path_lengths)
+        err, path_lengths = calc_sequence_errors(T_gt_seq, T_query, step_size)
+        t_err, r_err, t_err_len, r_err_len = get_stats(err, path_lengths)
         err_list.append([t_err, r_err])
 
         print(seq[i], 'took', str(time() - ts), ' seconds')
 
-        plotStats(seq[i], root, T_query, T_gt_seq, path_lengths, t_err_len, r_err_len)
+        plot_stats(seq[i], root, T_query, T_gt_seq, path_lengths, t_err_len, r_err_len)
     err_list = np.asarray(err_list)
     avg = np.mean(err_list, axis=0)
     t_err = avg[0]
