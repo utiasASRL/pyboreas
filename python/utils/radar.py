@@ -31,17 +31,18 @@ def load_radar(example_path):
     """
     # Hard coded configuration to simplify parsing code
     encoder_size = 5600
+    resolution = 0.0596
+    t = get_time_from_filename(example_path)
+    if t > upgrade_time:
+        resolution = 0.04381
     raw_example_data = cv2.imread(example_path, cv2.IMREAD_GRAYSCALE)
     timestamps = raw_example_data[:, :8].copy().view(np.int64)
     azimuths = (raw_example_data[:, 8:10].copy().view(np.uint16) / float(encoder_size) * 2 * np.pi).astype(np.float32)
     valid = raw_example_data[:, 10:11] == 255
     fft_data = raw_example_data[:, 11:].astype(np.float32)[:, :, np.newaxis] / 255.
-    fft_data[:, :42] = 0
+    min_range = int(round(2.5 / resolution))
+    fft_data[:, :min_range] = 0
     fft_data = np.squeeze(fft_data)
-    resolution = 0.0596
-    t = get_time_from_filename(example_path)
-    if t > upgrade_time:
-        resolution = 0.04381
     return timestamps, azimuths, valid, fft_data, resolution
 
 def radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resolution, cart_pixel_width,
@@ -74,7 +75,8 @@ def radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resoluti
     azimuth_step = (azimuths[-1] - azimuths[0]) / (azimuths.shape[0] - 1)
     sample_u = (sample_range - radar_resolution / 2) / radar_resolution
     sample_v = (sample_angle - azimuths[0]) / azimuth_step
-    # This fixes the wobble in the old CIR204 data from Boreas (keenan)
+    # This fixes the wobble in the old CIR204 data from Boreas
+    EPS = 1e-14
     if fix_wobble and radar_resolution == 0.0596:
         azimuths = azimuths.reshape((1, 1, 400))  # 1 x 1 x 400
         sample_angle = np.expand_dims(sample_angle, axis=-1)  # H x W x 1
@@ -89,11 +91,11 @@ def radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resoluti
         subc3 = c3 * (c3 < 399)
         aplus = azimuths[subc3 + 1]
         a1 = azimuths[subc3]
-        delta1 = mindiff * (mindiff > 0) * (c3 < 399) / (aplus - a1)
+        delta1 = mindiff * (mindiff > 0) * (c3 < 399) / (aplus - a1 + EPS)
         subc3 = c3 * (c3 > 0)
         a2 = azimuths[subc3]
         aminus = azimuths[1 + (c3 > 0) * (subc3 - 2)]
-        delta2 = mindiff * (mindiff < 0) * (c3 > 0) / (a2 - aminus)
+        delta2 = mindiff * (mindiff < 0) * (c3 > 0) / (a2 - aminus + EPS)
         sample_v = c3 + delta1 + delta2
         sample_v = sample_v.astype(np.float32)
 
