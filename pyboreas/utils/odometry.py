@@ -1,5 +1,5 @@
 import numpy as np
-from utils.utils import get_inverse_tf, rotationError, translationError, enforce_orthog
+from pyboreas.utils.utils import get_inverse_tf, rotationError, translationError, enforce_orthog
 
 def trajectoryDistances(poses):
     """Calculates path length along the trajectory.

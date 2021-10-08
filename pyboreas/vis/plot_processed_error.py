@@ -1,3 +1,4 @@
+import os.path as osp
 import argparse
 import struct
 import matplotlib.pyplot as plt
@@ -12,9 +13,9 @@ if __name__ == '__main__':
     parser.add_argument('--root', default='/mnt/data1/glen_shields/2020_12_01/', type=str,
                         help='location of root folder which contains applanix/smrmsg.out')
     args = parser.parse_args()
-    with open(args.root + 'applanix/smrmsg.out', 'rb') as f:
+    with open(osp.join(args.root, 'applanix', 'smrmsg.out'), 'rb') as f:
         fc = f.read()
-    with open(args.root + 'applanix/ros_and_gps_time.csv', 'r') as f:
+    with open(osp.join(args.root, 'applanix', 'ros_and_gps_time.csv'), 'r') as f:
         lines = f.readlines()
         start_time = float(lines[1].split(',')[1]) - 5.0
         end_time = float(lines[-1].split(',')[1]) + 5.0
@@ -71,7 +72,7 @@ if __name__ == '__main__':
     plt.ylabel('Error (m)', fontsize=16)
     plt.legend(loc="upper left", prop={'size': 12})
     plt.xticks(rotation=45, ha="right")
-    plt.savefig(args.root + 'applanix/gps_position_error.pdf', bbox_inches='tight', pad_inches=0.0)
+    plt.savefig(osp.join(args.root, 'applanix', 'gps_position_error.pdf'), bbox_inches='tight', pad_inches=0.0)
 
     plt.figure(figsize=(10, 5))
     plt.plot(t, vn, label='North velocity RMS error (m/s)')
@@ -82,7 +83,7 @@ if __name__ == '__main__':
     plt.ylabel('Error (m / s)', fontsize=16)
     plt.legend(loc="upper left", prop={'size': 12})
     plt.xticks(rotation=45, ha="right")
-    plt.savefig(args.root + 'applanix/gps_velocity_error.pdf', bbox_inches='tight', pad_inches=0.0)
+    plt.savefig(osp.join(args.root, 'applanix', 'gps_velocity_error.pdf'), bbox_inches='tight', pad_inches=0.0)
 
     plt.figure(figsize=(10, 5))
     plt.plot(t, r, label='Roll RMS error (arc-min)')
@@ -93,4 +94,4 @@ if __name__ == '__main__':
     plt.ylabel('Error (arc-minutes)', fontsize=16)
     plt.legend(loc="upper left", prop={'size': 12})
     plt.xticks(rotation=45, ha="right")
-    plt.savefig(args.root + 'applanix/gps_orientation_error.pdf', bbox_inches='tight', pad_inches=0.0)
+    plt.savefig(osp.join(args.root, 'applanix', 'gps_orientation_error.pdf'), bbox_inches='tight', pad_inches=0.0)

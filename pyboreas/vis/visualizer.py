@@ -11,9 +11,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import numpy as np
 from tqdm import tqdm
 
-from vis import vis_utils
-from vis import boreas_plotter
-from data_classes.sequence import Sequence
+from pyboreas.vis.boreas_plotter import BoreasPlotter
+from pyboreas.data.sequence import Sequence
 
 matplotlib.use("tkagg")  # slu: for testing with ide
 

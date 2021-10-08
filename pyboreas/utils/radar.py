@@ -14,7 +14,7 @@
 
 import numpy as np
 import cv2
-from utils.utils import get_time_from_filename
+from pyboreas.utils.utils import get_time_from_filename
 
 upgrade_time = 1632182400  # before: resolution = 0.0596, after: resolution = 0.04381
 
