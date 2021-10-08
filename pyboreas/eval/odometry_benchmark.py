@@ -1,5 +1,5 @@
 import argparse
-from utils.odometry import get_sequences, get_sequence_poses, compute_kitti_metrics
+from pyboreas.utils.odometry import get_sequences, get_sequence_poses, compute_kitti_metrics
 
 if __name__ == '__main__':
     # parse arguments
