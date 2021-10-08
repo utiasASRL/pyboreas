@@ -1,7 +1,4 @@
 #include <math.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <dirent.h>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -13,69 +10,42 @@
 #include <boost/algorithm/string.hpp>
 #include <eigen3/Eigen/Dense>
 
-// assumes file names are EPOCH times which can be sorted numerically
-struct less_than_img {
-    inline bool operator() (const std::string& img1, const std::string& img2) {
-        std::vector<std::string> parts;
-        boost::split(parts, img1, boost::is_any_of("."));
-        int64 i1 = std::stoll(parts[0]);
-        boost::split(parts, img2, boost::is_any_of("."));
-        int64 i2 = std::stoll(parts[0]);
-        return i1 < i2;
-    }
-};
+// Note: getStampFromPath hard-codes a forward slash to separate path elements
+// which won't work on Windows. Change to \ if you're working on windows.
 
-/*!
-   \brief Retrieves a vector of the (radar) file names in ascending order of time stamp
-   \param datadir (absolute) path to the directory that contains (radar) files
-   \param radar_files [out] A vector to be filled with a string for each file name
-   \param extension Optional argument to specify the desired file extension. Files without this extension are rejected
-*/
-void get_file_names(std::string path, std::vector<std::string> &files, std::string extension) {
-    DIR *dirp = opendir(path.c_str());
-    struct dirent *dp;
-    while ((dp = readdir(dirp)) != NULL) {
-        if (exists(dp->d_name)) {
-            if (!extension.empty()) {
-                std::vector<std::string> parts;
-                boost::split(parts, dp->d_name, boost::is_any_of("."));
-                if (parts[parts.size() - 1].compare(extension) != 0)
-                    continue;
-            }
-            files.push_back(dp->d_name);
-        }
-    }
-    // Sort files in ascending order of time stamp
-    std::sort(files.begin(), files.end(), less_than_img());
-}
+double upgrade_time = 1632182400.0;
 
 /*!
    \brief Decode a single Oxford Radar RobotCar Dataset radar example
    \param path path to the radar image png file
-   \param timestamps [out] Timestamp for each azimuth in int64 (UNIX time)
+   \param timestamps [out] Timestamp for each azimuth in int64 (UNIX time) in microseconds
    \param azimuths [out] Rotation for each polar radar azimuth (radians)
    \param valid [out] Mask of whether azimuth data is an original sensor reasing or interpolated from adjacent azimuths
-   \param fft_data [out] Radar power readings along each azimuth
+   \param fft_data [out] Radar power readings along each azimuth min=0, max=1
 */
 void load_radar(std::string path, std::vector<int64_t> &timestamps, std::vector<double> &azimuths,
-    std::vector<bool> &valid, cv::Mat &fft_data, int navtech_version) {
-    int encoder_size = 5600;
+    std::vector<bool> valid, cv::Mat &fft_data, double &resolution) {
+    uint encoder_size = 5600;
+    double t = double(getStampFromPath(path)) * 1.0e-6;
+    if (t > upgrade_time)
+        resolution = 0.04381;
+    else
+        resolution = 0.0596;
+    uint min_range = round(2.5 / resolution);
     cv::Mat raw_example_data = cv::imread(path, cv::IMREAD_GRAYSCALE);
-    int N = raw_example_data.rows;
+    uint N = raw_example_data.rows;
     timestamps = std::vector<int64_t>(N, 0);
     azimuths = std::vector<double>(N, 0);
     valid = std::vector<bool>(N, true);
-    int range_bins = 3768;
-    if (navtech_version == CIR204)
-        range_bins = 3360;
+    uint range_bins = raw_example_data.cols - 11;
     fft_data = cv::Mat::zeros(N, range_bins, CV_32F);
 #pragma omp parallel
-    for (int i = 0; i < N; ++i) {
+    for (uint i = 0; i < N; ++i) {
         uchar* byteArray = raw_example_data.ptr<uchar>(i);
         timestamps[i] = *((int64_t *)(byteArray));
         azimuths[i] = *((uint16_t *)(byteArray + 8)) * 2 * M_PI / double(encoder_size);
         valid[i] = byteArray[10] == 255;
-        for (int j = 42; j < range_bins; j++) {
+        for (uint j = min_range; j < range_bins; j++) {
             fft_data.at<float>(i, j) = (float)*(byteArray + 11 + j) / 255.0;
         }
     }
@@ -85,26 +55,32 @@ static float getFloatFromByteArray(char *byteArray, uint index) {
     return *( (float *)(byteArray + index));
 }
 
+static int64_t getStampFromPath(std::string path) {
+    std::vector<std::string> parts;
+    boost::split(parts, path, boost::is_any_of("/"));
+    std::string stem = parts[parts.size() - 1];
+    boost::split(parts, fname, boost::is_any_of("."));
+    int64 time1 = std::stoll(parts[0]);
+}
+
 // Input is a .bin binary file.
-void load_velodyne3(std::string path, Eigen::MatrixXd &pc, Eigen::MatrixXd & intensities, std::vector<float> &times) {
+void load_lidar(std::string path, Eigen::MatrixXd &pc) {
     std::ifstream ifs(path, std::ios::binary);
     std::vector<char> buffer(std::istreambuf_iterator<char>(ifs), {});
-    int float_offset = 4;
-    int fields = 6;  // x, y, z, i, r, t
-    int N = buffer.size() / (float_offset * fields);
-    int point_step = float_offset * fields;
-    pc = Eigen::MatrixXd::Ones(4, N);
-    intensities = Eigen::MatrixXd::Zero(1, N);
-    times = std::vector<float>(N);
-    int j = 0;
-    for (uint i = 0; i < buffer.size(); i += point_step) {
-        pc(0, j) = getFloatFromByteArray(buffer.data(), i);
-        pc(1, j) = getFloatFromByteArray(buffer.data(), i + float_offset);
-        pc(2, j) = getFloatFromByteArray(buffer.data(), i + float_offset * 2);
-        intensities(0, j) = getFloatFromByteArray(buffer.data(), i + float_offset * 3);
-        times[j] = getFloatFromByteArray(buffer.data(), i + float_offset * 5);
-        j++;
+    uint float_offset = 4;
+    uint fields = 6;  // x, y, z, i, r, t
+    uint point_step = float_offset * fields;
+    uint N = floor(buffer.size() / point_step);
+    pc = Eigen::MatrixXd::Ones(N, fields);
+    for (uint i = 0; i < N; ++i) {
+        uint bufpos = i * point_step;
+        for (uint j = 0; j < fields; ++j) {
+            pc(i, 0) = getFloatFromByteArray(buffer.data(), bufpos + j * float_offset);
+        }
     }
+    // Add offset to timestamps
+    double t = double(getStampFromPath(path)) * 1.0e-6;
+    pc.block(0, 5, N, 1) += t;
 }
 
 double get_azimuth_index(std::vector<double> &azimuths, double azimuth) {
@@ -120,13 +96,21 @@ double get_azimuth_index(std::vector<double> &azimuths, double azimuth) {
     }
     if (azimuths[closest] < azimuth) {
         double delta = 0;
-        if (closest < M - 1)
-            delta = (azimuth - azimuths[closest]) / (azimuths[closest + 1] - azimuths[closest]);
+        if (closest < M - 1) {
+            if (azimuths[closest + 1] == azimuths[closest])
+                delta = 0.5;
+            else
+                delta = (azimuth - azimuths[closest]) / (azimuths[closest + 1] - azimuths[closest]);
+        }
         closest += delta;
     } else if (azimuths[closest] > azimuth){
         double delta = 0;
-        if (closest > 0)
-            delta = (azimuths[closest] - azimuth) / (azimuths[closest] - azimuths[closest - 1]);
+        if (closest > 0) {
+            if (azimuths[closest - 1] == azimuths[closest])
+                delta = 0.5;
+            else
+                delta = (azimuths[closest] - azimuth) / (azimuths[closest] - azimuths[closest - 1]);
+        }
         closest -= delta;
     }
     return closest;
@@ -134,17 +118,16 @@ double get_azimuth_index(std::vector<double> &azimuths, double azimuth) {
 
 /*!
    \brief Decode a single Oxford Radar RobotCar Dataset radar example
-   \param azimuths Rotation for each polar radar azimuth (radians)
-   \param fft_data Radar power readings along each azimuth
+   \param polar_in Radar power readings along each azimuth
+   \param azimuths_in Rotation for each polar radar azimuth (radians)
+   \param cart_out [out] Cartesian radar power readings
    \param radar_resolution Resolution of the polar radar data (metres per pixel)
    \param cart_resolution Cartesian resolution (meters per pixel)
    \param cart_pixel_width Width and height of the returned square cartesian output (pixels).
    \param interpolate_crossover If true, interpolates between the end and start azimuth of the scan.
-   \param cart_img [out] Cartesian radar power readings
 */
-void radar_polar_to_cartesian(std::vector<double> &azimuths, cv::Mat &fft_data, float radar_resolution,
-    float cart_resolution, int cart_pixel_width, bool interpolate_crossover, cv::Mat &cart_img, int output_type,
-    int navtech_version) {
+void radar_polar_to_cartesian(cv::Mat &polar_in, std::vector<double> &azimuths_in, cv::Mat &cart_out, float radar_resolution,
+    float cart_resolution, int cart_pixel_width, bool fix_wobble) {
 
     float cart_min_range = (cart_pixel_width / 2) * cart_resolution;
     if (cart_pixel_width % 2 == 0)
@@ -168,7 +151,8 @@ void radar_polar_to_cartesian(std::vector<double> &azimuths, cv::Mat &fft_data, 
     cv::Mat range = cv::Mat::zeros(cart_pixel_width, cart_pixel_width, CV_32F);
     cv::Mat angle = cv::Mat::zeros(cart_pixel_width, cart_pixel_width, CV_32F);
 
-    double azimuth_step = azimuths[1] - azimuths[0];
+    uint M = azimuths_in.size();
+    double azimuth_step = (azimuths_in[M - 1] - azimuths_in[0]) / (M - 1);
 #pragma omp parallel for collapse(2)
     for (int i = 0; i < range.rows; ++i) {
         for (int j = 0; j < range.cols; ++j) {
@@ -181,28 +165,23 @@ void radar_polar_to_cartesian(std::vector<double> &azimuths, cv::Mat &fft_data, 
             float theta = atan2f(y, x);
             if (theta < 0)
                 theta += 2 * M_PI;
-            if (navtech_version == CIR204) {
-                angle.at<float>(i, j) = get_azimuth_index(azimuths, theta);
+            if (fix_wobble and resolution == 0.0596) {  // fix wobble in CIR204-H data
+                angle.at<float>(i, j) = get_azimuth_index(azimuths_in, theta);
             } else {
-                angle.at<float>(i, j) = (theta - azimuths[0]) / azimuth_step;
+                angle.at<float>(i, j) = (theta - azimuths_in[0]) / azimuth_step;
             }
         }
     }
-    if (interpolate_crossover) {
-        cv::Mat a0 = cv::Mat::zeros(1, fft_data.cols, CV_32F);
-        cv::Mat aN_1 = cv::Mat::zeros(1, fft_data.cols, CV_32F);
-        for (int j = 0; j < fft_data.cols; ++j) {
-            a0.at<float>(0, j) = fft_data.at<float>(0, j);
-            aN_1.at<float>(0, j) = fft_data.at<float>(fft_data.rows-1, j);
-        }
-        cv::vconcat(aN_1, fft_data, fft_data);
-        cv::vconcat(fft_data, a0, fft_data);
-        angle = angle + 1;
+    // interpolate cross-over
+    cv::Mat a0 = cv::Mat::zeros(1, polar_in.cols, CV_32F);
+    cv::Mat aN_1 = cv::Mat::zeros(1, polar_in.cols, CV_32F);
+    for (int j = 0; j < polar_in.cols; ++j) {
+        a0.at<float>(0, j) = polar_in.at<float>(0, j);
+        aN_1.at<float>(0, j) = polar_in.at<float>(polar_in.rows-1, j);
     }
-    cv::remap(fft_data, cart_img, range, angle, cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0, 0, 0));
-    if (output_type == CV_8UC1) {
-        double min, max;
-        cv::minMaxLoc(cart_img, &min, &max);
-        cart_img.convertTo(cart_img, CV_8UC1, 255.0 / max);
-    }
+    cv::vconcat(aN_1, polar_in, polar_in);
+    cv::vconcat(polar_in, a0, polar_in);
+    angle = angle + 1;
+    // polar to cart warp
+    cv::remap(polar_in, cart_out, range, angle, cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0, 0, 0));
 }
