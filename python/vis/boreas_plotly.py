@@ -58,6 +58,9 @@ class BoreasPlotly:
             html.Div(children=[
             dcc.Graph(id='graph-with-slider3')], style={'display': 'inline-block'}),
 
+            html.Div(children=[
+            dcc.Graph(id='graph-with-slider4')], style={'display': 'inline-block'}),
+
             dcc.Slider(
                     id='timestep-slider',
                     min=0,
@@ -82,7 +85,7 @@ class BoreasPlotly:
             Input('timestep-slider', 'value')
         )
         def update_figure(idx):
-            pcd, lidar_scan, C_a_enu, C_a_l = self.get_pcd(idx, 0.1)
+            pcd, lidar_scan, C_a_enu, C_a_l = self.get_pcd(idx, 0.8)
 
             # BEV
             pcd_a = np.matmul(C_a_l[0:2, 0:2].reshape(1, 2, 2), pcd[:, 0:2].reshape(pcd.shape[0], 2, 1)).squeeze(-1)
@@ -104,31 +107,33 @@ class BoreasPlotly:
             # Perspective
             fig_persp = deepcopy(go.Figure())
             image = deepcopy(self.get_cam(idx))
+            image_marked = deepcopy(self.get_cam(idx))
 
             colorizable_points = np.array([])
 
             pcd = pcd.T
             pcd = np.vstack((pcd, np.ones(pcd.shape[1])))
 
-            points_camera_all = np.matmul(self.calib.T_camera_lidar, pcd)
-            points_camera = np.array([])
-            for i in range(points_camera_all.shape[1]):
-                if points_camera_all[2, i] > 0:
-                    points_camera = np.concatenate((points_camera, points_camera_all[:, i]))
-            points_camera = np.reshape(points_camera, (-1, 4)).T
+            points_camera = np.matmul(self.calib.T_camera_lidar, pcd)
             pixel_camera = np.matmul(self.calib.P0, points_camera)
-
+            
             max_z = int(max(pixel_camera[2, :]) / 3)
             for i in range(pixel_camera.shape[1]):
                 z = pixel_camera[2, i]
                 x = int(pixel_camera[0, i] / z)
                 y = int(pixel_camera[1, i] / z)
-                if x > 0 and x < image.shape[1] and y > 0 and y < image.shape[0]:
-                    c = cv2.applyColorMap(np.array([int(pixel_camera[2, i] / max_z * 255)], dtype=np.uint8), cv2.COLORMAP_RAINBOW).squeeze().tolist()
-                    cv2.circle(image, (x, y), 2, c, 2)
+                if z > 0 and x > 0 and x < image.shape[1] and y > 0 and y < image.shape[0]:
+                    pos = pcd[:,i]
+                    color = np.array(image[y,x])
+                    pos_color = np.hstack((pos,color))
+                    colorizable_points = np.append(colorizable_points, pos_color)
 
+                    depth_color = cv2.applyColorMap(np.array([int(pixel_camera[2, i] / max_z * 255)], dtype=np.uint8), cv2.COLORMAP_RAINBOW).squeeze().tolist()
+                    cv2.circle(image_marked, (x, y), 2, depth_color, 2)
 
-            fig_persp = px.imshow(image)
+            colorizable_points = colorizable_points.reshape((-1,7)).T
+
+            fig_persp = px.imshow(image_marked)
             fig_persp.update_layout(
                 autosize=False,
                 height=500
@@ -146,9 +151,27 @@ class BoreasPlotly:
 
             # Colored lidar 
             fig_colored_lidar = deepcopy(go.Figure())
-            
+            transform = deepcopy(self.calib.T_camera_lidar)
+            print(transform)
+            pseudo_image = 255*np.ones(image.shape)
 
-            return fig_bev, fig_persp, fig_radar
+            points_camera = np.matmul(self.calib.T_camera_lidar, pcd)
+            pixel_pseudo_camera = np.matmul(self.calib.P0, np.matmul(transform, colorizable_points[0:4,:]))
+
+            for i in range(pixel_pseudo_camera.shape[1]):
+                z = pixel_pseudo_camera[2, i]
+                x = int(pixel_pseudo_camera[0, i] / z)
+                y = int(pixel_pseudo_camera[1, i] / z)
+                if z > 0 and x > 0 and x < image.shape[1] and y > 0 and y < image.shape[0]:
+                    cv2.circle(pseudo_image, (x, y), 2, colorizable_points[4:, i], 2)
+
+            fig_colored_lidar = px.imshow(pseudo_image)
+            fig_colored_lidar.update_layout(
+                autosize=False,
+                height=500
+            )
+
+            return fig_bev, fig_persp, fig_colored_lidar
         
         @app.callback(
             Output('timestep-slider', 'value'),
@@ -169,4 +192,4 @@ class BoreasPlotly:
         def toggle(n, playing):
             return not playing
 
-        app.run_server(debug=True)
+        app.run_server(debug=False)
