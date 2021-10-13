@@ -17,9 +17,9 @@ class BoreasPlotly:
         self.seq = visualizer.sequence
         self.calib = visualizer.sequence.calib
 
-    def get_pcd(self, idx):
+    def get_pcd(self, idx, down_sample_rate=0.5):
         # load points
-        lidar_frame = self.seq.lidar_frames[idx]
+        lidar_frame = self.seq.get_lidar(idx)
 
         # Calculate transformations for current data
         C_l_enu = lidar_frame.pose[:3, :3].T
@@ -27,13 +27,21 @@ class BoreasPlotly:
         C_a_l = self.calib.T_applanix_lidar[0:3, 0:3]
         lidar_points = lidar_frame.load_data()[:,0:3]
         # Draw lidar points
-        rand_idx = np.random.choice(lidar_points.shape[0], size=int(lidar_points.shape[0]*0.3), replace=False)
+        rand_idx = np.random.choice(lidar_points.shape[0], size=int(lidar_points.shape[0]*down_sample_rate), replace=False)
         return lidar_points[rand_idx, :], lidar_frame, C_a_enu, C_a_l
 
     def get_cam(self, idx):
-        camera_frame = self.seq.camera_frames[idx]
+        camera_frame = self.seq.get_camera(idx)
         camera_image = camera_frame.load_data()
         return camera_image
+
+    def get_radar(self, idx):
+        radar_frame = self.seq.get_radar(idx)
+        radar_frame.load_data()
+        grid_res = 0.5
+        grid_size = 500
+        radar_ndarray = radar_frame.get_cartesian(grid_res, grid_size)
+        return radar_ndarray
 
     def visualize(self, frame_idx):
         app = dash.Dash(__name__)
@@ -46,6 +54,9 @@ class BoreasPlotly:
 
             html.Div(children=[
             dcc.Graph(id='graph-with-slider2')], style={'display': 'inline-block'}),
+
+            html.Div(children=[
+            dcc.Graph(id='graph-with-slider3')], style={'display': 'inline-block'}),
 
             dcc.Slider(
                     id='timestep-slider',
@@ -67,10 +78,11 @@ class BoreasPlotly:
         @app.callback(
             Output('graph-with-slider', 'figure'),
             Output('graph-with-slider2', 'figure'),
+            Output('graph-with-slider3', 'figure'),
             Input('timestep-slider', 'value')
         )
         def update_figure(idx):
-            pcd, lidar_scan, C_a_enu, C_a_l = self.get_pcd(idx)
+            pcd, lidar_scan, C_a_enu, C_a_l = self.get_pcd(idx, 0.1)
 
             # BEV
             pcd_a = np.matmul(C_a_l[0:2, 0:2].reshape(1, 2, 2), pcd[:, 0:2].reshape(pcd.shape[0], 2, 1)).squeeze(-1)
@@ -82,8 +94,8 @@ class BoreasPlotly:
             fig_bev.update_traces(marker_size=0.5)
             fig_bev.update_layout(
                 autosize=False,
-                width=800,
-                height=800
+                width=600,
+                height=600
             )
             fig_bev.update_xaxes(range=[-75, 75])
             fig_bev.update_yaxes(range=[-75, 75])
@@ -92,6 +104,8 @@ class BoreasPlotly:
             # Perspective
             fig_persp = deepcopy(go.Figure())
             image = deepcopy(self.get_cam(idx))
+
+            colorizable_points = np.array([])
 
             pcd = pcd.T
             pcd = np.vstack((pcd, np.ones(pcd.shape[1])))
@@ -111,15 +125,30 @@ class BoreasPlotly:
                 y = int(pixel_camera[1, i] / z)
                 if x > 0 and x < image.shape[1] and y > 0 and y < image.shape[0]:
                     c = cv2.applyColorMap(np.array([int(pixel_camera[2, i] / max_z * 255)], dtype=np.uint8), cv2.COLORMAP_RAINBOW).squeeze().tolist()
-                    cv2.circle(image, (x, y), 2, c, 1)
+                    cv2.circle(image, (x, y), 2, c, 2)
+
 
             fig_persp = px.imshow(image)
             fig_persp.update_layout(
                 autosize=False,
-                height=1000
+                height=500
             )
 
-            return fig_bev, fig_persp
+            # Radar
+            fig_radar = deepcopy(go.Figure())
+            radar_image = self.get_radar(idx)
+            fig_radar = px.imshow(radar_image)
+            fig_radar.update_layout(
+                autosize=False,
+                height=500
+            )
+
+
+            # Colored lidar 
+            fig_colored_lidar = deepcopy(go.Figure())
+            
+
+            return fig_bev, fig_persp, fig_radar
         
         @app.callback(
             Output('timestep-slider', 'value'),

@@ -87,6 +87,7 @@ class Radar(Sensor):
             polar = self.polar
         self.cartesian = radar_polar_to_cartesian(self.azimuths, polar, self.resolution,
                                         cart_resolution, cart_pixel_width)
+        return self.cartesian
 
 # TODO: get_bounding_boxes() # retrieve from file, cache to class variable
 # TODO: visualize(bool: use_boxes)
