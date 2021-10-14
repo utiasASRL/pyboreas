@@ -8,7 +8,7 @@ with open('requirements.txt', 'r') as f:
 	requirements = f.read().splitlines()
 
 setup(
-	name='boreas-devkit',
+	name='asrl-pyboreas',
 	version='1.0.0',
 	description='A toolkit for working with the Boreas dataset in Python',
 	long_description=long_description,

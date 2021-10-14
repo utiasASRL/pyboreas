@@ -54,5 +54,5 @@ class BoreasDataset:
 # projectLidarOntoCamera(vis_options)
 # projectBoundingBoxesOntoSensor(BB, Sensor) (include camera projection?)
 # projectMapOntoView(position, orientation, extent)
-# todo: convert a list of poses to benchmark format
-# todo: provide example code for interpolating between poses (pysteam)
+# TODO: convert a list of poses to benchmark format
+# TODO: provide example code for interpolating between poses (pysteam)

@@ -41,3 +41,4 @@ class PointCloud:
             return ptemp
 
 # TODO: remove_ground(self, bool: in_place)
+# TODO: voxelize(self)
