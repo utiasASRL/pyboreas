@@ -1,7 +1,7 @@
 # boreas-devkit
 ![Boreas](pyboreas/figs/pyboreas.png)
 
-This package contains tools for working with the Boreas dataset.
+This devkit provides tools for working with the Boreas Dataset, an all-weather autonomous driving dataset which includes a 128-beam Velodyne Alpha-Prime lidar, a 5MP Blackfly camera, a 360 degree Navtech radar, and post-processed Applanix POS LV GNSS data. Our dataset currently suports benchmarking odometry. We are working towards providing an online benchmark for odometry, localization, and more. We plan to provide an HD map of each driven route. We are also in the process of acquiring 3D labels and hope to be able to provide a challenging object detection benchmark in the future.
 
 ## Installation
 
@@ -27,12 +27,12 @@ root=/path/to/data/boreas/
 aws s3 sync s3://boreas $root
 ```
 
-Alternatively, [our website (Work-In-Progress)](boreas.utias.utoronto.ca/#/download) can be used to browse through sequences so as to pick and choose what data to download. The website will then generate a list of AWS CLI commands than can be run as a bash script. These commands will look something like:
+Alternatively, [our website (Work-In-Progress)](boreas.utias.utoronto.ca/#/download) can be used to browse through sequences so as to pick and choose what data to download. The website will then generate a list of AWS CLI commands that can be run as a bash script. These commands will look something like:
 
 ```bash
 root=/path/to/data/boreas/
 cd $root
-aws s3 sync s3://boreas/boreas-2020-11-26-13-58 . --exclude "*" \
+aws s3 sync s3://boreas/boreas-2020-11-26-13-58 ./boreas-2020-11-26-13-58 --exclude "*" \
     --include "lidar/" --include "radar/" \
     --include "applanix/" --include "calib/"
 ```
@@ -50,27 +50,26 @@ applanix calib camera lidar radar
 ## Example Usage
 
 ```Python
+import numpy as np
 from pyboreas import BoreasDataset
 
 root = '/path/to/data/boreas/'
-boreas = BoreasDataset(root)
+bd = BoreasDataset(root)
 
-# Each sequence contains camera, lidar, radar sensor frames and
-# has it's own calibration. Each sensor frame contains a
-# timestamp, ground truth pose (4x4 homogeneous transform) wrt a
-# global coordinate frame, and velocity information.
-
-# TODO: transform lidar data at a time into camera at a time
+# Note: The Boreas dataset differs from others (KITTI) in that camera,
+# lidar, and radar measurements are not synchronous. However, each
+# sensor message has an accurate timestamp and pose instead.
+# See our tutorials for how to work with multiple sensors.
 
 # Loop through each frame in order (odometry)
-for seq in boreas.sequences:
+for seq in bd.sequences:
     # Generator examples:
     for camera_frame in seq.camera:
         img = camera_frame.img  # np.ndarray
         # do something
         pass
     for lidar_frame in seq.lidar:
-        pts = lidar_frame.points  # np.ndarray
+        pts = lidar_frame.points  # np.ndarray (x,y,z,i,r,t)
         # do something
         pass
     # Retrieve frames based on their index:
@@ -79,27 +78,39 @@ for seq in boreas.sequences:
         radar_frame = seq.get_radar(i)
         # do something
 
+# Iterator example:
+cam_iter = bd.sequences[0].get_camera_iter()
+cam0 = next(cam_iter)  # First camera frame
+cam1 = next(cam_iter)  # Second camera frame
+
 # Randomly access frames (deep learning, localization):
-N = len(boreas.camera_frames)
+N = len(bd.lidar_frames)
 indices = np.random.permutation(N)
 for idx in indices:
-    camera_frame = boreas.get_camera(idx)
+    lidar_frame = bd.get_lidar(idx)
     # do something
 
-# Calibration
+# Each sequence contains a calibration object:
+calib = bd.sequences[0].calib
+point_lidar = np.array([1, 0, 0, 1]).reshape(4, 1)
+point_camera = np.matmul(calib.T_camera_lidar, point_lidar)
 
-# Pose
-
-# Timestamp
+# Each sensor frame has a timestamp, groundtruth pose
+# (4x4 homogeneous transform) wrt a global coordinate frame (ENU),
+# and groundtruth velocity information.
+lidar_frame = bd.get_lidar(0)
+t = lidar_frame.timestamp  # timestamp in seconds
+T_enu_lidar = lidar_frame.pose  # 4x4 homogenous transform [R t; 0 0 0 1]
+vbar = lidar_frame.velocity  # 6x1 vel in ENU frame [v_se_in_e; w_se_in_e] 
+varpi = lidar_frame.body_rate  # 6x1 vel in sensor frame [v_se_in_s; w_se_in_s]
 ```
 
 TODO:
-
-- [ ] Tutorial
+- [ ] Tutorials (intro, radar, pose interp)
 - [ ] Convert readme pdf to markdown
 - [ ] Doc strings
 - [ ] PEP8 formatting
+- [ ] Code for visualizing pointclouds
 - [ ] Ground plane removal
 - [ ] Pointcloud voxelization
 - [ ] 3D Bounding boxes
-- [ ] Verbosity levels for class initialization

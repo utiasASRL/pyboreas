@@ -335,8 +335,31 @@ def get_gt_data_for_frame(root, sensType, frame):
     assert(0), 'gt not found for root: {} sensType: {} frame: {}'.format(root, sensType, frame)
     return None
 
-def get_rotation(heading):
-    return np.array([[np.cos(heading), -np.sin(heading), 0],
-                     [np.sin(heading), np.cos(heading), 0],
-                     [0, 0, 1]])
-
+# Assumes targets is a sorted array
+# Returns index of targets that is closest to query.
+# O(log n)
+def get_closest_index(query, targets):
+    def binaryDistSearch(arr, l, r, x):
+        if r == l + 1:
+            if abs(arr[l] - x) < abs(arr[r] - x):
+                return abs(arr[l] - x), l
+            else:
+                return abs(arr[r] - x), r
+        mid = l + (r - l) // 2
+        if arr[mid] == x:
+            return 0, mid
+        elif r - l == 0:
+            return abs(arr[l] - x), l
+        elif arr[mid] > x:
+            return binaryDistSearch(arr, l, mid - 1, x)
+        else:
+            return binaryDistSearch(arr, mid + 1, r, x)
+    d, idx = binaryDistSearch(targets, 0, len(targets)-1, query)
+    # check if index above or below is closer to query
+    if targets[idx] < query and idx < len(targets) - 1:
+        if abs(targets[idx + 1] - query) < d:
+            return idx + 1
+    elif targets[idx] > query and idx > 0:
+        if abs(targets[idx - 1] - query) < d:
+            return idx - 1
+    return idx

@@ -14,7 +14,7 @@ class Sensor:
         p = Path(path)
         self.frame = p.stem
         self.sensType = p.parts[-2]
-        self.ID = p.parts[-3]
+        self.seqID = p.parts[-3]
         self.seq_root = str(Path(*p.parts[:-2]))
         self.sensor_root = osp.join(self.seq_root, self.sensType)
         self.pose = np.identity(4, dtype=np.float64)  # T_enu_sensor
