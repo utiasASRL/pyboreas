@@ -1,4 +1,4 @@
-# boreas-devkit
+# pyboreas
 ![Boreas](pyboreas/figs/pyboreas.png)
 
 This devkit provides tools for working with the Boreas Dataset, an all-weather autonomous driving dataset which includes a 128-beam Velodyne Alpha-Prime lidar, a 5MP Blackfly camera, a 360 degree Navtech radar, and post-processed Applanix POS LV GNSS data. Our dataset currently suports benchmarking odometry. We are working towards providing an online benchmark for odometry, localization, and more. We plan to provide an HD map of each driven route. We are also in the process of acquiring 3D labels and hope to be able to provide a challenging object detection benchmark in the future.
