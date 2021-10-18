@@ -69,16 +69,17 @@ for seq in bd.sequences:
     for camera_frame in seq.camera:
         img = camera_frame.img  # np.ndarray
         # do something
-        pass
+        camera_frame.unload_data() # Memory reqs will keep increasing without this
     for lidar_frame in seq.lidar:
         pts = lidar_frame.points  # np.ndarray (x,y,z,i,r,t)
         # do something
-        pass
+        lidar_frame.unload_data() # Memory reqs will keep increasing without this
     # Retrieve frames based on their index:
     N = len(seq.radar_frames)
     for i in range(N):
         radar_frame = seq.get_radar(i)
         # do something
+        radar_frame.unload_data() # Memory reqs will keep increasing without this
 
 # Iterator example:
 cam_iter = bd.sequences[0].get_camera_iter()
@@ -91,6 +92,7 @@ indices = np.random.permutation(N)
 for idx in indices:
     lidar_frame = bd.get_lidar(idx)
     # do something
+    lidar_frame.unload_data() # Memory reqs will keep increasing without this
 
 # Each sequence contains a calibration object:
 calib = bd.sequences[0].calib
@@ -110,8 +112,6 @@ varpi = lidar_frame.body_rate  # 6x1 vel in sensor frame [v_se_in_s; w_se_in_s]
 TODO:
 - [ ] Tutorials (pose interp)
 - [ ] Convert readme pdf to markdown
-- [ ] Doc strings
-- [ ] PEP8 formatting
 - [ ] Ground plane removal
 - [ ] Pointcloud voxelization
 - [ ] 3D Bounding boxes

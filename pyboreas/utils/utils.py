@@ -362,6 +362,7 @@ def LLtoUTM(latitude, longitude):
 
     return UTMEasting, UTMNorthing, zoneNumber
 
+
 def get_gt_data_for_frame(root, sensType, frame):
     """Retrieves ground truth applanix data for a given sensor frame
     Args:
@@ -411,11 +412,8 @@ def binaryDistSearch(arr, l, r, x):
         return binaryDistSearch(arr, mid + 1, r, x)
 
 
-# Assumes targets is a sorted array
-# Returns index of targets that is closest to query.
-# O(log n)
 def get_closest_index(query, targets):
-    """Retrieves the index of the element in targets that is closest to query
+    """Retrieves the index of the element in targets that is closest to query O(log n)
     Args:
         query (float): query value
         targets (list): Sorted list of float values

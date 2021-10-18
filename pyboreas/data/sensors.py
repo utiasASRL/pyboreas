@@ -57,6 +57,9 @@ class Lidar(Sensor, PointCloud):
     def visualize(self, **kwargs):
         vis_lidar(self, **kwargs)
 
+    def unload_data(self):
+        self.points = None
+
     # TODO: get_bounding_boxes()
     # TODO: get_semantics()
 
@@ -72,6 +75,9 @@ class Camera(Sensor):
 
     def visualize(self, **kwargs):
         vis_camera(self, **kwargs)
+
+    def unload_data(self):
+        self.img = None
 
     # TODO: get_bounding_boxes() # retrieve from file, cache to class variable
     # TODO: get_semantics() # retrieve from file, cache to class variable
@@ -98,6 +104,13 @@ class Radar(Sensor):
         if osp.exists(mask_path):
             self.mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
         return self.timestamps, self.azimuths, self.polar
+
+    def unload_data(self):
+        self.timestamps = None
+        self.azimuths = None
+        self.polar = None
+        self.cartesian = None
+        self.mask = None
 
     def get_cartesian(self, cart_resolution, cart_pixel_width, polar=None, in_place=True):
         """Converts a polar scan from polar to Cartesian format
