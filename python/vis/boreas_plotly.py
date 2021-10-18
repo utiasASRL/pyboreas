@@ -8,6 +8,7 @@ import plotly.express as px
 import pandas as pd
 from copy import deepcopy
 import cv2
+import base64
 
 from vis import map_utils
 
@@ -35,6 +36,10 @@ class BoreasPlotly:
         camera_image = camera_frame.load_data()
         return camera_image
 
+    def get_cam_path(self, idx):
+        cam = self.seq.get_camera(idx)
+        return cam.path
+
     def get_radar(self, idx):
         radar_frame = self.seq.get_radar(idx)
         radar_frame.load_data()
@@ -50,16 +55,16 @@ class BoreasPlotly:
             html.H1(children='Graphs'),
             
             html.Div(children=[
-            dcc.Graph(id='graph-with-slider')], style={'display': 'inline-block'}),
+            dcc.Graph(id='bev_plot')], style={'display': 'inline-block'}),
 
             html.Div(children=[
-            dcc.Graph(id='graph-with-slider2')], style={'display': 'inline-block'}),
+            dcc.Graph(id='persp_plot')], style={'display': 'inline-block'}),
 
             html.Div(children=[
-            dcc.Graph(id='graph-with-slider3')], style={'display': 'inline-block'}),
+            dcc.Graph(id='color_lidar_plot')], style={'display': 'inline-block'}),
 
-            html.Div(children=[
-            dcc.Graph(id='graph-with-slider4')], style={'display': 'inline-block'}),
+            # html.Div(children=[
+            # dcc.Graph(id='graph-with-slider4')], style={'display': 'inline-block'}),
 
             dcc.Slider(
                     id='timestep-slider',
@@ -75,13 +80,14 @@ class BoreasPlotly:
                          n_intervals=0,
                          disabled=True,
                          ),
+
             html.Button("Play/Pause", id="play_btn")
         ])
 
         @app.callback(
-            Output('graph-with-slider', 'figure'),
-            Output('graph-with-slider2', 'figure'),
-            Output('graph-with-slider3', 'figure'),
+            Output('bev_plot', 'figure'),
+            Output('persp_plot', 'figure'),
+            Output('color_lidar_plot', 'figure'),
             Input('timestep-slider', 'value')
         )
         def update_figure(idx):
@@ -89,8 +95,8 @@ class BoreasPlotly:
 
             # BEV
             pcd_a = np.matmul(C_a_l[0:2, 0:2].reshape(1, 2, 2), pcd[:, 0:2].reshape(pcd.shape[0], 2, 1)).squeeze(-1)
-            fig_bev = deepcopy(go.Figure())
-            map_utils.draw_map_plotly("/home/jqian/datasets/boreas-devkit/boreas_mini_v2/boreas_lane.osm", fig_bev, lidar_scan.pose[0, 3], lidar_scan.pose[1, 3], C_a_enu, utm=True)
+            fig_bev = go.Figure()
+            map_utils.draw_map_plotly("/home/shichen/datasets/boreas_mini/boreas_lane.osm", fig_bev, lidar_scan.pose[0, 3], lidar_scan.pose[1, 3], C_a_enu, utm=True)
             fig_bev.add_trace(
                 go.Scattergl(x=pcd_a[:,0], y=pcd_a[:,1], mode='markers', visible=True, marker_size=0.5, marker_color='blue')
             )
@@ -98,78 +104,123 @@ class BoreasPlotly:
             fig_bev.update_layout(
                 autosize=False,
                 width=600,
-                height=600
+                height=600,
+                showlegend=False
             )
             fig_bev.update_xaxes(range=[-75, 75])
             fig_bev.update_yaxes(range=[-75, 75])
-            fig_bev.update_layout(showlegend=False)
 
             # Perspective
-            fig_persp = deepcopy(go.Figure())
-            image = deepcopy(self.get_cam(idx))
-            image_marked = deepcopy(self.get_cam(idx))
-
-            colorizable_points = np.array([])
-
+            # Project lidar points into pixel frame
             pcd = pcd.T
             pcd = np.vstack((pcd, np.ones(pcd.shape[1])))
-
             points_camera = np.matmul(self.calib.T_camera_lidar, pcd)
-            pixel_camera = np.matmul(self.calib.P0, points_camera)
-            
-            max_z = int(max(pixel_camera[2, :]) / 3)
-            for i in range(pixel_camera.shape[1]):
-                z = pixel_camera[2, i]
-                x = int(pixel_camera[0, i] / z)
-                y = int(pixel_camera[1, i] / z)
-                if z > 0 and x > 0 and x < image.shape[1] and y > 0 and y < image.shape[0]:
-                    pos = pcd[:,i]
-                    color = np.array(image[y,x])
-                    pos_color = np.hstack((pos,color))
-                    colorizable_points = np.append(colorizable_points, pos_color)
+            points_camera = np.matmul(self.calib.P0, points_camera)
+            pixel_camera = np.divide(points_camera, points_camera[2, :])
+            # Only select valid lidar points
+            valid_pixel_idx = (points_camera[2, :] > 0) & (pixel_camera[1, :] > 0) & (pixel_camera[1, :] < 2048) & (pixel_camera[0, :] > 0) & (pixel_camera[0, :] < 2448)
+            valid_pixel_x = pixel_camera[0][valid_pixel_idx]
+            valid_pixel_y = pixel_camera[1][valid_pixel_idx]
+            valid_pixel_z = points_camera[2][valid_pixel_idx]
 
-                    depth_color = cv2.applyColorMap(np.array([int(pixel_camera[2, i] / max_z * 255)], dtype=np.uint8), cv2.COLORMAP_RAINBOW).squeeze().tolist()
-                    cv2.circle(image_marked, (x, y), 2, depth_color, 2)
+            # Image in figure background taken from https://plotly.com/python/images/#zoom-on-static-images
+            fig_persp = go.Figure()
+            img_width = 2448
+            img_height = 2048
+            scale_factor = 0.25
 
-            colorizable_points = colorizable_points.reshape((-1,7)).T
+            # Add invisible scatter trace.
+            # This trace is added to help the autoresize logic work.
+            fig_persp.add_trace(
+                go.Scatter(
+                    x=[0, img_width],
+                    y=[0, img_height],
+                    mode="markers",
+                    marker_opacity=0
+                )
+            )
 
-            fig_persp = px.imshow(image_marked)
+            # Configure axes
+            fig_persp.update_xaxes(
+                visible=False,
+                range=[0, img_width]
+            )
+            fig_persp.update_yaxes(  # Range reversed so that plotting lidar works properly
+                visible=False,
+                range=[img_height, 0]
+            )
+
+            # Load image. Use 64bit encoding for speed
+            with open(self.get_cam_path(idx), "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read()).decode()
+                # add the prefix that plotly will want when using the string as source
+            encoded_image = "data:image/png;base64," + encoded_string
+
+            # Draw image
+            fig_persp.add_layout_image(
+                dict(
+                    x=0,
+                    sizex=img_width,
+                    y=0,
+                    sizey=img_height,
+                    xref="x",
+                    yref="y",
+                    opacity=1.0,
+                    layer="below",
+                    sizing="stretch",
+                    source=encoded_image)
+            )
+
+            # Draw lidar
+            fig_persp.add_trace(
+                    go.Scattergl(x=valid_pixel_x,
+                                 y=valid_pixel_y,
+                                 mode='markers',
+                                 visible=True,
+                                 marker_size=1,
+                                 marker_color=valid_pixel_z,
+                                 marker_colorscale='rainbow')
+                )
+
+            # Configure other layout
             fig_persp.update_layout(
+                width=img_width * scale_factor,
+                height=img_height * scale_factor,
                 autosize=False,
-                height=500
+                showlegend=False
             )
 
-            # Radar
-            fig_radar = deepcopy(go.Figure())
-            radar_image = self.get_radar(idx)
-            fig_radar = px.imshow(radar_image)
-            fig_radar.update_layout(
-                autosize=False,
-                height=500
-            )
+            # # Radar
+            # fig_radar = deepcopy(go.Figure())
+            # radar_image = self.get_radar(idx)
+            # fig_radar = px.imshow(radar_image)
+            # fig_radar.update_layout(
+            #     autosize=False,
+            #     height=500
+            # )
 
 
-            # Colored lidar 
+            # # Colored lidar
             fig_colored_lidar = deepcopy(go.Figure())
-            transform = deepcopy(self.calib.T_camera_lidar)
-            print(transform)
-            pseudo_image = 255*np.ones(image.shape)
-
-            points_camera = np.matmul(self.calib.T_camera_lidar, pcd)
-            pixel_pseudo_camera = np.matmul(self.calib.P0, np.matmul(transform, colorizable_points[0:4,:]))
-
-            for i in range(pixel_pseudo_camera.shape[1]):
-                z = pixel_pseudo_camera[2, i]
-                x = int(pixel_pseudo_camera[0, i] / z)
-                y = int(pixel_pseudo_camera[1, i] / z)
-                if z > 0 and x > 0 and x < image.shape[1] and y > 0 and y < image.shape[0]:
-                    cv2.circle(pseudo_image, (x, y), 2, colorizable_points[4:, i], 2)
-
-            fig_colored_lidar = px.imshow(pseudo_image)
-            fig_colored_lidar.update_layout(
-                autosize=False,
-                height=500
-            )
+            # transform = deepcopy(self.calib.T_camera_lidar)
+            # print(transform)
+            # pseudo_image = 255*np.ones(image.shape)
+            #
+            # points_camera = np.matmul(self.calib.T_camera_lidar, pcd)
+            # pixel_pseudo_camera = np.matmul(self.calib.P0, np.matmul(transform, colorizable_points[0:4,:]))
+            #
+            # for i in range(pixel_pseudo_camera.shape[1]):
+            #     z = pixel_pseudo_camera[2, i]
+            #     x = int(pixel_pseudo_camera[0, i] / z)
+            #     y = int(pixel_pseudo_camera[1, i] / z)
+            #     if z > 0 and x > 0 and x < image.shape[1] and y > 0 and y < image.shape[0]:
+            #         cv2.circle(pseudo_image, (x, y), 2, colorizable_points[4:, i], 2)
+            #
+            # fig_colored_lidar = px.imshow(pseudo_image)
+            # fig_colored_lidar.update_layout(
+            #     autosize=False,
+            #     height=500
+            # )
 
             return fig_bev, fig_persp, fig_colored_lidar
         
@@ -190,6 +241,8 @@ class BoreasPlotly:
             State('animator', 'disabled')
         )
         def toggle(n, playing):
-            return not playing
+            if n:
+                return not playing
+            return playing
 
-        app.run_server(debug=False)
+        app.run_server(debug=True)

@@ -113,10 +113,13 @@ class BoreasVisualizer:
 
 
 if __name__ == '__main__':
-    #seq = Sequence("/home/shichen/datasets/", ["boreas_mini_v2", 1616518050000000, 1616518060000000])
-    seq = Sequence("/home/jqian/datasets/boreas-devkit/",["boreas_mini_v2", 1616518050000000, 1616518060000000])
+    seq = Sequence("/home/shichen/datasets/", ["boreas_mini_v2", 1616518050000000, 1616518060000000])
+    # seq = Sequence("/home/jqian/datasets/boreas-devkit/",["boreas_mini_v2", 1616518050000000, 1616518060000000])
     visualizer = BoreasVisualizer(seq)
     visualizer.visualize_plotly(0)
+    # plotter = boreas_plotly.BoreasPlotly(visualizer)
+    # for i in range(10):
+    #     plotter.update_figure(i)
 
 
     # sequence = Sequence("/home/shichen/datasets/", ["boreas_mini_v2", 1616518050000000, 1616518060000000])
