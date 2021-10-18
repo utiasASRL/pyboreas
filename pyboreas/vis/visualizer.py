@@ -13,13 +13,13 @@ from tqdm import tqdm
 
 from pyboreas.vis.boreas_plotter import BoreasPlotter
 from pyboreas.data.sequence import Sequence
+from pyboreas.utils.utils import get_closest_index
 
 matplotlib.use("tkagg")  # slu: for testing with ide
 
 def get_closest_frame(query_time, target_times, targets):
-    times = np.array(target_times)
-    closest = np.argmin(np.abs(times - query_time))
-    assert(np.abs(query_time - times[closest]) < 1.0), "closest time to query: {} in rostimes not found.".format(query_time)
+    closest = get_closest_index(query_time, target_times)
+    assert(np.abs(query_time - target_times[closest]) < 1.0), "closest to query: {} not found.".format(query_time)
     return targets[closest]
 
 class BoreasVisualizer:

@@ -1,14 +1,5 @@
 import numpy as np
 
-class BoundingBoxes:
-    def __init__(self, path):
-        # pose / sensor frame
-        # timestamp
-        # 3D
-        # BBs[]
-        pass
-    # load/save from/to file
-
 class BoundingBox2D:
     def __init__(self, position, rotation, extent, label=None):
         """Checks dimensional consistency of inputs and constructs points array
@@ -87,10 +78,3 @@ class BoundingBox2D:
 
     def get_raw_data(self):
         return self.pos, self.rot, self.extent
-
-# class BoundingBox3D: TODO
-
-    
-
-
-

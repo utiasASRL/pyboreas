@@ -7,7 +7,7 @@ from pyboreas.data.sensors import Camera, Lidar, Radar
 from pyboreas.vis.visualizer import BoreasVisualizer
 
 class BoreasDataset:
-	def __init__(self, root='/data/boreas/', split=None):
+	def __init__(self, root='/data/boreas/', split=None, verbose=False):
 		self.root = root
 		self.split = split
 		self.camera_frames = []
@@ -21,12 +21,17 @@ class BoreasDataset:
 			split = sorted([[f] for f in os.listdir(root) if 'boreas' in f])
 
 		for seqSpec in split:
-			seq = Sequence(root, seqSpec)
+			seq = Sequence(root, seqSpec, verbose)
 			self.sequences.append(seq)
 			self.camera_frames += seq.camera_frames
 			self.lidar_frames += seq.lidar_frames
 			self.radar_frames += seq.radar_frames
 			self.seqDict[seq.ID] = len(self.sequences) - 1
+
+		if verbose:
+			print('total camera frames: {}'.format(len(self.camera_frames)))
+			print('total lidar frames: {}'.format(len(self.lidar_frames)))
+			print('total radar frames: {}'.format(len(self.radar_frames)))
 
 	def get_seq_from_ID(self, ID):
 		return self.sequences[self.seqDict[ID]]
@@ -51,8 +56,7 @@ class BoreasDataset:
 
 # These could either go here or in a separate file
 # getGroundTruthOdometry(ID)
-# projectLidarOntoCamera(vis_options)
 # projectBoundingBoxesOntoSensor(BB, Sensor) (include camera projection?)
 # projectMapOntoView(position, orientation, extent)
-# todo: convert a list of poses to benchmark format
-# todo: provide example code for interpolating between poses (pysteam)
+# TODO: convert a list of poses to benchmark format
+# TODO: provide example code for interpolating between poses (pysteam)
