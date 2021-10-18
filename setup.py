@@ -1,15 +1,19 @@
 import os
 from setuptools import setup
 
-with open('README.md', 'r') as f:
+from pathlib import Path
+
+this_directory = Path(__file__).parent
+
+with open(str(this_directory / 'README.md'), 'r') as f:
 	long_description = f.read()
 
-with open('requirements.txt', 'r') as f:
+with open(str(this_directory / 'requirements.txt'), 'r') as f:
 	requirements = f.read().splitlines()
 
 setup(
 	name='asrl-pyboreas',
-	version='1.0.0',
+	version='1.0.1',
 	description='A toolkit for working with the Boreas dataset in Python',
 	long_description=long_description,
 	long_description_content_type='text/markdown',
