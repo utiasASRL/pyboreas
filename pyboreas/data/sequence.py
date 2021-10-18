@@ -5,8 +5,18 @@ from pyboreas.data.calib import Calib
 from pyboreas.data.sensors import Camera, Lidar, Radar
 from pyboreas.utils.utils import get_closest_index
 
+
 class Sequence:
+    """
+    Class for working with an individual Boreas dataset sequence
+    """
     def __init__(self, boreas_root, seqSpec, verbose=False):
+        """init
+        Args:
+            boreas_root (str): path to root folder ex: /path/to/data/boreas/
+            seqSpec (list): defines sequence ID, start_time, and end_time
+            verbose (bool): whether or not to print info during initialization
+        """
         self.ID = seqSpec[0]
         self.verbose = verbose
         if verbose:
@@ -52,6 +62,7 @@ class Sequence:
             yield camera_frame
 
     def get_camera_iter(self):
+        """Retrieves an iterator on camera frames"""
         return iter(self.camera)
 
     def get_lidar(self, idx):
@@ -65,6 +76,7 @@ class Sequence:
             yield lidar_frame
 
     def get_lidar_iter(self):
+        """Retrieves an iterator on lidar frames"""
         return iter(self.lidar)
 
     def get_radar(self, idx):
@@ -73,14 +85,16 @@ class Sequence:
 
     @property
     def radar(self):
-        for radar_frame in radar_frames:
+        for radar_frame in self.radar_frames:
             radar_frame.load_data()
             yield radar_frame
 
     def get_radar_iter(self):
+        """Retrieves an iterator on radar frames"""
         return iter(self.radar)
 
     def _check_dataroot_valid(self):
+        """Checks if the sequence folder structure is valid"""
         if not osp.isdir(self.applanix_root):
             raise ValueError("ERROR: applanix dir missing from dataroot")
         if not osp.isdir(self.calib_root):
@@ -93,14 +107,24 @@ class Sequence:
             os.mkdir(self.radar_root)
 
     def _check_download(self):
-        if len(os.listdir(self.camera_root)) < len(self.camera_frames) and self.verbose:
+        """Checks if all sensor data has been downloaded, prints a warning otherwise"""
+        if len(os.listdir(self.camera_root)) < len(self.camera_frames):
             print('WARNING: camera images are not all downloaded')
-        if len(os.listdir(self.lidar_root)) < len(self.lidar_frames) and self.verbose:
+        if len(os.listdir(self.lidar_root)) < len(self.lidar_frames):
             print('WARNING: lidar frames are not all downloaded')
-        if len(os.listdir(self.radar_root)) < len(self.radar_frames) and self.verbose:
+        if len(os.listdir(self.radar_root)) < len(self.radar_frames):
             print('WARNING: radar scans are not all downloaded')
 
     def _get_frames(self, posefile, root, ext, SensorType):
+        """Initializes sensor frame objects with their ground truth pose information
+        Args:
+            posefile (str): path to ../sensor_poses.csv
+            root (str): path to the root of the sensor folder ../sensor/
+            ext (str): file extension specific to this sensor type
+            SensorType (cls): sensor class specific to this sensor type
+        Returns:
+            frames (list): list of sensor frame objects
+        """
         frames = []
         if osp.exists(posefile) and osp.isdir(root):
             with open(posefile, 'r') as f:
@@ -115,6 +139,7 @@ class Sequence:
         return frames
 
     def get_all_frames(self):
+        """Convenience method for retrieving sensor frames of all types"""
         cfile = osp.join(self.applanix_root, 'camera_poses.csv')
         lfile = osp.join(self.applanix_root, 'lidar_poses.csv')
         rfile = osp.join(self.applanix_root, 'radar_poses.csv')
@@ -123,13 +148,20 @@ class Sequence:
         self.radar_frames = self._get_frames(rfile, self.radar_root, '.png', Radar)
 
     def reset_frames(self):
+        """Resets all frames, removes downloaded data"""
         self.get_all_frames()
 
-    # Simulates having synchronous measurements
-    # Note: measurements still won't be at the exact same timestamp and will have different poses
-    # However, for a given reference index, the other measurements will be as close to the reference
-    # in time as they can be.
     def synchronize_frames(self, ref='camera'):
+        """Simulates having synchronous measurements
+        Note: measurements still won't be at the exact same timestamp and will have different poses
+        However, for a given reference index, the other measurements will be as close to the reference
+        in time as they can be.
+        Args:
+            ref (str): [camera, lidar, or radar] this determines which sensor's frames will be used as the
+                reference for synchronization. This sensor's list of frames will not be modified. However,
+                the other two list of sensor frames will be modified so that each index will approximately
+                align with the reference in time.
+        """
         cstamps = [frame.timestamp for frame in self.camera_frames]
         lstamps = [frame.timestamp for frame in self.lidar_frames]
         rstamps = [frame.timestamp for frame in self.radar_frames]

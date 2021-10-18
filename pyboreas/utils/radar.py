@@ -18,6 +18,7 @@ from pyboreas.utils.utils import get_time_from_filename
 
 upgrade_time = 1632182400  # before: resolution = 0.0596, after: resolution = 0.04381
 
+
 def load_radar(example_path):
     """Decode a single Oxford Radar RobotCar Dataset radar example
     Args:
@@ -44,6 +45,7 @@ def load_radar(example_path):
     fft_data[:, :min_range] = 0
     fft_data = np.squeeze(fft_data)
     return timestamps, azimuths, valid, fft_data, resolution
+
 
 def radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resolution, cart_pixel_width,
                              interpolate_crossover=True, fix_wobble=True):
@@ -110,6 +112,7 @@ def radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resoluti
 
     polar_to_cart_warp = np.stack((sample_u, sample_v), -1)
     return cv2.remap(fft_data, polar_to_cart_warp, None, cv2.INTER_LINEAR)
+
 
 def mean_intensity_mask(polar_data, multiplier=3.0):
     """Thresholds on multiplier*np.mean(azimuth_data) to create a polar mask of likely target points.

@@ -11,6 +11,7 @@ from pyboreas.utils.utils import get_gt_data_for_frame
 from pyboreas.utils.radar import load_radar, radar_polar_to_cartesian
 from pyboreas.vis.vis_utils import vis_lidar, vis_camera, vis_radar
 
+
 class Sensor:
     def __init__(self, path):
         self.path = path
@@ -26,6 +27,11 @@ class Sensor:
         self.timestamp = get_time_from_filename(self.frame)
 
     def init_pose(self, data=None):
+        """Initializes pose variables with ground truth applanix data
+        Args:
+            data (list): A list of floats corresponding to the line from the sensor_pose.csv file
+                with the matching timestamp
+        """
         if data is not None:
             gt = [float(x) for x in data]
         else:
@@ -37,6 +43,7 @@ class Sensor:
         vbar = np.array([gt[4], gt[5], gt[6]]).reshape(3, 1)
         vbar = np.matmul(self.pose[:3, :3].T, vbar).squeeze()
         self.body_rate = np.array([vbar[0], vbar[1], vbar[2], gt[12], gt[11], gt[10]]).reshape(6, 1)
+
 
 class Lidar(Sensor, PointCloud):
     def __init__(self, path):
@@ -50,8 +57,9 @@ class Lidar(Sensor, PointCloud):
     def visualize(self, **kwargs):
         vis_lidar(self, **kwargs)
 
-# TODO: get_bounding_boxes()
-# TODO: get_semantics()
+    # TODO: get_bounding_boxes()
+    # TODO: get_semantics()
+
 
 class Camera(Sensor):
     def __init__(self, path):
@@ -65,9 +73,9 @@ class Camera(Sensor):
     def visualize(self, **kwargs):
         vis_camera(self, **kwargs)
 
-# TODO: get_bounding_boxes() # retrieve from file, cache to class variable
-# TODO: get_semantics() # retrieve from file, cache to class variable
-# TODO: visualize(bool: use_boxes, Lidar: points (optional_arg))
+    # TODO: get_bounding_boxes() # retrieve from file, cache to class variable
+    # TODO: get_semantics() # retrieve from file, cache to class variable
+
 
 class Radar(Sensor):
     def __init__(self, path):
@@ -80,6 +88,8 @@ class Radar(Sensor):
         self.mask = None
 
     def load_data(self):
+        # Loads polar radar data, timestamps, azimuths, and resolution value
+        # Additionally, loads a pre-computed cartesian radar image and binary mask if they exist.
         self.timestamps, self.azimuths, _, self.polar, self.resolution = load_radar(self.path)
         cart_path = osp.join(self.sensor_root, 'cart', self.frame + '.png')
         if osp.exists(cart_path):
@@ -90,10 +100,17 @@ class Radar(Sensor):
         return self.timestamps, self.azimuths, self.polar
 
     def get_cartesian(self, cart_resolution, cart_pixel_width, polar=None, in_place=True):
+        """Converts a polar scan from polar to Cartesian format
+        Args:
+            cart_resolution (float): resolution of the output Cartesian image in (m / pixel)
+            cart_pixel_width (int): width of the output Cartesian image in pixels
+            polar (np.ndarray): if supplied, this function will use this input and not self.polar.
+            in_place (bool): if True, self.cartesian is updated.
+        """
         if polar is None:
             polar = self.polar
         cartesian = radar_polar_to_cartesian(self.azimuths, polar, self.resolution,
-                                        cart_resolution, cart_pixel_width)
+                                             cart_resolution, cart_pixel_width)
         if in_place:
             self.cartesian = cartesian
         return cartesian
@@ -101,5 +118,4 @@ class Radar(Sensor):
     def visualize(self, **kwargs):
         vis_radar(self, **kwargs)
 
-# TODO: get_bounding_boxes() # retrieve from file, cache to class variable
-# TODO: visualize(bool: use_boxes)
+    # TODO: get_bounding_boxes() # retrieve from file, cache to class variable

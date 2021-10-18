@@ -1,22 +1,29 @@
-import numpy as np
 import os.path as osp
 from pathlib import Path
+import numpy as np
+import cv2
 
-def load_lidar(path, dim=6):
+
+def load_lidar(path):
+    """Loads a pointcloud (np.ndarray) (N, 6) from path [x, y, z, intensity, laser_number, time]"""
     points = np.fromfile(path, dtype=np.float32).reshape((-1, 6)).astype(np.float64)
     t = float(Path(path).stem) * 1e-6
     t = get_time_from_filename(path)
     points[:, 5] += t
     return points
 
+
 def roll(r):
     return np.array([[1, 0, 0], [0, np.cos(r), np.sin(r)], [0, -np.sin(r), np.cos(r)]], dtype=np.float64)
+
 
 def pitch(p):
     return np.array([[np.cos(p), 0, -np.sin(p)], [0, 1, 0], [np.sin(p), 0, np.cos(p)]], dtype=np.float64)
 
+
 def yaw(y):
     return np.array([[np.cos(y), np.sin(y), 0], [-np.sin(y), np.cos(y), 0], [0, 0, 1]], dtype=np.float64)
+
 
 def yawPitchRollToRot(y, p, r):
     Y = yaw(y)
@@ -24,6 +31,7 @@ def yawPitchRollToRot(y, p, r):
     R = roll(r)
     C = np.matmul(P, Y)
     return np.matmul(R, C)
+
 
 def rotToYawPitchRoll(C):
     i = 2
@@ -40,6 +48,7 @@ def rotToYawPitchRoll(C):
         y = np.arctan2(-C[j, k], C[j, j])
     return y, p, r
 
+
 def get_transform(gt):
     """Retrieve 4x4 homogeneous transform for a given parsed line of the ground truth pose csv
     Args:
@@ -55,6 +64,7 @@ def get_transform(gt):
     T[0:3, 0:3] = C_enu_sensor
     return T
 
+
 def get_transform2(R, t):
     """Returns a 4x4 homogeneous 3D transform
     Args:
@@ -67,6 +77,7 @@ def get_transform2(R, t):
     T[0:3, 0:3] = R
     T[0:3, 3] = t.squeeze()
     return T
+
 
 def get_transform3(x, y, theta, dtype=np.float32):
     """Returns a 4x4 homogeneous 3D transform for a given 2D (x, y, theta).
@@ -83,7 +94,14 @@ def get_transform3(x, y, theta, dtype=np.float32):
     T[1, 3] = y
     return T
 
+
 def quaternionToRot(qin):
+    """Converts a quaternion to a rotation  matrix
+    Args:
+        qin (np.ndarray) (4,) [qx, qy, qz, qw] quaternion
+    Returns:
+        C (np.ndarray) (3,3) rotation matrix
+    """
     q = qin.copy().reshape(4, 1)
     if np.matmul(q.transpose(), q) < 1e-14:
         return np.identity(3)
@@ -93,9 +111,16 @@ def quaternionToRot(qin):
         2 * np.matmul(xi, xi.transpose()) - 2 * eta * carrot(xi)
     return C
 
-# Note that the space of unit-length quaternions is a double-cover of SO(3)
-# Meaning, C maps to +/- q, so q --> C --> +/- q
+
 def rotToQuaternion(C):
+    """Converts a rotation matrix to a quaternion
+    Note that the space of unit-length quaternions is a double-cover of SO(3)
+    which means that, C maps to +/- q, so q --> C --> +/- q
+    Args:
+        C (np.ndarray) (3,3) rotation matrix
+    Returns:
+        q (np.ndarray) (4,1) [qx, qy, qz, qw] quaternion
+    """
     eta = 0.5 * np.sqrt((1 + np.trace(C)))
     if np.abs(eta) < 1e-14:
         eta = 0
@@ -107,6 +132,7 @@ def rotToQuaternion(C):
         xi_cross = (C.T - C) / (4 * eta)
         q = np.array([xi_cross[2, 1], xi_cross[0, 2], xi_cross[1, 0], eta]).reshape(4, 1)
     return q
+
 
 def get_inverse_tf(T):
     """Returns the inverse of a given 4x4 homogeneous transform.
@@ -121,6 +147,7 @@ def get_inverse_tf(T):
     T2[:3, :3] = R.transpose()
     T2[:3, 3:] = np.matmul(-1 * R.transpose(), t)
     return T2
+
 
 def enforce_orthog(T, dim=3):
     """Enforces orthogonality of a 3x3 rotation matrix within a 4x4 homogeneous transformation matrix.
@@ -162,6 +189,7 @@ def enforce_orthog(T, dim=3):
         T[0:3, 2] = c2
     return T
 
+
 def carrot(xbar):
     """Overloaded operator. converts 3x1 vectors into a member of Lie Alebra so(3)
         Also, converts 6x1 vectors into a member of Lie Algebra se(3)
@@ -182,6 +210,7 @@ def carrot(xbar):
                          [0, 0, 0, 1]])
     print('WARNING: attempted carrot operator on invalid vector shape')
     return xbar
+
 
 def se3ToSE3(xi):
     """Converts 6x1 vectors representing the Lie Algebra, se(3) into a 4x4 homogeneous transform in SE(3)
@@ -206,6 +235,7 @@ def se3ToSE3(xi):
     T[0:3, 0:3] = R
     T[0:3, 3:] = rho
     return T
+
 
 def SE3Tose3(T):
     """Converts 4x4 homogeneous transforms in SE(3) to 6x1 vectors representing the Lie Algebra, se(3)
@@ -236,6 +266,7 @@ def SE3Tose3(T):
     xi[3:, 0:] = phi * abar
     return xi
 
+
 def rotation_error(T):
     """Calculates a single rotation value corresponding to the upper-left 3x3 rotation matrix.
         Uses axis-angle representation to get a single number for rotation
@@ -246,6 +277,7 @@ def rotation_error(T):
     """
     d = 0.5 * (np.trace(T[0:3, 0:3]) - 1)
     return np.arccos(max(min(d, 1.0), -1.0))
+
 
 def translation_error(T, dim=3):
     """Calculates a euclidean distance corresponding to the translation vector within a 4x4 transform.
@@ -259,6 +291,7 @@ def translation_error(T, dim=3):
         return np.sqrt(T[0, 3]**2 + T[1, 3]**2)
     return np.sqrt(T[0, 3]**2 + T[1, 3]**2 + T[2, 3]**2)
 
+
 def wrapto2pi(phi):
     """Ensures that the output angle phi is within the interval [0, 2*pi)"""
     if phi < 0:
@@ -267,17 +300,20 @@ def wrapto2pi(phi):
         return (phi / (2 * np.pi) % 1) * 2 * np.pi
     return phi
 
+
 def get_time_from_filename(file):
+    """Retrieves an epoch time from a file name in seconds"""
     tstr = str(Path(file).stem)
     gpstime = float(tstr)
     timeconvert = 1e-9
     if len(tstr) < 19:
-        timeconvert = 10**(-1* (len(tstr) - 10))
+        timeconvert = 10**(-1 * (len(tstr) - 10))
     return gpstime * timeconvert
+
 
 EARTH_SEMIMAJOR = 6378137.0
 EARTH_SEMIMINOR = 6356752.0
-EARTH_ECCEN     = 0.081819190842622
+EARTH_ECCEN = 0.081819190842622
 a = EARTH_SEMIMAJOR
 eccSquared = EARTH_ECCEN**2
 eccPrimeSquared = (eccSquared) / (1 - eccSquared)
@@ -285,7 +321,17 @@ k0 = 0.9996     # scale factor
 DEG_TO_RAD = np.pi / 180
 RAD_TO_DEG = 1.0 / DEG_TO_RAD
 
+
 def LLtoUTM(latitude, longitude):
+    """Converts a lat-long position into metric UTM coordinates (x-y-z)
+    Args:
+        latitude (float) in radians
+        longitude (float) in radians
+    Returns:
+        UTMEasting (float): metric position in easting
+        UTMNorthing (float): metric position in northing
+        zoneNumber (float): UTM zone number
+    """
     while longitude < -1 * np.pi:
         longitude += 2 * np.pi
     while longitude >= np.pi:
@@ -316,16 +362,15 @@ def LLtoUTM(latitude, longitude):
 
     return UTMEasting, UTMNorthing, zoneNumber
 
-def undistort(img, K, dist, roi=None, P=None):
-    dst = cv2.undistort(img, K, dist, None, P)
-    if roi is not None and P is not None:
-        h, w, _ = img.shape
-        x, y, w2, h2 = roi
-        dst = dst[y:y+h2, x:x+w2]
-        dst = cv2.resize(dst, (w, h))
-    return dst
-
 def get_gt_data_for_frame(root, sensType, frame):
+    """Retrieves ground truth applanix data for a given sensor frame
+    Args:
+        root (str): path to the sequence root
+        sensType (str): [camera, lidar, or radar]
+        frame (str): name/timestampd of the given sensor frame (without the extension)
+    Returns:
+        gt (list): A list of ground truth values from the applanix sensor_poses.scv
+    """
     posepath = osp.join(root, 'applanix', sensType + '_poses.csv')
     with open(posepath, 'r') as f:
         f.readline()  # header
@@ -335,25 +380,48 @@ def get_gt_data_for_frame(root, sensType, frame):
     assert(0), 'gt not found for root: {} sensType: {} frame: {}'.format(root, sensType, frame)
     return None
 
+
+def binaryDistSearch(arr, l, r, x):
+    """Performs a binary search to find the index of the element in arr
+    which is closest to x. O(log n)
+    Note: this function may also return the second-closest element to x,
+    so a follow-up check must be done on one index above and below
+    Args:
+        arr (list): Sorted list of float values
+        l (int): index of the left-most section of the array to search
+        r (int): index of the right-most section of the array to search
+        x (float): query value
+    Returns:
+        d (float): absolute distance between arr[idx] and x
+        idx (int): index of the closest element in array to x
+    """
+    if r == l + 1:
+        if abs(arr[l] - x) < abs(arr[r] - x):
+            return abs(arr[l] - x), l
+        else:
+            return abs(arr[r] - x), r
+    mid = l + (r - l) // 2
+    if arr[mid] == x:
+        return 0, mid
+    elif r - l == 0:
+        return abs(arr[l] - x), l
+    elif arr[mid] > x:
+        return binaryDistSearch(arr, l, mid - 1, x)
+    else:
+        return binaryDistSearch(arr, mid + 1, r, x)
+
+
 # Assumes targets is a sorted array
 # Returns index of targets that is closest to query.
 # O(log n)
 def get_closest_index(query, targets):
-    def binaryDistSearch(arr, l, r, x):
-        if r == l + 1:
-            if abs(arr[l] - x) < abs(arr[r] - x):
-                return abs(arr[l] - x), l
-            else:
-                return abs(arr[r] - x), r
-        mid = l + (r - l) // 2
-        if arr[mid] == x:
-            return 0, mid
-        elif r - l == 0:
-            return abs(arr[l] - x), l
-        elif arr[mid] > x:
-            return binaryDistSearch(arr, l, mid - 1, x)
-        else:
-            return binaryDistSearch(arr, mid + 1, r, x)
+    """Retrieves the index of the element in targets that is closest to query
+    Args:
+        query (float): query value
+        targets (list): Sorted list of float values
+    Returns:
+        idx (int): index of the closest element in the array to x
+    """
     d, idx = binaryDistSearch(targets, 0, len(targets)-1, query)
     # check if index above or below is closer to query
     if targets[idx] < query and idx < len(targets) - 1:
@@ -363,3 +431,8 @@ def get_closest_index(query, targets):
         if abs(targets[idx - 1] - query) < d:
             return idx - 1
     return idx
+
+
+def is_sorted(x):
+    """Returns True is x is a sorted list, otherwise False"""
+    return (np.diff(x) >= 0).all()

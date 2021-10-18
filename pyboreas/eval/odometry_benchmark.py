@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
     # compute errors
     t_err, r_err = compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred,
-                                       seq_lens_gt, seq_lens_pred, seq, args.pred, step_size=10)
+                                         seq_lens_gt, seq_lens_pred, seq, args.pred, step_size=10)
 
     # print out results
     print('Evaluated sequences: ', seq)

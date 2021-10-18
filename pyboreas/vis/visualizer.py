@@ -17,10 +17,12 @@ from pyboreas.utils.utils import get_closest_index
 
 matplotlib.use("tkagg")  # slu: for testing with ide
 
+
 def get_closest_frame(query_time, target_times, targets):
     closest = get_closest_index(query_time, target_times)
     assert(np.abs(query_time - target_times[closest]) < 1.0), "closest to query: {} not found.".format(query_time)
     return targets[closest]
+
 
 class BoreasVisualizer:
     """Main class for loading the Boreas dataset for visualization.
@@ -66,9 +68,7 @@ class BoreasVisualizer:
         Returns: the BoreasPlotter object used for visualizing
 
         """
-        boreas_plot = boreas_plotter.BoreasPlotter(self,
-                                                   frame_idx,
-                                                   mode=mode)
+        boreas_plot = BoreasPlotter(self, frame_idx, mode=mode)
         boreas_plot.update_plots(frame_idx)
         if show:
             plt.show()

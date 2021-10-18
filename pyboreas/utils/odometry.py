@@ -11,6 +11,7 @@ from pysteam.problem import OptimizationProblem
 from pysteam.solver import GaussNewtonSolver
 from pysteam.evaluator import TransformStateEvaluator
 
+
 class TrajStateVar:
     """This class defines a trajectory state variable for steam."""
     def __init__(
@@ -22,6 +23,7 @@ class TrajStateVar:
         self.time: Time = time
         self.pose: TransformStateVar = pose
         self.velocity: VectorSpaceStateVar = velocity
+
 
 def interpolate_poses(poses, times, query_times, init_finite_diff=False):
     """Runs a steam optimization with locked poses and outputs poses queried at query_times
@@ -85,6 +87,7 @@ def interpolate_poses(poses, times, query_times, init_finite_diff=False):
 
     return query_poses
 
+
 def trajectory_distances(poses):
     """Calculates path length along the trajectory.
     Args:
@@ -102,6 +105,7 @@ def trajectory_distances(poses):
         dist.append(dist[i-1] + np.sqrt(dx**2 + dy**2 + dz**2))
     return dist
 
+
 def last_frame_from_segment_length(dist, first_frame, length):
     """Retrieves the index of the last frame for our current analysis.
         last_frame should be 'dist' meters away from first_frame in terms of distance traveled along the trajectory.
@@ -116,6 +120,7 @@ def last_frame_from_segment_length(dist, first_frame, length):
         if dist[i] > dist[first_frame] + length:
             return i
     return -1
+
 
 def calc_sequence_errors(poses_gt, poses_pred, step_size=4):
     """Calculate the translation and rotation error for each subsequence across several different lengths.
@@ -148,6 +153,7 @@ def calc_sequence_errors(poses_gt, poses_pred, step_size=4):
             err.append([first_frame, r_err/float(length), t_err/float(length), length, speed])
     return err, lengths
 
+
 def get_stats(err, lengths):
     """Computes the average translation and rotation within a sequence (across subsequences of diff lengths).
     Args:
@@ -172,7 +178,8 @@ def get_stats(err, lengths):
     t_err /= float(len(err))
     r_err /= float(len(err))
     return t_err * 100, r_err * 180 / np.pi, [a/float(b) * 100 for a, b in zip(t_err_len, len_count)], \
-           [a/float(b) * 180 / np.pi for a, b in zip(r_err_len, len_count)]
+        [a/float(b) * 180 / np.pi for a, b in zip(r_err_len, len_count)]
+
 
 def plot_stats(seq, root, T_odom, T_gt, lengths, t_err, r_err):
     """Outputs plots of calculated statistics to specified directory.
@@ -218,6 +225,7 @@ def plot_stats(seq, root, T_odom, T_gt, lengths, t_err, r_err):
     plt.savefig(os.path.join(root, seq[:-4] + '_rl.pdf'), bbox_inches='tight')
     plt.close()
 
+
 def get_path_from_Tvi_list(Tvi_list):
     """Gets 3D path (xyz) from list of poses T_vk_i (transform between vehicle frame at time k and fixed frame i).
     Args:
@@ -229,6 +237,7 @@ def get_path_from_Tvi_list(Tvi_list):
     for j, Tvi in enumerate(Tvi_list):
         path[j] = (-Tvi[:3, :3].T @ Tvi[:3, 3:4]).squeeze()
     return path
+
 
 def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, root, step_size=10):
     """Computes the translational (%) and rotational drift (deg/m) in the KITTI style.
@@ -282,6 +291,7 @@ def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_l
 
     return t_err, r_err
 
+
 def get_sequences(path, file_ext=''):
     """Retrieves a list of all the sequences in the dataset with the given prefix.
     Args:
@@ -293,6 +303,7 @@ def get_sequences(path, file_ext=''):
     sequences = [f for f in os.listdir(path) if file_ext in f]
     sequences.sort()
     return sequences
+
 
 def get_sequence_poses(path, seq):
     """Retrieves a list of the poses corresponding to the given sequences in the given file path.
@@ -317,6 +328,7 @@ def get_sequence_poses(path, seq):
         all_times.extend(times)
 
     return all_poses, all_times, seq_lens
+
 
 def write_traj_file(path, poses, times):
     """Writes trajectory into a space-separated txt file

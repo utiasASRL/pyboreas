@@ -16,11 +16,11 @@ class MapframeProjector:
     **If using lat/long, convention is x is long, y is lat.**
     """
     def __init__(self, x_origin, y_origin, rot_mtx=None, utm=False):
-        if utm == False:
+        if not utm:
             self.zone = math.floor((x_origin+180.)/6)+1  # convert to utm zone. doesnt work for all zones
             self.p = pyproj.Proj(proj='utm', ellps='WGS84', zone=self.zone, datum='WGS84')
             [self.x_origin, self.y_origin] = self.p(x_origin, y_origin)
-        elif utm == True:
+        elif utm:
             self.zone = 17  # Hardcode for now
             self.p = pyproj.Proj(proj='utm', ellps='WGS84', zone=self.zone, datum='WGS84')
             self.x_origin = x_origin

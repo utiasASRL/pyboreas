@@ -1,16 +1,25 @@
 import numpy as np
 import multiprocessing
 from multiprocessing import Pool
-from pyboreas.utils.utils import se3ToSE3
+from pyboreas.utils.utils import se3ToSE3, is_sorted
 
-is_sorted = lambda x: (np.diff(x)>=0).all()
 
 class PointCloud:
+    """
+    Class for working with (lidar) pointclouds.
+    """
     def __init__(self, points):
-        # x, y, z, (i, r, t)
+        # points (np.ndarray): (N, 6) [x, y, z, intensity, laser_number, time]
         self.points = points
 
     def transform(self, T, in_place=True):
+        """Transforms points given a transform, T. x_out = np.matmul(T, x)
+        Args:
+            T (np.ndarray): 4x4 transformation matrix
+            in_place (bool): if True, self.points is updated
+        Returns:
+            points (np.ndarray): The transformed points
+        """
         assert (T.shape[0] == 4 and T.shape[1] == 4)
         if in_place:
             points = self.points
@@ -21,7 +30,14 @@ class PointCloud:
         return points
 
     def remove_motion(self, body_rate, tref=None, in_place=True):
-        # body_rate: (6, 1) [vx, vy, vz, wx, wy, wz] in body frame
+        """Removes motion distortion from a pointcloud
+        Args:
+            body_rate (np.ndarray): (6, 1) [vx, vy, vz, wx, wy, wz] in sensor frame
+            tref (float): reference time to transform the points towards
+            in_place (bool): if True, self.points is updated
+        Returns:
+            points (np.ndarray): points with motion distortion removed
+        """
         assert(body_rate.shape[0] == 6 and body_rate.shape[1] == 1)
         tmin = np.min(self.points[:, 5])
         tmax = np.max(self.points[:, 5])
@@ -44,6 +60,7 @@ class PointCloud:
             points = np.copy(self.points)
 
         global _process_motion
+
         def _process_motion(i):
             index = int((points[i, 5] - tmin) / delta)
             pbar = np.vstack((points[i, :3].reshape(3, 1), 1))
@@ -69,16 +86,22 @@ class PointCloud:
 
         return points
 
-    # bounds: [xmin, xmax, ymin, ymax, zmin, zmax]
     def passthrough(self, bounds=[], in_place=True):
+        """Removes points outside the specified bounds
+        Args:
+            bounds (list): [xmin, xmax, ymin, ymax, zmin, zmax]
+            in_place (bool): if True, self.points is updated
+        Returns:
+            points (np.ndarray): the remaining points after the filter is applied
+        """
         if len(bounds) < 6:
             print('Warning: len(bounds) = {} < 6 is incorrect!'.format(len(bounds)))
             return self.points
-        p = self.points[np.where((self.points[:, 0] >= bounds[0]) & \
-                                 (self.points[:, 0] <= bounds[1]) & \
-                                 (self.points[:, 1] >= bounds[2]) & \
-                                 (self.points[:, 1] <= bounds[3]) & \
-                                 (self.points[:, 2] >= bounds[4]) & \
+        p = self.points[np.where((self.points[:, 0] >= bounds[0]) &
+                                 (self.points[:, 0] <= bounds[1]) &
+                                 (self.points[:, 1] >= bounds[2]) &
+                                 (self.points[:, 1] <= bounds[3]) &
+                                 (self.points[:, 2] >= bounds[4]) &
                                  (self.points[:, 2] <= bounds[5]))]
         if in_place:
             self.points = p
@@ -88,15 +111,25 @@ class PointCloud:
     # color options: depth, intensity
     # returns pixel locations for lidar point projections onto an image plane
     def project_onto_image(self, P, width=2448, height=2048, color='depth'):
+        """Projects 3D points onto a 2D image plane
+        Args:
+            P (np.ndarray): [fx 0 cx 0; 0 fy cy 0; 0 0 1 0; 0 0 0 1] cam projection
+            width (int): width of image
+            height (int): height of image
+            color (str): 'depth' or 'intensity' to pick colors output
+        Return:
+            uv (np.ndarray): (N, 2) projected u-v pixel locations in an image
+            colors (np.ndarray): (N,) a color value for each pixel location in uv.
+        """
         uv = []
         colors = []
         x = np.hstack((self.points[:, :3], np.ones((self.points.shape[0], 1))))
         x /= x[:, 2:3]
         x[:, 3] = 1
         x = np.matmul(x, P.transpose())
-        mask = np.where((x[:, 0] >= 0) & \
-                        (x[:, 0] <= width - 1) & \
-                        (x[:, 1] >= 0) & \
+        mask = np.where((x[:, 0] >= 0) &
+                        (x[:, 0] <= width - 1) &
+                        (x[:, 1] >= 0) &
                         (x[:, 1] <= height - 1))
         x = x[mask]
         if color == 'depth':
@@ -105,7 +138,7 @@ class PointCloud:
             colors = self.points[mask][:, 3]
         else:
             print('Warning: {} is not a valid color'.format(color))
-            colors = np.ones(x.shape[0])
+            colors = self.points[mask][:, 2]
         return x[:, :2], colors
 
 # TODO: remove_ground(self, bool: in_place)

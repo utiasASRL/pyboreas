@@ -6,11 +6,12 @@ from pylgmath import Transformation, se3op
 from utils.utils import get_inverse_tf
 from utils.odometry import interpolate_poses, write_traj_file, read_traj_file
 
+
 class OdometryTestCase(unittest.TestCase):
     """This class contains tests for the odometry benchmark script."""
     def test_interpolate(self):
         """Checks the pysteam interpolation against a known constant-velocity groundtruth."""
-        ## setup groundtruth
+        # setup groundtruth
         delt = 0.05
         num_poses = 50
 
@@ -34,7 +35,7 @@ class OdometryTestCase(unittest.TestCase):
 
     def test_read_write(self):
         """Checks read and write functions for trajectory."""
-        ## setup groundtruth
+        # setup groundtruth
         delt = 0.05
         num_poses = 50
 

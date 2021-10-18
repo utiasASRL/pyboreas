@@ -32,7 +32,6 @@ if __name__ == '__main__':
     start_gps = start_time + time_zone_offset - start_week
     end_gps = end_time + time_zone_offset - start_week
     
-
     t = []
     n = []
     e = []
@@ -60,8 +59,8 @@ if __name__ == '__main__':
         p.append(data[8])
         h.append(data[9])
 
-    matplotlib.rcParams.update({'font.size': 16, 'xtick.labelsize' : 16, 'ytick.labelsize' : 16,
-                                'axes.linewidth' : 1.5, 'font.family' : 'serif', 'pdf.fonttype' : 42})
+    matplotlib.rcParams.update({'font.size': 16, 'xtick.labelsize': 16, 'ytick.labelsize': 16,
+                                'axes.linewidth': 1.5, 'font.family': 'serif', 'pdf.fonttype': 42})
 
     plt.figure(figsize=(10, 5))
     plt.plot(t, n, label='North position RMS error (m)')

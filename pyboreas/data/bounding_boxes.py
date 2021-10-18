@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class BoundingBox2D:
     def __init__(self, position, rotation, extent, label=None):
         """Checks dimensional consistency of inputs and constructs points array
@@ -22,7 +23,7 @@ class BoundingBox2D:
         dims_multiplier = np.array([[1, 1, 1], [-1, 1, 1], [-1, -1, 1], [1, -1, 1],
                                     [1, 1, -1], [-1, 1, -1], [-1, -1, -1], [1, -1, -1]])
 
-        #Todo: need orientation here
+        # TODO: need orientation here
         points = []
         for i in range(dims_multiplier.shape[0]):
             points.append(position + extent * dims_multiplier[i].reshape(3, 1) / 2)
