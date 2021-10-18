@@ -1,12 +1,15 @@
 import os.path as osp
+from pathlib import Path
 import numpy as np
 import cv2
-from pathlib import Path
+import matplotlib.pyplot as plt
+from matplotlib import cm
 
 from pyboreas.data.pointcloud import PointCloud
 from pyboreas.utils.utils import get_transform, yawPitchRollToRot, get_time_from_filename, load_lidar
 from pyboreas.utils.utils import get_gt_data_for_frame
 from pyboreas.utils.radar import load_radar, radar_polar_to_cartesian
+from pyboreas.vis.vis_utils import vis_lidar, vis_camera, vis_radar
 
 class Sensor:
     def __init__(self, path):
@@ -44,9 +47,11 @@ class Lidar(Sensor, PointCloud):
         self.points = load_lidar(self.path)
         return self.points
 
+    def visualize(self, **kwargs):
+        vis_lidar(self, **kwargs)
+
 # TODO: get_bounding_boxes()
 # TODO: get_semantics()
-# TODO: visualize(int: projection, bool: use_boxes)
 
 class Camera(Sensor):
     def __init__(self, path):
@@ -56,6 +61,9 @@ class Camera(Sensor):
     def load_data(self):
         self.img = cv2.imread(self.path)
         return self.img
+
+    def visualize(self, **kwargs):
+        vis_camera(self, **kwargs)
 
 # TODO: get_bounding_boxes() # retrieve from file, cache to class variable
 # TODO: get_semantics() # retrieve from file, cache to class variable
@@ -81,11 +89,17 @@ class Radar(Sensor):
             self.mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
         return self.timestamps, self.azimuths, self.polar
 
-    def get_cartesian(self, cart_resolution, cart_pixel_width, polar=None):
+    def get_cartesian(self, cart_resolution, cart_pixel_width, polar=None, in_place=True):
         if polar is None:
             polar = self.polar
-        self.cartesian = radar_polar_to_cartesian(self.azimuths, polar, self.resolution,
+        cartesian = radar_polar_to_cartesian(self.azimuths, polar, self.resolution,
                                         cart_resolution, cart_pixel_width)
+        if in_place:
+            self.cartesian = cartesian
+        return cartesian
+
+    def visualize(self, **kwargs):
+        vis_radar(self, **kwargs)
 
 # TODO: get_bounding_boxes() # retrieve from file, cache to class variable
 # TODO: visualize(bool: use_boxes)

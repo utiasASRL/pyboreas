@@ -63,7 +63,7 @@ bd = BoreasDataset(root)
 
 # Loop through each frame in order (odometry)
 for seq in bd.sequences:
-    # Generator examples:
+    # Iterator examples:
     for camera_frame in seq.camera:
         img = camera_frame.img  # np.ndarray
         # do something
@@ -106,11 +106,10 @@ varpi = lidar_frame.body_rate  # 6x1 vel in sensor frame [v_se_in_s; w_se_in_s]
 ```
 
 TODO:
-- [ ] Tutorials (intro, radar, pose interp)
+- [ ] Tutorials (pose interp)
 - [ ] Convert readme pdf to markdown
 - [ ] Doc strings
 - [ ] PEP8 formatting
-- [ ] Code for visualizing pointclouds
 - [ ] Ground plane removal
 - [ ] Pointcloud voxelization
 - [ ] 3D Bounding boxes
