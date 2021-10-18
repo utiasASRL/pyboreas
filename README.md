@@ -110,8 +110,8 @@ varpi = lidar_frame.body_rate  # 6x1 vel in sensor frame [v_se_in_s; w_se_in_s]
 ```
 
 TODO:
-- [ ] Tutorials (pose interp)
-- [ ] Convert readme pdf to markdown
-- [ ] Ground plane removal
-- [ ] Pointcloud voxelization
-- [ ] 3D Bounding boxes
+- Tutorials (pose interp)
+- Convert readme pdf to markdown
+- Ground plane removal
+- Pointcloud voxelization
+- 3D Bounding boxes
