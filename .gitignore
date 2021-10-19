@@ -131,3 +131,5 @@ dmypy.json
 # (SLU) sample data
 sample_scale
 sample_boreas
+
+build_and_upload_to_pypi.sh

@@ -35,7 +35,6 @@ Resources:
                 conda create --name boreaspy3 python="3.8.10" -y
                 source activate boreaspy3
                 conda install -c conda basemap proj4 nodejs ipywidgets -y 
-                pip install ipykernel boto3 numpy>=1.21.0 pandas>=1.2.1 s3fs>=0.4.2 opencv-python>=4.5.3.56 matplotlib>=3.4.2 tqdm>=4.60.0 pyproj>=3.1.0 utm>=0.7.0 folium>=0.12.1 asrl-pysteam>=1.0.0
                 pip install botocore>=1.20.106 aiobotocore>=1.4.1 zarr>=2.9.5 rechunker>=0.4.2 ipykernel>=6.3.1 boto3>=1.17.106 dask>=2021.8.1 distributed>=2021.8.1 tornado>=6.1 cloudpickle>=1.6.0 msgpack>=1.0.2 blosc>=1.10.2 numpy>=1.21.2 pandas>=1.3.2 lz4>=3.1.3 netcdf4>=1.5.7 xarray>=0.19.0 bokeh>=2.2.3 s3fs>=2021.8.1 fsspec>=2021.8.1 h5netcdf>=0.11.0 h5py>=3.4.0 intake-esm>=2021.8.17 intake>=0.6.3 opencv-python>=4.5.3.56 matplotlib>=3.4.2 tqdm>=4.60.0 pyproj>=3.1.0 utm>=0.7.0 asrl-pysteam>=1.0.0
                 python -m ipykernel install --user --name boreaspy3 --display-name "conda_boreaspy3"
                 echo "Updating Jupyter config options"
@@ -45,7 +44,10 @@ Resources:
                 source activate JupyterSystemEnv
                 jupyter labextension install @jupyter-widgets/jupyterlab-manager@1.1
                 source /home/ec2-user/anaconda3/bin/deactivate
-                aws s3 sync s3://boreas/boreas-2021-09-02-11-42 /boreas/
+                mkdir -p /home/ec2-user/boreas/boreas-2021-09-02-11-42
+                aws s3 sync s3://boreas/boreas-2021-09-02-11-42 /home/ec2-user/SageMaker/boreas/boreas-2021-09-02-11-42 --exclude '*' --include 'applanix/*' --include 'calib/*' --include 'camera/163059759*' --include 'radar/163059759*' --include 'lidar/163059759*'
+                source activate boreaspy3
+
                 echo "Finished!"
                 EOF
             

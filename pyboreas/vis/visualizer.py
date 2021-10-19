@@ -15,7 +15,7 @@ from pyboreas.vis.boreas_plotter import BoreasPlotter
 from pyboreas.data.sequence import Sequence
 from pyboreas.utils.utils import get_closest_index
 
-matplotlib.use("tkagg")  # slu: for testing with ide
+# matplotlib.use("tkagg")  # slu: for testing with ide
 
 
 def get_closest_frame(query_time, target_times, targets):
