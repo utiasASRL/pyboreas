@@ -15,7 +15,7 @@ These examples use AWS CloudFormation to create an Amazon SageMaker Jupyter Note
 
 This will open a new tab with the sagemaker notebook instance running.
 
-3. Open the terminal within the Sagemaker and run the following commands:
+6. Open the terminal within the Sagemaker and run the following commands:
 
 ```
 bash setup.sh
@@ -26,7 +26,9 @@ pip install -e /home/ec2-user/SageMaker/pyboreas
 ```
 
 Then a open jupyter notebook with the `conda_boreaspy3` environment.
+
 Example notebooks:
 
 `intro.ipynb` visualizes the sensor types contained in this dataset
+
 `lidar_camera_projection.ipynb` demonstrates how lidar and camera data can be fused together
