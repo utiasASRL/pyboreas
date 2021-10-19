@@ -109,6 +109,9 @@ vbar = lidar_frame.velocity  # 6x1 vel in ENU frame [v_se_in_e; w_se_in_e]
 varpi = lidar_frame.body_rate  # 6x1 vel in sensor frame [v_se_in_s; w_se_in_s]
 ```
 
+## Tutorials
+Note that we provide a few simple tutorials for getting started with the Boreas dataset. Also note that we provide instructions for using this dataset using an AWS SageMaker instance, instructions at: pyboreas/tutorials/aws/README.md.
+
 TODO:
 - Tutorials (pose interp)
 - Convert readme pdf to markdown
