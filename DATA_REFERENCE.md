@@ -120,6 +120,7 @@ Raw radar scans are 2D polar images: `M` azimuths x `R` range bins. We follow Ox
 
 Polar format:
 ![radar](figs/polar.png)
+
 Cartesian format:
 ![radar](figs/cartesian.png)
 
@@ -177,4 +178,4 @@ Raw GPS position measurements are provided as Latitude, Longitude, and Altitude 
 
 We convert from LLA into a metric coordinate frame, UTM, for this dataset. UTM divides the earth into 60 zones and projects each to a plane as the basis for its coordinates. Converting from LLA to UTM outputs a metric value for Easting and Northing. For our origin frame, we use x-east, y-north, z-up which is abbreviated as ENU.
 
-We use Applanix' proprietary POSPac suite to obtain post-processed results. The POSPac sutie uses all available (GPS, IMU, wheel encoder) data and performs a batch optimization using an RTS smoother to obtain the most accurate orientation, and velocity information at each time step. The RMS position error is typically between 5 and 20 cm. However, this accuracy can change depending on the atmospheric conditions and the visibility of satellites. The accuracy can also change throughout the course of a sequence. For detailed information on the position accuracy of each sequence, we have provided a script, `plot_processed_error.py`, which produces plots of opsition, orientation, and velocity error vs. time.
+We use Applanix's proprietary POSPac suite to obtain post-processed results. The POSPac sutie uses all available (GPS, IMU, wheel encoder) data and performs a batch optimization using an RTS smoother to obtain the most accurate orientation, and velocity information at each time step. The RMS position error is typically between 5 and 20 cm. However, this accuracy can change depending on the atmospheric conditions and the visibility of satellites. The accuracy can also change throughout the course of a sequence. For detailed information on the position accuracy of each sequence, we have provided a script, `plot_processed_error.py`, which produces plots of position, orientation, and velocity error vs. time.
