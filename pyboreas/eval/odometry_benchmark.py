@@ -1,5 +1,5 @@
 import argparse
-from pyboreas.utils.odometry import get_sequences, get_sequence_poses, compute_kitti_metrics
+from pyboreas.utils.odometry import get_sequences, get_sequence_poses, get_sequence_poses_gt, compute_kitti_metrics
 
 if __name__ == '__main__':
     # parse arguments
@@ -11,7 +11,7 @@ if __name__ == '__main__':
     # parse sequences
     seq = get_sequences(args.pred, '.txt')
     T_pred, times_pred, seq_lens_pred = get_sequence_poses(args.pred, seq)
-    T_gt, times_gt, seq_lens_gt = get_sequence_poses(args.gt, seq)
+    T_gt, times_gt, seq_lens_gt = get_sequence_poses_gt(args.gt, seq)
 
     # compute errors
     t_err, r_err = compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred,

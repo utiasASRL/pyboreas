@@ -3,7 +3,7 @@ from time import time
 from itertools import accumulate
 import numpy as np
 import matplotlib.pyplot as plt
-from pyboreas.utils.utils import get_inverse_tf, rotation_error, translation_error, enforce_orthog
+from pyboreas.utils.utils import get_inverse_tf, rotation_error, translation_error, enforce_orthog, yawPitchRollToRot
 from pylgmath import Transformation
 from pysteam.trajectory import Time, TrajectoryInterface
 from pysteam.state import TransformStateVar, VectorSpaceStateVar
@@ -329,6 +329,35 @@ def get_sequence_poses(path, seq):
 
     return all_poses, all_times, seq_lens
 
+def get_sequence_poses_gt(path, seq):
+    """Retrieves a list of the poses corresponding to the given sequences in the given file path with the Boreas dataset
+    directory structure.
+    Args:
+        path (string): directory path to root directory of Boreas dataset
+        seq (List[string]): list of sequence file names
+    Returns:
+        all_poses (List[np.ndarray]): list of 4x4 poses from all sequence files
+        all_times (List[int]): list of times in nanoseconds from all sequence files
+        seq_lens (List[int]): list of sequence lengths
+    """
+
+    # loop for each sequence
+    all_poses = []
+    all_times = []
+    seq_lens = []
+    for filename in seq:
+        # determine path to gt file
+        dir = filename[:-4]     # assumes last four characters are '.txt'
+        filepath = os.path.join(path, dir, 'applanix/lidar_poses.csv')  # use 'lidar_poses.csv' for groundtruth
+
+        # parse file for list of poses and times
+        poses, times = read_traj_file_gt(filepath)
+        seq_lens.append(len(times))
+        all_poses.extend(poses)
+        all_times.extend(times)
+
+    return all_poses, all_times, seq_lens
+
 
 def write_traj_file(path, poses, times):
     """Writes trajectory into a space-separated txt file
@@ -371,3 +400,30 @@ def read_traj_file(path):
             times.append(int(line_split[0]))
 
     return poses, times
+
+def read_traj_file_gt(path):
+    with open(path, 'r') as f:
+        lines = f.readlines()
+    poses = []
+    times = []
+    # T_iv
+    for line in lines[1:]:
+       pose, time = convert_line_to_pose(line)
+       poses += [get_inverse_tf(pose)]  # convert T_iv to T_vi
+       times += [int(time*1e3)]  # convert to nanoseconds
+    return poses, times
+
+def convert_line_to_pose(line):
+    # returns T_iv
+    line = line.replace('\n', ',').split(',')
+    line = [float(i) for i in line[:-1]]
+    # x, y, z -> 1, 2, 3
+    # roll, pitch, yaw -> 7, 8, 9
+    T = np.eye(4)
+    T[0, 3] = line[1]   # x
+    T[1, 3] = line[2]   # y
+    T[2, 3] = line[3]   # z
+    T[:3, :3] = yawPitchRollToRot(line[9], line[8], line[7])
+    time = int(line[0])
+    return T, time
+
