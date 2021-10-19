@@ -7,7 +7,6 @@ import cv2
 def load_lidar(path):
     """Loads a pointcloud (np.ndarray) (N, 6) from path [x, y, z, intensity, laser_number, time]"""
     points = np.fromfile(path, dtype=np.float32).reshape((-1, 6)).astype(np.float64)
-    t = float(Path(path).stem) * 1e-6
     t = get_time_from_filename(path)
     points[:, 5] += t
     return points

@@ -12,7 +12,7 @@ setuptools.setup(
 	description='A toolkit for working with the Boreas dataset in Python',
 	long_description=long_description,
 	long_description_content_type='text/markdown',
-	author='Keenan Burnett, Shichen Lu, Jingxing Qian, Yuchen Wu, David Yoon',
+	author='Keenan Burnett, Andrew Li, Shichen Lu, Jingxing Qian, Yuchen Wu, David Yoon',
 	author_email='boreas@robotics.utias.utoronto.ca',
 	url='https://github.com/utiasASRL/boreas-devkit',
 	license='BSD',
