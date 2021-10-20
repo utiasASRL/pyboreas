@@ -7,8 +7,10 @@ from dash.dependencies import Input, Output, State
 import plotly.express as px
 import pandas as pd
 from copy import deepcopy
-import cv2
 import base64
+from PIL import Image
+from matplotlib import cm
+import io
 
 from vis import map_utils
 
@@ -40,11 +42,9 @@ class BoreasPlotly:
         cam = self.seq.get_camera(idx)
         return cam.path
 
-    def get_radar(self, idx):
+    def get_radar(self, idx, grid_size, grid_res):
         radar_frame = self.seq.get_radar(idx)
         radar_frame.load_data()
-        grid_res = 0.5
-        grid_size = 500
         radar_ndarray = radar_frame.get_cartesian(grid_res, grid_size)
         return radar_ndarray
 
@@ -91,12 +91,12 @@ class BoreasPlotly:
             Input('timestep-slider', 'value')
         )
         def update_figure(idx):
-            pcd, lidar_scan, C_a_enu, C_a_l = self.get_pcd(idx, 0.8)
+            pcd, lidar_scan, C_a_enu, C_a_l = self.get_pcd(idx, 0.5)
 
             # BEV
             pcd_a = np.matmul(C_a_l[0:2, 0:2].reshape(1, 2, 2), pcd[:, 0:2].reshape(pcd.shape[0], 2, 1)).squeeze(-1)
             fig_bev = go.Figure()
-            map_utils.draw_map_plotly("/home/shichen/datasets/boreas_mini/boreas_lane.osm", fig_bev, lidar_scan.pose[0, 3], lidar_scan.pose[1, 3], C_a_enu, utm=True)
+            map_utils.draw_map_plotly("/home/jqian/datasets/boreas-devkit/boreas_mini_v2/boreas_lane.osm", fig_bev, lidar_scan.pose[0, 3], lidar_scan.pose[1, 3], C_a_enu, utm=True)
             fig_bev.add_trace(
                 go.Scattergl(x=pcd_a[:,0], y=pcd_a[:,1], mode='markers', visible=True, marker_size=0.5, marker_color='blue')
             )
@@ -190,14 +190,52 @@ class BoreasPlotly:
                 showlegend=False
             )
 
-            # # Radar
-            # fig_radar = deepcopy(go.Figure())
-            # radar_image = self.get_radar(idx)
-            # fig_radar = px.imshow(radar_image)
-            # fig_radar.update_layout(
-            #     autosize=False,
-            #     height=500
-            # )
+            # Radar
+            fig_radar = go.Figure()
+            grid_size = 500
+            grid_res = 0.5
+            radar_image = self.get_radar(idx, grid_size, grid_res)
+
+            # Draw image
+            radar_pil_image = Image.fromarray(np.uint8(cm.gist_gray(radar_image)[:,:,0:3]*255))
+            rawBytes = io.BytesIO()
+            radar_pil_image.save(rawBytes, "PNG")
+            rawBytes.seek(0)
+            encoded_radar_string = base64.b64encode(rawBytes.read()).decode()
+            encoded_radar_image = "data:image/png;base64," + encoded_radar_string
+            
+            fig_radar.update_xaxes(
+                visible=False,
+                range=[0, grid_size]
+            )
+
+            fig_radar.update_yaxes(
+                visible=False,
+                range=[grid_size, 0]
+            )
+
+            fig_radar.add_layout_image(
+                dict(
+                    x=0,
+                    sizex=grid_size,
+                    y=0,
+                    sizey=grid_size,
+                    xref="x",
+                    yref="y",
+                    opacity=1.0,
+                    layer="below",
+                    sizing="stretch",
+                    source=encoded_radar_image)
+            )
+            fig_radar.update_layout(
+                width=grid_size,
+                height=grid_size,
+                autosize=False,
+                showlegend=False
+            )
+
+
+            
 
 
             # # Colored lidar
@@ -222,7 +260,7 @@ class BoreasPlotly:
             #     height=500
             # )
 
-            return fig_bev, fig_persp, fig_colored_lidar
+            return fig_bev, fig_persp, fig_radar
         
         @app.callback(
             Output('timestep-slider', 'value'),
