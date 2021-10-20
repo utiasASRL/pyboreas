@@ -19,14 +19,21 @@ pip install -e pyboreas
 ```
 
 ## Download Instructions
-1. [Create an AWS account](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/)
+1. [Create an AWS account (optional)](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/)
 2. [Install the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html)
 3. Create a `root` folder to store the dataset, example: `/path/to/data/boreas/` Each sequence will then be a folder under `root`.
-4. Use the AWS CLI to download either the entire dataset or only the desired sequences and sensors. For example, the following command will download the entire Boreas dataset:
+4. Use the AWS CLI to download either the entire dataset or only the desired sequences and sensors. Add `--no-sign-request` after each of the following commands if you're not going to use an AWS account. For example, the following command will download the entire Boreas dataset:
 
 ```bash
 root=/path/to/data/boreas/
 aws s3 sync s3://boreas $root
+```
+
+The following command will list all the top-level prefixes (sequences):
+
+```bash
+root=/path/to/data/boreas/
+aws s3 ls s3://boreas
 ```
 
 Alternatively, [our website (Work-In-Progress)](boreas.utias.utoronto.ca/#/download) can be used to browse through sequences so as to pick and choose what data to download. The website will then generate a list of AWS CLI commands that can be run as a bash script. These commands will look something like:
@@ -34,19 +41,9 @@ Alternatively, [our website (Work-In-Progress)](boreas.utias.utoronto.ca/#/downl
 ```bash
 root=/path/to/data/boreas/
 cd $root
-aws s3 sync s3://boreas/boreas-2020-11-26-13-58 ./boreas-2020-11-26-13-58 --exclude "*" \
+aws s3 sync s3://boreas/boreas-2020-11-26-13-58 boreas-2020-11-26-13-58 --exclude "*" \
     --include "lidar/" --include "radar/" \
     --include "applanix/" --include "calib/"
-```
-
-The folder structure should end up looking like:
-```
-$ ls /path/to/data/boreas/
-boreas-2020-11-26-13-58
-boreas-2020-12-01-13-26
-...
-$ ls /path/to/data/boreas/boreas-2020-11-26-13-58
-applanix calib camera lidar radar
 ```
 
 ## Example Usage
@@ -101,7 +98,9 @@ point_camera = np.matmul(calib.T_camera_lidar, point_lidar)
 
 # Each sensor frame has a timestamp, groundtruth pose
 # (4x4 homogeneous transform) wrt a global coordinate frame (ENU),
-# and groundtruth velocity information.
+# and groundtruth velocity information. Unless it's a part of the test set,
+# in that case, ground truth poses will be missing. However we still provide IMU
+# data (in the applanix frame) through the imu.csv files.
 lidar_frame = bd.get_lidar(0)
 t = lidar_frame.timestamp  # timestamp in seconds
 T_enu_lidar = lidar_frame.pose  # 4x4 homogenous transform [R t; 0 0 0 1]
@@ -114,7 +113,6 @@ Note that we provide a few simple tutorials for getting started with the Boreas 
 
 TODO:
 - Tutorials (pose interp)
-- Convert readme pdf to markdown
 - Ground plane removal
 - Pointcloud voxelization
 - 3D Bounding boxes

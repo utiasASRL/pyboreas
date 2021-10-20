@@ -10,7 +10,7 @@ This dataset and the associated benchmarks are intended to support odometry and 
 
 - 128-beam Velodyne Alpha-Prime 3D lidar
 - FLIR Blackfly S (5 MP) monocular camera
-- Navtech 360$^\circ$ radar
+- Navtech 360 degree radar
 - Applanix POSLV GNSS
 
 ### Data Collection
@@ -64,7 +64,7 @@ boreas-YYYY-MM-DD-HH-MM
 	radar
 		<timestamp>.png
 	route.html
-	video.pm4
+	video.mp4
 ```
 
 Accessing and downloading the dataset is best done using the AWS CLI. The main S3 bucket can also be browsed through using the S3 console in your internet browser at: 
@@ -72,14 +72,21 @@ Accessing and downloading the dataset is best done using the AWS CLI. The main S
 [`https://s3.console.aws.amazon.com/s3/buckets/boreas/`](https://s3.console.aws.amazon.com/s3/buckets/boreas/)
 
 ### Download Instructions
-1. [Create an AWS account](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/)
+1. [Create an AWS account (optional)](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/)
 2. [Install the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html)
 3. Create a `root` folder to store the dataset, example: `/path/to/data/boreas/` Each sequence will then be a folder under `root`.
-4. Use the AWS CLI to download either the entire dataset or only the desired sequences and sensors. For example, the following command will download the entire Boreas dataset:
+4. Use the AWS CLI to download either the entire dataset or only the desired sequences and sensors. Add `--no-sign-request` after each of the following commands if you're not going to use an AWS account. For example, the following command will download the entire Boreas dataset: 
 
 ```bash
 root=/path/to/data/boreas/
 aws s3 sync s3://boreas $root
+```
+
+The following command will list all the top-level prefixes (sequences):
+
+```bash
+root=/path/to/data/boreas/
+aws s3 ls s3://boreas
 ```
 
 Alternatively, [our website (Work-In-Progress)](boreas.utias.utoronto.ca/#/download) can be used to browse through sequences so as to pick and choose what data to download. The website will then generate a list of AWS CLI commands that can be run as a bash script. These commands will look something like:
@@ -107,10 +114,10 @@ Lidar pointclouds are stored in a binary format to minimize storage requirements
 import numpy as np
 from pathlib import Path
 def load_lidar(path):
-	points = np.fromfile(path, dtype=np.float32).reshape((-1, 6))
-	t = float(Path(path).stem) * 1e-6
-	points[:, 5] += t
-	return points
+       points = np.fromfile(path, dtype=np.float32).reshape((-1, 6))
+       t = float(Path(path).stem) * 1e-6
+       points[:, 5] += t
+       return points
 ```
 
 ![lidar](figs/lidar.png)
@@ -132,11 +139,13 @@ Images are simply stored as `png` files. All images are rectified such that a si
 ### Pose Files
 Each sensor frame's pose information is stored in the associated `applanix/<sensor>_poses.csv` file with the following format:
 
-`t, x, y, z, vx, vy, vz, r, p, y, wz, wy, wx` where `t` is the UTC timestamp in microseconds that matches the file name, `(x, y, z)` is the position of the sensor with repect to the ENU origin frame, as measured in the ENU frame, `(vx, vy, vz)` is the velocity of the sensor with respect to the ENU frame, `(r, p, y)` are the yaw-pitch-roll angles which can be converted into the rotation matrix from the sensor frame to the ENU frame, `(wx, wy, wz)` aer the angular velocities of the sensor with respect to ENU as measured in the sensor frame. The pose of the sensor frame is then:
+`t, x, y, z, vx, vy, vz, r, p, y, wz, wy, wx` where `t` is the UTC timestamp in microseconds that matches the file name, `(x, y, z)` is the position of the sensor with repect to the ENU origin frame, as measured in the ENU frame, `(vx, vy, vz)` is the velocity of the sensor with respect to the ENU frame, `(r, p, y)` are the yaw-pitch-roll angles which can be converted into the rotation matrix from the sensor frame to the ENU frame, `(wz, wy, wx)` are the angular velocities of the sensor with respect to ENU as measured in the sensor frame. The pose of the sensor frame is then:
 
 ```Python
 import numpy as np
-def get_pose(x, y, z, r, p, y)
+from pyboreas.utils.utils import yawPitchRollToRot
+
+def get_pose(x, y, z, r, p, y):
 	T_enu_sensor = np.identity(4, dtype=np.float64)
 	C_enu_sensor = yawPitchRollToRot(y, p, r)
 	T_enu_sensor[:3, :3] = C_enu_sensor
@@ -148,6 +157,8 @@ def get_pose(x, y, z, r, p, y)
 v_sensor_enu_in_enu = [vx, vy, vz]
 w_sensor_enu_in_sensor = [wx, wy, wz]
 ```
+
+We also provide an `imu.csv` file which can be used to improve odometry or localization performance as desired. This data is provided in the applanix reference frame. Each line in the file has the following format: `t, wz, wy, wx, az, ay, ax` where `(t, wz, wy, wz)` have the same format as above, and `(az, ay, ax)` are the linear acceleration values as defined in the applanix sensor frame.
 
 ## Synchronization and Calibration
 
@@ -178,4 +189,4 @@ Raw GPS position measurements are provided as Latitude, Longitude, and Altitude 
 
 We convert from LLA into a metric coordinate frame, UTM, for this dataset. UTM divides the earth into 60 zones and projects each to a plane as the basis for its coordinates. Converting from LLA to UTM outputs a metric value for Easting and Northing. For our origin frame, we use x-east, y-north, z-up which is abbreviated as ENU.
 
-We use Applanix's proprietary POSPac suite to obtain post-processed results. The POSPac sutie uses all available (GPS, IMU, wheel encoder) data and performs a batch optimization using an RTS smoother to obtain the most accurate orientation, and velocity information at each time step. The RMS position error is typically between 5 and 20 cm. However, this accuracy can change depending on the atmospheric conditions and the visibility of satellites. The accuracy can also change throughout the course of a sequence. For detailed information on the position accuracy of each sequence, we have provided a script, `plot_processed_error.py`, which produces plots of position, orientation, and velocity error vs. time.
+We use Applanix's proprietary POSPac suite to obtain post-processed results. The POSPac suite uses all available (GPS, IMU, wheel encoder) data and performs a batch optimization using an RTS smoother to obtain the most accurate orientation, and velocity information at each time step. The RMS position error is typically between 5 and 20 cm. However, this accuracy can change depending on the atmospheric conditions and the visibility of satellites. The accuracy can also change throughout the course of a sequence. For detailed information on the position accuracy of each sequence, we have provided a script, `plot_processed_error.py`, which produces plots of position, orientation, and velocity error vs. time.
