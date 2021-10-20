@@ -25,13 +25,13 @@ class TrajStateVar:
         self.velocity: VectorSpaceStateVar = velocity
 
 
-def interpolate_poses(poses, times, query_times, init_finite_diff=False):
+def interpolate_poses(poses, times, query_times, step_size=1):
     """Runs a steam optimization with locked poses and outputs poses queried at query_times
     Args:
         poses (List[np.ndarray]): list of 4x4 poses (T_v_i vehicle and inertial frames)
         times (List[int]): list of times for poses (int for microseconds)
         query_times (List[int]): list of query times (int for microseconds)
-        init_finite_diff (bool): if set to true, initialize velocities using finite difference of poses
+        step_size (int): step size for knot locations (we interpolate between knots)
     Returns:
         (List[np.ndarray]): list of 4x4 poses (T_v_i vehicle and inertial frames) at query_times
     """
@@ -39,29 +39,19 @@ def interpolate_poses(poses, times, query_times, init_finite_diff=False):
     Qc_inv = np.diag(1 / np.array([1.0, 0.001, 0.001, 0.001, 0.001, 1.0]))
 
     # steam state variables
-    if init_finite_diff:
-        states = []
-        for i in range(len(poses)):
-            if i == 0:
-                dt = (times[1] - times[0])*1e-6     # to seconds
-                dT = Transformation(T_ba=enforce_orthog(poses[1])) @ Transformation(T_ba=enforce_orthog(poses[0]))
-            else:
-                dt = (times[i] - times[i-1])*1e-6   # to seconds
-                dT = Transformation(T_ba=enforce_orthog(poses[i])) @ Transformation(T_ba=enforce_orthog(poses[i-1]))
-            velocity = dT.vec() / dt
-            states += [TrajStateVar(
-                            Time(nsecs=int(times[i]*1e3)),  # microseconds to nano
-                            TransformStateVar(Transformation(T_ba=enforce_orthog(poses[i])), copy=True),
-                            VectorSpaceStateVar(velocity, copy=True))]
-    else:
-        init_velocity = np.zeros((6, 1))
-        states = [
-            TrajStateVar(
-                Time(nsecs=int(times[i]*1e3)),  # microseconds to nano
-                TransformStateVar(Transformation(T_ba=enforce_orthog(poses[i])), copy=True),
-                VectorSpaceStateVar(init_velocity, copy=True),
-            ) for i in range(len(poses))
-        ]
+    init_velocity = np.zeros((6, 1))
+    states = [
+        TrajStateVar(
+            Time(nsecs=int(times[i]*1e3)),  # microseconds to nano
+            TransformStateVar(Transformation(T_ba=enforce_orthog(poses[i])), copy=True),
+            VectorSpaceStateVar(init_velocity, copy=True)
+        ) for i in range(0, len(poses), step_size)
+    ]
+    if times[-1]*1e3 > states[-1].time.nanosecs:
+        states += [TrajStateVar(
+                        Time(nsecs=int(times[-1]*1e3)),  # microseconds to nano
+                        TransformStateVar(Transformation(T_ba=enforce_orthog(poses[-1])), copy=True),
+                        VectorSpaceStateVar(init_velocity, copy=True))]
 
     # setup trajectory
     traj = TrajectoryInterface(Qc_inv=Qc_inv, allow_extrapolation=True)
@@ -240,7 +230,7 @@ def get_path_from_Tvi_list(Tvi_list):
     return path
 
 
-def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, root, dim):
+def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, root, dim, interp):
     """Computes the translational (%) and rotational drift (deg/m) in the KITTI style.
         KITTI rotation and translation metrics are computed for each sequence individually and then
         averaged across the sequences.
@@ -253,7 +243,8 @@ def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_l
         seq_lens_pred (List[int]): List of sequence lengths corresponding to T_pred
         seq (List[string]): List of sequence file names
         root (string): path to output directory for plots
-        dim (int): dimension for evaluation. Set to '3' for 3D or '2' for 2D
+        dim (int): dimension for evaluation. Set to '3' for SE(3) or '2' for SE(2)
+        interp (bool): True for using built-in interpolation
     Returns:
         t_err: Average KITTI Translation ERROR (%)
         r_err: Average KITTI Rotation Error (deg / m)
@@ -284,7 +275,10 @@ def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_l
         times_pred_seq = times_pred[indices_pred[i]:indices_pred[i+1]]
 
         # query predicted trajectory at groundtruth times
-        T_query = interpolate_poses(T_pred_seq, times_pred_seq, times_gt_seq)
+        if interp:
+            T_query = interpolate_poses(T_pred_seq, times_pred_seq, times_gt_seq, step_size)
+        else:
+            T_query = T_pred_seq
 
         err, path_lengths = calc_sequence_errors(T_gt_seq, T_query, step_size)
         t_err, r_err, t_err_len, r_err_len = get_stats(err, path_lengths)
@@ -362,7 +356,7 @@ def get_sequence_poses_gt(path, seq, dim):
             filepath = os.path.join(path, dir, 'applanix/lidar_poses.csv')  # use 'lidar_poses.csv' for groundtruth
             T_calib = np.loadtxt(os.path.join(path, dir, 'calib/T_applanix_lidar.txt'))
         elif dim == 2:
-            filepath = os.path.join(path, dir, 'applanix/radar_poses.csv')  # use 'lidar_poses.csv' for groundtruth
+            filepath = os.path.join(path, dir, 'applanix/radar_poses.csv')  # use 'radar_poses.csv' for groundtruth
             T_calib = np.identity(4)
         else:
             raise ValueError('Invalid dim value in get_sequence_poses_gt. Use either 2 or 3.')
