@@ -29,8 +29,8 @@ def interpolate_poses(poses, times, query_times, init_finite_diff=False):
     """Runs a steam optimization with locked poses and outputs poses queried at query_times
     Args:
         poses (List[np.ndarray]): list of 4x4 poses (T_v_i vehicle and inertial frames)
-        times (List[int]): list of times for poses (float for seconds or int for nanoseconds)
-        query_times (List[float or int]): list of query times (int for nanoseconds)
+        times (List[int]): list of times for poses (int for microseconds)
+        query_times (List[int]): list of query times (int for microseconds)
         init_finite_diff (bool): if set to true, initialize velocities using finite difference of poses
     Returns:
         (List[np.ndarray]): list of 4x4 poses (T_v_i vehicle and inertial frames) at query_times
@@ -43,21 +43,21 @@ def interpolate_poses(poses, times, query_times, init_finite_diff=False):
         states = []
         for i in range(len(poses)):
             if i == 0:
-                dt = (times[1] - times[0])*1e-9
+                dt = (times[1] - times[0])*1e-6     # to seconds
                 dT = Transformation(T_ba=enforce_orthog(poses[1])) @ Transformation(T_ba=enforce_orthog(poses[0]))
             else:
-                dt = (times[i] - times[i-1])*1e-9
+                dt = (times[i] - times[i-1])*1e-6   # to seconds
                 dT = Transformation(T_ba=enforce_orthog(poses[i])) @ Transformation(T_ba=enforce_orthog(poses[i-1]))
             velocity = dT.vec() / dt
             states += [TrajStateVar(
-                            Time(nsecs=times[i]),
+                            Time(nsecs=int(times[i]*1e3)),  # microseconds to nano
                             TransformStateVar(Transformation(T_ba=enforce_orthog(poses[i])), copy=True),
                             VectorSpaceStateVar(velocity, copy=True))]
     else:
         init_velocity = np.zeros((6, 1))
         states = [
             TrajStateVar(
-                Time(nsecs=times[i]),
+                Time(nsecs=int(times[i]*1e3)),  # microseconds to nano
                 TransformStateVar(Transformation(T_ba=enforce_orthog(poses[i])), copy=True),
                 VectorSpaceStateVar(init_velocity, copy=True),
             ) for i in range(len(poses))
@@ -82,7 +82,7 @@ def interpolate_poses(poses, times, query_times, init_finite_diff=False):
 
     query_poses = []
     for time in query_times:
-        interp_eval = traj.get_interp_pose_eval(Time(nsecs=time))
+        interp_eval = traj.get_interp_pose_eval(Time(nsecs=int(time*1e3)))
         query_poses += [interp_eval.evaluate().matrix()]
 
     return query_poses
@@ -122,11 +122,12 @@ def last_frame_from_segment_length(dist, first_frame, length):
     return -1
 
 
-def calc_sequence_errors(poses_gt, poses_pred, step_size=4):
+def calc_sequence_errors(poses_gt, poses_pred, step_size):
     """Calculate the translation and rotation error for each subsequence across several different lengths.
     Args:
         T_gt (List[np.ndarray]): each entry in list is 4x4 transformation matrix, ground truth transforms
         T_pred (List[np.ndarray]): each entry in list is 4x4 transformation matrix, predicted transforms
+        step_size (int): step size applied for computing distances travelled
     Returns:
         err (List[Tuple]): each entry in list is [first_frame, r_err, t_err, length, speed]
         lengths (List[int]): list of lengths that odometry is evaluated at
@@ -239,24 +240,32 @@ def get_path_from_Tvi_list(Tvi_list):
     return path
 
 
-def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, root, step_size=10):
+def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, root, dim):
     """Computes the translational (%) and rotational drift (deg/m) in the KITTI style.
         KITTI rotation and translation metrics are computed for each sequence individually and then
         averaged across the sequences.
     Args:
-        T_gt (List[np.ndarray]): List of 4x4 homogeneous transforms (fixed reference frame to frame t)
-        T_pred (List[np.ndarray]): List of 4x4 homogeneous transforms (fixed reference frame to frame t)
-        times_gt (List[int]): List of times (nanoseconds) corresponding to T_gt
-        times_pred (List[int]): List of times (nanoseconds) corresponding to T_pred
+        T_gt (List[np.ndarray]): List of 4x4 SE(3) transforms (fixed reference frame 'i' to frame 'v', T_vi)
+        T_pred (List[np.ndarray]): List of 4x4 SE(3) transforms (fixed reference frame 'i' to frame 'v', T_vi)
+        times_gt (List[int]): List of times (microseconds) corresponding to T_gt
+        times_pred (List[int]): List of times (microseconds) corresponding to T_pred
         seq_lens_gt (List[int]): List of sequence lengths corresponding to T_gt
         seq_lens_pred (List[int]): List of sequence lengths corresponding to T_pred
         seq (List[string]): List of sequence file names
         root (string): path to output directory for plots
-        step_size (int): step size applied for classifying distances travelled
+        dim (int): dimension for evaluation. Set to '3' for 3D or '2' for 2D
     Returns:
         t_err: Average KITTI Translation ERROR (%)
         r_err: Average KITTI Rotation Error (deg / m)
     """
+    # set step size
+    if dim == 3:
+        step_size = 10  # every 10 frames should be 1 second
+    elif dim == 2:
+        step_size = 4   # every 4 frames should be 1 second
+    else:
+        raise ValueError('Invalid dim value in compute_kitti_metrics. Use either 2 or 3.')
+
     # get start and end indices of each sequence
     indices_gt = [0]
     indices_gt.extend(list(accumulate(seq_lens_gt)))
@@ -329,15 +338,16 @@ def get_sequence_poses(path, seq):
 
     return all_poses, all_times, seq_lens
 
-def get_sequence_poses_gt(path, seq):
+def get_sequence_poses_gt(path, seq, dim):
     """Retrieves a list of the poses corresponding to the given sequences in the given file path with the Boreas dataset
     directory structure.
     Args:
         path (string): directory path to root directory of Boreas dataset
         seq (List[string]): list of sequence file names
+        dim (int): dimension for evaluation. Set to '3' for 3D or '2' for 2D
     Returns:
         all_poses (List[np.ndarray]): list of 4x4 poses from all sequence files
-        all_times (List[int]): list of times in nanoseconds from all sequence files
+        all_times (List[int]): list of times in microseconds from all sequence files
         seq_lens (List[int]): list of sequence lengths
     """
 
@@ -348,10 +358,17 @@ def get_sequence_poses_gt(path, seq):
     for filename in seq:
         # determine path to gt file
         dir = filename[:-4]     # assumes last four characters are '.txt'
-        filepath = os.path.join(path, dir, 'applanix/lidar_poses.csv')  # use 'lidar_poses.csv' for groundtruth
+        if dim == 3:
+            filepath = os.path.join(path, dir, 'applanix/lidar_poses.csv')  # use 'lidar_poses.csv' for groundtruth
+            T_calib = np.loadtxt(os.path.join(path, dir, 'calib/T_applanix_lidar.txt'))
+        elif dim == 2:
+            filepath = os.path.join(path, dir, 'applanix/radar_poses.csv')  # use 'lidar_poses.csv' for groundtruth
+            T_calib = np.identity(4)
+        else:
+            raise ValueError('Invalid dim value in get_sequence_poses_gt. Use either 2 or 3.')
 
         # parse file for list of poses and times
-        poses, times = read_traj_file_gt(filepath)
+        poses, times = read_traj_file_gt(filepath, T_calib, dim)
         seq_lens.append(len(times))
         all_poses.extend(poses)
         all_times.extend(times)
@@ -364,7 +381,7 @@ def write_traj_file(path, poses, times):
     Args:
         path (string): file path including file name
         poses (List[np.ndarray]): list of 4x4 poses (T_v_i vehicle and inertial frames)
-        times (List[int]): list of times for poses (int for nanoseconds)
+        times (List[int]): list of times for poses
     """
     with open(path, "w") as file:
         # Writing each time (nanoseconds) and pose to file
@@ -376,12 +393,12 @@ def write_traj_file(path, poses, times):
 
 
 def read_traj_file(path):
-    """Writes trajectory into a space-separated txt file
+    """Reads trajectory from a space-separated txt file
     Args:
         path (string): file path including file name
     Returns:
         (List[np.ndarray]): list of 4x4 poses
-        (List[int]): list of times in nanoseconds
+        (List[int]): list of times in microseconds
     """
     with open(path, "r") as file:
         # read each time and pose to lists
@@ -401,19 +418,37 @@ def read_traj_file(path):
 
     return poses, times
 
-def read_traj_file_gt(path):
+def read_traj_file_gt(path, T_ab, dim):
+    """Reads trajectory from a comma-separated file, see Boreas documentation for format
+    Args:
+        path (string): file path including file name
+        T_ab (np.ndarray): 4x4 transformation matrix for calibration. Poses read are in frame 'b', output in frame 'a'
+        dim (int): dimension for evaluation. Set to '3' for 3D or '2' for 2D
+    Returns:
+        (List[np.ndarray]): list of 4x4 poses
+        (List[int]): list of times in microseconds
+    """
     with open(path, 'r') as f:
         lines = f.readlines()
     poses = []
     times = []
-    # T_iv
+
     for line in lines[1:]:
-       pose, time = convert_line_to_pose(line)
-       poses += [get_inverse_tf(pose)]  # convert T_iv to T_vi
-       times += [int(time*1e3)]  # convert to nanoseconds
+       pose, time = convert_line_to_pose(line, dim)
+       poses += [T_ab @ get_inverse_tf(pose)]  # convert T_iv to T_vi and apply calibration
+       times += [int(time)]  # microseconds
     return poses, times
 
-def convert_line_to_pose(line):
+def convert_line_to_pose(line, dim):
+    """Reads trajectory from list of strings (single row of the comma-separeted groundtruth file). See Boreas
+    documentation for format
+    Args:
+        line (List[string]): list of strings
+        dim (int): dimension for evaluation. Set to '3' for 3D or '2' for 2D
+    Returns:
+        (np.ndarray): 4x4 SE(3) pose
+        (int): time in nanoseconds
+    """
     # returns T_iv
     line = line.replace('\n', ',').split(',')
     line = [float(i) for i in line[:-1]]
@@ -422,8 +457,13 @@ def convert_line_to_pose(line):
     T = np.eye(4)
     T[0, 3] = line[1]   # x
     T[1, 3] = line[2]   # y
-    T[2, 3] = line[3]   # z
-    T[:3, :3] = yawPitchRollToRot(line[9], line[8], line[7])
+    if dim == 3:
+        T[2, 3] = line[3]   # z
+        T[:3, :3] = yawPitchRollToRot(line[9], line[8], line[7])
+    elif dim == 2:
+        T[:3, :3] = yawPitchRollToRot(line[9], 0, 0)
+    else:
+        raise ValueError('Invalid dim value in convert_line_to_pose. Use either 2 or 3.')
     time = int(line[0])
     return T, time
 

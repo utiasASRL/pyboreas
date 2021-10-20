@@ -1,10 +1,11 @@
 """Tests for odometry benchmark"""
+import os
 import unittest
 import numpy as np
 
 from pylgmath import Transformation, se3op
-from utils.utils import get_inverse_tf
-from utils.odometry import interpolate_poses, write_traj_file, read_traj_file
+from pyboreas.utils.utils import get_inverse_tf
+from pyboreas.utils.odometry import interpolate_poses, write_traj_file, read_traj_file
 
 
 class OdometryTestCase(unittest.TestCase):
@@ -12,8 +13,8 @@ class OdometryTestCase(unittest.TestCase):
     def test_interpolate(self):
         """Checks the pysteam interpolation against a known constant-velocity groundtruth."""
         # setup groundtruth
-        delt = 0.05
-        num_poses = 50
+        delt = 0.05     # seconds
+        num_poses = 50  # total frames
 
         # constant velocity
         v_x = -1.0
@@ -25,7 +26,7 @@ class OdometryTestCase(unittest.TestCase):
         # create trajectory
         poses = [se3op.vec2tran(i*delt*velocity_prior)
                  @ init_pose.matrix() for i in range(num_poses)]
-        times = [int(i*delt*1e9) for i in range(num_poses)]     # nanoseconds
+        times = [int(i*delt*1e6) for i in range(num_poses)]     # microseconds
 
         query_poses = interpolate_poses(poses[::2], times[::2], times[1:-1:2])
         gt_poses = poses[1:-1:2]
@@ -49,17 +50,20 @@ class OdometryTestCase(unittest.TestCase):
         # create trajectory
         write_poses = [se3op.vec2tran(i*delt*velocity_prior)
                        @ init_pose.matrix() for i in range(num_poses)]
-        write_times = [int(i*delt*1e9) for i in range(num_poses)]     # nanoseconds
+        write_times = [int(i*delt*1e6) for i in range(num_poses)]     # microseconds
 
         # write out trajectory to file, then read it back
-        write_traj_file('test/test_traj.txt', write_poses, write_times)
-        read_poses, read_times = read_traj_file('test/test_traj.txt')
+        write_traj_file('pyboreas/test/test_traj.txt', write_poses, write_times)
+        read_poses, read_times = read_traj_file('pyboreas/test/test_traj.txt')
 
         # compare write and read
         for wpose, wtime, rpose, rtime in zip(write_poses, write_times, read_poses, read_times):
             delta = wpose@get_inverse_tf(rpose)
             self.assertTrue(np.linalg.norm(se3op.tran2vec(delta)) < 1e-6)
             self.assertTrue(wtime == rtime)
+
+        # delete file
+        os.remove('pyboreas/test/test_traj.txt')
 
 
 if __name__ == '__main__':
