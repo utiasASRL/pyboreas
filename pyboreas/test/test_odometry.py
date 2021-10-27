@@ -67,5 +67,5 @@ class OdometryTestCase(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    # run 'python -m unittest' from 'boreas-devkit/python' directory
+    # run 'python -m unittest' from root directory
     unittest.main()

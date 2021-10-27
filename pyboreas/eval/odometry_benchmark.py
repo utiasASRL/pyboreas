@@ -9,7 +9,7 @@ if __name__ == '__main__':
     parser.add_argument('--radar', dest='radar', action='store_true', help='evaluate radar odometry in SE(2)')
     parser.set_defaults(radar=False)
     parser.add_argument('--interp', dest='interp', action='store_true', help='use built-in interpolation')
-    parser.set_defaults(interp=False)
+    parser.set_defaults(interp=True)
     args = parser.parse_args()
 
     # evaluation mode

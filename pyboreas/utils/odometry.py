@@ -25,13 +25,12 @@ class TrajStateVar:
         self.velocity: VectorSpaceStateVar = velocity
 
 
-def interpolate_poses(poses, times, query_times, step_size=1):
+def interpolate_poses(poses, times, query_times):
     """Runs a steam optimization with locked poses and outputs poses queried at query_times
     Args:
         poses (List[np.ndarray]): list of 4x4 poses (T_v_i vehicle and inertial frames)
         times (List[int]): list of times for poses (int for microseconds)
         query_times (List[int]): list of query times (int for microseconds)
-        step_size (int): step size for knot locations (we interpolate between knots)
     Returns:
         (List[np.ndarray]): list of 4x4 poses (T_v_i vehicle and inertial frames) at query_times
     """
@@ -39,41 +38,42 @@ def interpolate_poses(poses, times, query_times, step_size=1):
     Qc_inv = np.diag(1 / np.array([1.0, 0.001, 0.001, 0.001, 0.001, 1.0]))
 
     # steam state variables
-    init_velocity = np.zeros((6, 1))
-    states = [
-        TrajStateVar(
-            Time(nsecs=int(times[i]*1e3)),  # microseconds to nano
-            TransformStateVar(Transformation(T_ba=enforce_orthog(poses[i])), copy=True),
-            VectorSpaceStateVar(init_velocity, copy=True)
-        ) for i in range(0, len(poses), step_size)
-    ]
-    if times[-1]*1e3 > states[-1].time.nanosecs:
+    states = []
+    for i in range(len(poses)):
+        if i == 0:
+            dt = (times[1] - times[0])*1e-6  # microseconds to seconds
+            dT = Transformation(T_ba=poses[1]) @ Transformation(T_ba=poses[0]).inverse()
+        else:
+            dt = (times[i] - times[i-1])*1e-6  # microseconds to seconds
+            dT = Transformation(T_ba=poses[i]) @ Transformation(T_ba=poses[i-1]).inverse()
+        velocity = dT.vec() / dt
         states += [TrajStateVar(
-                        Time(nsecs=int(times[-1]*1e3)),  # microseconds to nano
-                        TransformStateVar(Transformation(T_ba=enforce_orthog(poses[-1])), copy=True),
-                        VectorSpaceStateVar(init_velocity, copy=True))]
+                        Time(nsecs=int(times[i]*1e3)),  # microseconds to nano
+                        TransformStateVar(Transformation(T_ba=enforce_orthog(poses[i]))),
+                        VectorSpaceStateVar(velocity))]
 
     # setup trajectory
     traj = TrajectoryInterface(Qc_inv=Qc_inv, allow_extrapolation=True)
     for state in states:
-        traj.add_knot(time=state.time, T_k0=TransformStateEvaluator(state.pose), velocity=state.velocity)
-        state.pose.set_lock(True)   # lock all pose variables
+        traj.add_knot(time=state.time, T_k0=TransformStateEvaluator(state.pose), w_0k_ink=state.velocity)
+        # state.pose.set_lock(True)   # lock all pose variables
 
-    # construct the optimization problem
-    opt_prob = OptimizationProblem()
-    opt_prob.add_cost_term(*traj.get_prior_cost_terms())
-    opt_prob.add_state_var(*[j for i in states for j in (i.pose, i.velocity)])
-
-    # construct the solver
-    optimizer = GaussNewtonSolver(opt_prob, verbose=False)
-
-    # solve the problem (states are automatically updated)
-    optimizer.optimize()
+    # TODO: Too slow, may remove entirely
+    # # construct the optimization problem
+    # opt_prob = OptimizationProblem()
+    # opt_prob.add_cost_term(*traj.get_prior_cost_terms())
+    # opt_prob.add_state_var(*[j for i in states for j in (i.pose, i.velocity)])
+    #
+    # # construct the solver
+    # optimizer = GaussNewtonSolver(opt_prob, verbose=False, use_sparse_matrix=True)
+    #
+    # # solve the problem (states are automatically updated)
+    # optimizer.optimize()
 
     query_poses = []
     for time in query_times:
         interp_eval = traj.get_interp_pose_eval(Time(nsecs=int(time*1e3)))
-        query_poses += [interp_eval.evaluate().matrix()]
+        query_poses += [enforce_orthog(interp_eval.evaluate().matrix())]
 
     return query_poses
 
@@ -276,7 +276,7 @@ def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_l
 
         # query predicted trajectory at groundtruth times
         if interp:
-            T_query = interpolate_poses(T_pred_seq, times_pred_seq, times_gt_seq, step_size)
+            T_query = interpolate_poses(T_pred_seq, times_pred_seq, times_gt_seq)
         else:
             T_query = T_pred_seq
 
@@ -407,7 +407,7 @@ def read_traj_file(path):
             pose[1, 0:4] = values[4:8]
             pose[2, 0:4] = values[8:12]
             pose[3, 3] = 1.0
-            poses.append(pose)
+            poses.append(enforce_orthog(pose))
             times.append(int(line_split[0]))
 
     return poses, times
