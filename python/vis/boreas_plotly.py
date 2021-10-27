@@ -11,6 +11,7 @@ import base64
 from PIL import Image
 from matplotlib import cm
 import io
+import time
 
 from vis import map_utils
 
@@ -19,6 +20,8 @@ class BoreasPlotly:
         # Data
         self.seq = visualizer.sequence
         self.calib = visualizer.sequence.calib
+        self.camera_frames = visualizer.camera_frames
+        self.radar_frames = visualizer.radar_frames
 
     def get_pcd(self, idx, down_sample_rate=0.5):
         # load points
@@ -34,7 +37,7 @@ class BoreasPlotly:
         return lidar_points[rand_idx, :], lidar_frame, C_a_enu, C_a_l
 
     def get_cam(self, idx):
-        camera_frame = self.seq.get_camera(idx)
+        camera_frame = self.camera_frames[idx]
         camera_image = camera_frame.load_data()
         return camera_image
 
@@ -43,7 +46,7 @@ class BoreasPlotly:
         return cam.path
 
     def get_radar(self, idx, grid_size, grid_res):
-        radar_frame = self.seq.get_radar(idx)
+        radar_frame = self.radar_frames[idx]
         radar_frame.load_data()
         radar_ndarray = radar_frame.get_cartesian(grid_res, grid_size)
         return radar_ndarray
@@ -127,7 +130,7 @@ class BoreasPlotly:
             fig_persp = go.Figure()
             img_width = 2448
             img_height = 2048
-            scale_factor = 0.25
+            scale_factor = 0.3
 
             # Add invisible scatter trace.
             # This trace is added to help the autoresize logic work.
@@ -239,7 +242,7 @@ class BoreasPlotly:
 
 
             # # Colored lidar
-            fig_colored_lidar = deepcopy(go.Figure())
+            # fig_colored_lidar = deepcopy(go.Figure())
             # transform = deepcopy(self.calib.T_camera_lidar)
             # print(transform)
             # pseudo_image = 255*np.ones(image.shape)
@@ -283,4 +286,4 @@ class BoreasPlotly:
                 return not playing
             return playing
 
-        app.run_server(debug=True)
+        app.run_server(debug=False)
