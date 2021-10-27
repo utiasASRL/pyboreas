@@ -55,28 +55,36 @@ class BoreasPlotly:
         app = dash.Dash(__name__)
 
         app.layout = html.Div(children=[
-            html.H1(children='Graphs'),
-            
-            html.Div(children=[
-            dcc.Graph(id='bev_plot')], style={'display': 'inline-block'}),
+            html.H1(children='Boreas Visualizer', style={'fontFamily': 'helvetica', 'textAlign': 'center'}),
 
             html.Div(children=[
-            dcc.Graph(id='persp_plot')], style={'display': 'inline-block'}),
+                html.Div(children=[
+                    dcc.Graph(id='bev_plot')], style={'display': 'inline-block'}),
+
+                html.Div(children=[
+                    dcc.Graph(id='radar_plot')], style={'display': 'inline-block'}),
+            ], style={'textAlign':'center'}),
+
+            html.Br(),
 
             html.Div(children=[
-            dcc.Graph(id='radar_plot')], style={'display': 'inline-block'}),
+                html.Div(children=[
+                    dcc.Graph(id='persp_plot')], style={'display': 'inline-block'}),
+
+                html.Div(children=[
+                    dcc.Graph(id='color_lidar_plot')], style={'display': 'inline-block'}),
+            ], style={'textAlign':'center'}),
 
             html.Div(children=[
-            dcc.Graph(id='color_lidar_plot')], style={'display': 'inline-block'}),
-
-            dcc.Slider(
+                dcc.Slider(
                     id='timestep_slider',
                     min=0,
                     max=len(self.seq.lidar_frames),
                     value=max(0, min(frame_idx, len(self.seq.lidar_frames))),
                     marks={str(idx): str(idx) for idx in range(0, len(self.seq.lidar_frames), 5)},
-                    step=1
-                    ),
+                    step=1)
+            ], style={'width': '70%','padding-left':'17%', 'padding-right':'13%'}),
+
 
             dcc.Interval(id='animator',
                          interval=2000,  # in milliseconds
@@ -84,7 +92,10 @@ class BoreasPlotly:
                          disabled=True,
                          ),
 
-            html.Button("Play/Pause", id="play_btn")
+            html.Div(children=[
+                html.Button("Play/Pause", id="play_btn")
+            ], style={'textAlign':'center'})
+
         ])
 
         @app.callback(
@@ -103,9 +114,10 @@ class BoreasPlotly:
             )
             fig_bev.update_traces(marker_size=0.5)
             fig_bev.update_layout(
+                title="BEV Visualization",
                 autosize=False,
-                width=600,
-                height=600,
+                width=700,
+                height=700,
                 showlegend=False
             )
             fig_bev.update_xaxes(range=[-75, 75])
@@ -137,7 +149,7 @@ class BoreasPlotly:
             fig_persp = go.Figure()
             img_width = 2448
             img_height = 2048
-            scale_factor = 0.3
+            scale_factor = 700/2448
 
             # Add invisible scatter trace.
             # This trace is added to help the autoresize logic work.
@@ -194,6 +206,7 @@ class BoreasPlotly:
 
             # Configure other layout
             fig_persp.update_layout(
+                title="Perspective Visualization",
                 width=img_width * scale_factor,
                 height=img_height * scale_factor,
                 autosize=False,
@@ -209,7 +222,7 @@ class BoreasPlotly:
         def update_radar(idx):
             # Radar
             fig_radar = go.Figure()
-            grid_size = 600
+            grid_size = 700
             grid_res = 0.5
             radar_image = self.get_radar(idx, grid_size, grid_res)
 
@@ -222,21 +235,23 @@ class BoreasPlotly:
             encoded_radar_image = "data:image/png;base64," + encoded_radar_string
             
             fig_radar.update_xaxes(
-                visible=False,
-                range=[0, grid_size]
+                range=[-75, 75],
+                showgrid=False,
+                zeroline=False
             )
 
             fig_radar.update_yaxes(
-                visible=False,
-                range=[grid_size, 0]
+                range=[75, -75],
+                showgrid=False,
+                zeroline=False
             )
 
             fig_radar.add_layout_image(
                 dict(
-                    x=0,
-                    sizex=grid_size,
-                    y=0,
-                    sizey=grid_size,
+                    x=-75,
+                    sizex=150,
+                    y=-75,
+                    sizey=150,
                     xref="x",
                     yref="y",
                     opacity=1.0,
@@ -245,6 +260,7 @@ class BoreasPlotly:
                     source=encoded_radar_image)
             )
             fig_radar.update_layout(
+                title="Radar Visualization",
                 width=grid_size,
                 height=grid_size,
                 autosize=False,
@@ -292,11 +308,12 @@ class BoreasPlotly:
             camera = dict(
                 up=dict(x=0, y=-3, z=0),
                 center=dict(x=0, y=0, z=0),
-                eye=dict(x=0.1, y=-0.1, z=-2)
+                eye=dict(x=0.1, y=-0.2, z=-1.7)
             )
             fig_color_lidar.update_layout(
+                title="Colored Lidar Visualization",
                 scene_camera=camera,
-                width=1200,
+                width=700,
                 height=600,
                 autosize=False,
             )
@@ -324,4 +341,4 @@ class BoreasPlotly:
                 return not playing
             return playing
 
-        app.run_server(debug=False)
+        app.run_server(debug=True)
