@@ -22,6 +22,7 @@ class BoreasPlotly:
         self.calib = visualizer.sequence.calib
         self.camera_frames = visualizer.camera_frames
         self.radar_frames = visualizer.radar_frames
+        self.plots_initialized = False
 
     def get_pcd(self, idx, down_sample_rate=0.5):
         # load points
@@ -108,7 +109,7 @@ class BoreasPlotly:
             # BEV
             pcd_a = np.matmul(C_a_l[0:2, 0:2].reshape(1, 2, 2), pcd[:, 0:2].reshape(pcd.shape[0], 2, 1)).squeeze(-1)
             fig_bev = go.Figure()
-            map_utils.draw_map_plotly("/home/shichen/datasets/boreas_mini/boreas_lane.osm", fig_bev, lidar_scan.pose[0, 3], lidar_scan.pose[1, 3], C_a_enu, utm=True)
+            map_utils.draw_map_plotly("/home/jqian/datasets/boreas-devkit/boreas_mini_v2/boreas_lane.osm", fig_bev, lidar_scan.pose[0, 3], lidar_scan.pose[1, 3], C_a_enu, utm=True)
             fig_bev.add_trace(
                 go.Scattergl(x=pcd_a[:,0], y=pcd_a[:,1], mode='markers', visible=True, marker_size=0.5, marker_color='blue')
             )
@@ -282,12 +283,20 @@ class BoreasPlotly:
             points_camera = np.matmul(self.calib.P0, points_camera_f)
             pixel_camera = np.divide(points_camera, points_camera[2, :])
             # Only select valid lidar points
-            valid_pixel_idx = (points_camera[2, :] > 0) & (pixel_camera[1, :] > 0) & (pixel_camera[1, :] < 2048) & (pixel_camera[0, :] > 0) & (pixel_camera[0, :] < 2448)
+            valid_pixel_idx = (points_camera[2, :] > 0) & (points_camera[2, :] < 100) & (pixel_camera[1, :] > 0) & (pixel_camera[1, :] < 2048) & (pixel_camera[0, :] > 0) & (pixel_camera[0, :] < 2448)
             valid_pixel_x = pixel_camera[0][valid_pixel_idx]
             valid_pixel_y = pixel_camera[1][valid_pixel_idx]
-            valid_pixel_z = points_camera[2][valid_pixel_idx]
 
-            fig_color_lidar = go.Figure()
+            valid_coord_x = points_camera_f[0][valid_pixel_idx]
+            valid_coord_y = points_camera_f[1][valid_pixel_idx]
+            valid_coord_z = points_camera_f[2][valid_pixel_idx]
+
+            if not self.plots_initialized:
+                layout = dict()
+                self.plots_initialized = True
+            else:
+                layout = dict(uirevision='latest')
+            fig_color_lidar = go.Figure(layout=layout)
 
             image = self.get_cam(idx)
 
@@ -296,22 +305,24 @@ class BoreasPlotly:
 
             fig_color_lidar.add_trace(
                 go.Scatter3d(
-                    x=valid_pixel_x,
-                    y=valid_pixel_y,
-                    z=valid_pixel_z,
+                    x=valid_coord_x,
+                    y=valid_coord_y,
+                    z=valid_coord_z,
                     mode='markers',
                     marker_size=2,
                     marker_color=colors_str,
                 )
             )
 
+            scene=dict(aspectratio=dict(x=1, y=1, z=1),xaxis = dict(range=[-100,100]),yaxis = dict(range=[-100,100]),zaxis = dict(range=[-100,100]))
             camera = dict(
-                up=dict(x=0, y=-3, z=0),
+                up=dict(x=0, y=0, z=0),
                 center=dict(x=0, y=0, z=0),
-                eye=dict(x=0.1, y=-0.2, z=-1.7)
+                eye=dict(x=0., y=0, z=-0.03)
             )
             fig_color_lidar.update_layout(
                 title="Colored Lidar Visualization",
+                scene=scene,
                 scene_camera=camera,
                 width=700,
                 height=600,
