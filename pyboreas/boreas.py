@@ -1,5 +1,7 @@
 import os
 import os.path as osp
+import multiprocessing
+from multiprocessing import Pool
 
 from pyboreas.data.splits import *
 from pyboreas.data.sequence import Sequence
@@ -22,13 +24,22 @@ class BoreasDataset:
         if split is None:
             split = sorted([[f] for f in os.listdir(root) if 'boreas' in f])
 
-        for seqSpec in split:
-            seq = Sequence(root, seqSpec, verbose)
-            self.sequences.append(seq)
+        # It takes a few seconds to construct each sequence, so we parallelize this
+        global _load_seq
+        def _load_seq(seqSpec):
+            return Sequence(root, seqSpec)
+
+        pool = Pool(multiprocessing.cpu_count())
+        self.sequences = list(pool.map(_load_seq, split))
+        self.sequences.sort(key=lambda x: x.ID)
+
+        for seq in self.sequences:
             self.camera_frames += seq.camera_frames
             self.lidar_frames += seq.lidar_frames
             self.radar_frames += seq.radar_frames
-            self.seqDict[seq.ID] = len(self.sequences) - 1
+            self.seqDict[seq.ID] = len(self.seqDict)
+            if verbose:
+                seq.print()
 
         if verbose:
             print('total camera frames: {}'.format(len(self.camera_frames)))
