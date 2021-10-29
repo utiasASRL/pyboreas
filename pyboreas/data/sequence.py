@@ -10,23 +10,17 @@ class Sequence:
     """
     Class for working with an individual Boreas dataset sequence
     """
-    def __init__(self, boreas_root, seqSpec, verbose=False):
+    def __init__(self, boreas_root, seqSpec):
         """init
         Args:
             boreas_root (str): path to root folder ex: /path/to/data/boreas/
             seqSpec (list): defines sequence ID, start_time, and end_time
-            verbose (bool): whether or not to print info during initialization
         """
         self.ID = seqSpec[0]
-        self.verbose = verbose
-        if verbose:
-            print('SEQ: {}'.format(self.ID))
         if len(seqSpec) > 2:
             assert seqSpec[2] > seqSpec[1], 'Sequence timestamps must go forward in time'
             self.start_ts = str(seqSpec[1])
             self.end_ts = str(seqSpec[2])
-            if verbose:
-                print('START: {} END: {}'.format(self.start_ts, self.end_ts))
         else:
             self.start_ts = '0'  # dummy start and end if not specified
             self.end_ts = '9' * 21
@@ -43,13 +37,16 @@ class Sequence:
         # Creates list of frame objects for cam, lidar, radar, and inits poses
         self.get_all_frames()
 
-        self._check_download()  # if verbose, prints warning when sensor data missing
+        self._check_download()  # prints warning when sensor data missing
 
-        if verbose:
-            print('camera frames: {}'.format(len(self.camera_frames)))
-            print('lidar frames: {}'.format(len(self.lidar_frames)))
-            print('radar frames: {}'.format(len(self.radar_frames)))
-            print('-------------------------------')
+    def print(self):
+        print('SEQ: {}'.format(self.ID))
+        if self.end_ts != '9' * 21:
+            print('START: {} END: {}'.format(self.start_ts, self.end_ts))
+        print('camera frames: {}'.format(len(self.camera_frames)))
+        print('lidar frames: {}'.format(len(self.lidar_frames)))
+        print('radar frames: {}'.format(len(self.radar_frames)))
+        print('-------------------------------')
 
     def get_camera(self, idx):
         self.camera_frames[idx].load_data()

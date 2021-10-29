@@ -1,3 +1,4 @@
+from bisect import bisect_left
 import os.path as osp
 from pathlib import Path
 import numpy as np
@@ -381,36 +382,6 @@ def get_gt_data_for_frame(root, sensType, frame):
     return None
 
 
-def binaryDistSearch(arr, l, r, x):
-    """Performs a binary search to find the index of the element in arr
-    which is closest to x. O(log n)
-    Note: this function may also return the second-closest element to x,
-    so a follow-up check must be done on one index above and below
-    Args:
-        arr (list): Sorted list of float values
-        l (int): index of the left-most section of the array to search
-        r (int): index of the right-most section of the array to search
-        x (float): query value
-    Returns:
-        d (float): absolute distance between arr[idx] and x
-        idx (int): index of the closest element in array to x
-    """
-    if r == l + 1:
-        if abs(arr[l] - x) < abs(arr[r] - x):
-            return abs(arr[l] - x), l
-        else:
-            return abs(arr[r] - x), r
-    mid = l + (r - l) // 2
-    if arr[mid] == x:
-        return 0, mid
-    elif r - l == 0:
-        return abs(arr[l] - x), l
-    elif arr[mid] > x:
-        return binaryDistSearch(arr, l, mid - 1, x)
-    else:
-        return binaryDistSearch(arr, mid + 1, r, x)
-
-
 def get_closest_index(query, targets):
     """Retrieves the index of the element in targets that is closest to query O(log n)
     Args:
@@ -419,7 +390,11 @@ def get_closest_index(query, targets):
     Returns:
         idx (int): index of the closest element in the array to x
     """
-    d, idx = binaryDistSearch(targets, 0, len(targets)-1, query)
+    idx = bisect_left(targets, query)
+    if idx >= len(targets):
+        idx = len(targets) - 1
+    d = abs(targets[idx] - query)
+
     # check if index above or below is closer to query
     if targets[idx] < query and idx < len(targets) - 1:
         if abs(targets[idx + 1] - query) < d:

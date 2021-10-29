@@ -4,9 +4,7 @@
 #include <string>
 #include <vector>
 #include <iterator>
-#include <opencv2/core.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/imgproc.hpp>
+#include <opencv2/opencv.hpp>
 #include <boost/algorithm/string.hpp>
 #include <eigen3/Eigen/Dense>
 
@@ -14,6 +12,16 @@
 // which won't work on Windows. Change to \ if you're working on windows.
 
 double upgrade_time = 1632182400.0;
+
+
+static int64_t getStampFromPath(std::string path) {
+    std::vector<std::string> parts;
+    boost::split(parts, path, boost::is_any_of("/"));
+    std::string stem = parts[parts.size() - 1];
+    boost::split(parts, stem, boost::is_any_of("."));
+    int64 time1 = std::stoll(parts[0]);
+    return time1;
+}
 
 /*!
    \brief Decode a single Oxford Radar RobotCar Dataset radar example
@@ -55,14 +63,6 @@ static float getFloatFromByteArray(char *byteArray, uint index) {
     return *( (float *)(byteArray + index));
 }
 
-static int64_t getStampFromPath(std::string path) {
-    std::vector<std::string> parts;
-    boost::split(parts, path, boost::is_any_of("/"));
-    std::string stem = parts[parts.size() - 1];
-    boost::split(parts, fname, boost::is_any_of("."));
-    int64 time1 = std::stoll(parts[0]);
-}
-
 // Input is a .bin binary file.
 void load_lidar(std::string path, Eigen::MatrixXd &pc) {
     std::ifstream ifs(path, std::ios::binary);
@@ -75,12 +75,12 @@ void load_lidar(std::string path, Eigen::MatrixXd &pc) {
     for (uint i = 0; i < N; ++i) {
         uint bufpos = i * point_step;
         for (uint j = 0; j < fields; ++j) {
-            pc(i, 0) = getFloatFromByteArray(buffer.data(), bufpos + j * float_offset);
+            pc(i, j) = getFloatFromByteArray(buffer.data(), bufpos + j * float_offset);
         }
     }
     // Add offset to timestamps
     double t = double(getStampFromPath(path)) * 1.0e-6;
-    pc.block(0, 5, N, 1) += t;
+    pc.block(0, 5, N, 1).array() += t;
 }
 
 double get_azimuth_index(std::vector<double> &azimuths, double azimuth) {
@@ -165,7 +165,7 @@ void radar_polar_to_cartesian(cv::Mat &polar_in, std::vector<double> &azimuths_i
             float theta = atan2f(y, x);
             if (theta < 0)
                 theta += 2 * M_PI;
-            if (fix_wobble and resolution == 0.0596) {  // fix wobble in CIR204-H data
+            if (fix_wobble and radar_resolution == 0.0596) {  // fix wobble in CIR204-H data
                 angle.at<float>(i, j) = get_azimuth_index(azimuths_in, theta);
             } else {
                 angle.at<float>(i, j) = (theta - azimuths_in[0]) / azimuth_step;
