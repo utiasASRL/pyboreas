@@ -75,12 +75,12 @@ void load_lidar(std::string path, Eigen::MatrixXd &pc) {
     for (uint i = 0; i < N; ++i) {
         uint bufpos = i * point_step;
         for (uint j = 0; j < fields; ++j) {
-            pc(i, 0) = getFloatFromByteArray(buffer.data(), bufpos + j * float_offset);
+            pc(i, j) = getFloatFromByteArray(buffer.data(), bufpos + j * float_offset);
         }
     }
     // Add offset to timestamps
     double t = double(getStampFromPath(path)) * 1.0e-6;
-    pc.block(0, 5, N, 1) += t;
+    pc.block(0, 5, N, 1).array() += t;
 }
 
 double get_azimuth_index(std::vector<double> &azimuths, double azimuth) {
