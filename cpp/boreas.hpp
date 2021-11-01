@@ -4,23 +4,18 @@
 #include <string>
 #include <vector>
 #include <iterator>
+#include <filesystem>
+#include <algorithm>
 #include <opencv2/opencv.hpp>
-#include <boost/algorithm/string.hpp>
 #include <eigen3/Eigen/Dense>
 
-// Note: getStampFromPath hard-codes a forward slash to separate path elements
-// which won't work on Windows. Change to \ if you're working on windows.
+namespace fs = std::filesystem;
 
 double upgrade_time = 1632182400.0;
 
 
-static int64_t getStampFromPath(std::string path) {
-    std::vector<std::string> parts;
-    boost::split(parts, path, boost::is_any_of("/"));
-    std::string stem = parts[parts.size() - 1];
-    boost::split(parts, stem, boost::is_any_of("."));
-    int64 time1 = std::stoll(parts[0]);
-    return time1;
+static int64_t getStampFromPath(const std::string path) {
+    return std::stoll(fs::path(path).stem().string());
 }
 
 /*!
@@ -32,7 +27,7 @@ static int64_t getStampFromPath(std::string path) {
    \param fft_data [out] Radar power readings along each azimuth min=0, max=1
 */
 void load_radar(std::string path, std::vector<int64_t> &timestamps, std::vector<double> &azimuths,
-    std::vector<bool> valid, cv::Mat &fft_data, double &resolution) {
+    cv::Mat &fft_data, double &resolution) {
     uint encoder_size = 5600;
     double t = double(getStampFromPath(path)) * 1.0e-6;
     if (t > upgrade_time)
@@ -40,19 +35,17 @@ void load_radar(std::string path, std::vector<int64_t> &timestamps, std::vector<
     else
         resolution = 0.0596;
     uint min_range = round(2.5 / resolution);
-    cv::Mat raw_example_data = cv::imread(path, cv::IMREAD_GRAYSCALE);
-    uint N = raw_example_data.rows;
+    cv::Mat raw_data = cv::imread(path, cv::IMREAD_GRAYSCALE);
+    uint N = raw_data.rows;
     timestamps = std::vector<int64_t>(N, 0);
     azimuths = std::vector<double>(N, 0);
-    valid = std::vector<bool>(N, true);
-    uint range_bins = raw_example_data.cols - 11;
+    uint range_bins = raw_data.cols - 11;
     fft_data = cv::Mat::zeros(N, range_bins, CV_32F);
 #pragma omp parallel
     for (uint i = 0; i < N; ++i) {
-        uchar* byteArray = raw_example_data.ptr<uchar>(i);
+        uchar* byteArray = raw_data.ptr<uchar>(i);
         timestamps[i] = *((int64_t *)(byteArray));
         azimuths[i] = *((uint16_t *)(byteArray + 8)) * 2 * M_PI / double(encoder_size);
-        valid[i] = byteArray[10] == 255;
         for (uint j = min_range; j < range_bins; j++) {
             fft_data.at<float>(i, j) = (float)*(byteArray + 11 + j) / 255.0;
         }
@@ -72,6 +65,7 @@ void load_lidar(std::string path, Eigen::MatrixXd &pc) {
     uint point_step = float_offset * fields;
     uint N = floor(buffer.size() / point_step);
     pc = Eigen::MatrixXd::Ones(N, fields);
+#pragma omp parallel
     for (uint i = 0; i < N; ++i) {
         uint bufpos = i * point_step;
         for (uint j = 0; j < fields; ++j) {
@@ -83,17 +77,13 @@ void load_lidar(std::string path, Eigen::MatrixXd &pc) {
     pc.block(0, 5, N, 1).array() += t;
 }
 
-double get_azimuth_index(std::vector<double> &azimuths, double azimuth) {
-    double mind = 1000;
-    double closest = 0;
-    int M = azimuths.size();
-    for (uint i = 0; i < azimuths.size(); ++i) {
-        double d = fabs(azimuths[i] - azimuth);
-        if (d < mind) {
-            mind = d;
-            closest = i;
-        }
-    }
+static double get_azimuth_index(const std::vector<double> &azimuths, double azimuth) {
+    auto lower = std::lower_bound(azimuths.begin(), azimuths.end(), azimuth);
+    double closest = std::distance(azimuths.begin(), lower);
+    uint M = azimuths.size();
+    if (closest >= M)
+        closest = M - 1;
+
     if (azimuths[closest] < azimuth) {
         double delta = 0;
         if (closest < M - 1) {
@@ -126,8 +116,8 @@ double get_azimuth_index(std::vector<double> &azimuths, double azimuth) {
    \param cart_pixel_width Width and height of the returned square cartesian output (pixels).
    \param interpolate_crossover If true, interpolates between the end and start azimuth of the scan.
 */
-void radar_polar_to_cartesian(cv::Mat &polar_in, std::vector<double> &azimuths_in, cv::Mat &cart_out, float radar_resolution,
-    float cart_resolution, int cart_pixel_width, bool fix_wobble) {
+void radar_polar_to_cartesian(const cv::Mat &polar_in, const std::vector<double> &azimuths_in, cv::Mat &cart_out,
+    float radar_resolution = 0.0596, float cart_resolution = 0.2384, int cart_pixel_width = 640, bool fix_wobble = true) {
 
     float cart_min_range = (cart_pixel_width / 2) * cart_resolution;
     if (cart_pixel_width % 2 == 0)
@@ -179,9 +169,11 @@ void radar_polar_to_cartesian(cv::Mat &polar_in, std::vector<double> &azimuths_i
         a0.at<float>(0, j) = polar_in.at<float>(0, j);
         aN_1.at<float>(0, j) = polar_in.at<float>(polar_in.rows-1, j);
     }
-    cv::vconcat(aN_1, polar_in, polar_in);
-    cv::vconcat(polar_in, a0, polar_in);
+    cv::Mat polar = polar_in.clone();
+    cv::vconcat(aN_1, polar, polar);
+    cv::vconcat(polar, a0, polar);
     angle = angle + 1;
     // polar to cart warp
-    cv::remap(polar_in, cart_out, range, angle, cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0, 0, 0));
+    cv::remap(polar, cart_out, range, angle, cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0, 0, 0));
 }
+

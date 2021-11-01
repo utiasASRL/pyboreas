@@ -82,7 +82,7 @@ def vis_lidar(lid, bounds=[-40, 40, -40, 40, -10, 30], figsize=(10, 10), cmap='w
 
 
 def vis_radar(rad, figsize=(10, 10), dpi=100, cart_resolution=0.2384, cart_pixel_width=640, cmap='gray'):
-    cart = rad.get_cartesian(cart_resolution=cart_resolution, cart_pixel_width=cart_pixel_width, in_place=False)
+    cart = rad.polar_to_cart(cart_resolution=cart_resolution, cart_pixel_width=cart_pixel_width, in_place=False)
     fig = plt.figure(figsize=figsize, dpi=dpi)
     ax = fig.add_subplot()
     ax.imshow(cart, cmap=cmap)

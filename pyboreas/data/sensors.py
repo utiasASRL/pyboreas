@@ -112,7 +112,7 @@ class Radar(Sensor):
         self.cartesian = None
         self.mask = None
 
-    def get_cartesian(self, cart_resolution, cart_pixel_width, polar=None, in_place=True):
+    def polar_to_cart(self, cart_resolution, cart_pixel_width, polar=None, in_place=True):
         """Converts a polar scan from polar to Cartesian format
         Args:
             cart_resolution (float): resolution of the output Cartesian image in (m / pixel)

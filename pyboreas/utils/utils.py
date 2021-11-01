@@ -310,59 +310,6 @@ def get_time_from_filename(file):
         timeconvert = 10**(-1 * (len(tstr) - 10))
     return gpstime * timeconvert
 
-
-EARTH_SEMIMAJOR = 6378137.0
-EARTH_SEMIMINOR = 6356752.0
-EARTH_ECCEN = 0.081819190842622
-a = EARTH_SEMIMAJOR
-eccSquared = EARTH_ECCEN**2
-eccPrimeSquared = (eccSquared) / (1 - eccSquared)
-k0 = 0.9996     # scale factor
-DEG_TO_RAD = np.pi / 180
-RAD_TO_DEG = 1.0 / DEG_TO_RAD
-
-
-def LLtoUTM(latitude, longitude):
-    """Converts a lat-long position into metric UTM coordinates (x-y-z)
-    Args:
-        latitude (float) in radians
-        longitude (float) in radians
-    Returns:
-        UTMEasting (float): metric position in easting
-        UTMNorthing (float): metric position in northing
-        zoneNumber (float): UTM zone number
-    """
-    while longitude < -1 * np.pi:
-        longitude += 2 * np.pi
-    while longitude >= np.pi:
-        longitude -= 2 * np.pi
-    longDeg = longitude * RAD_TO_DEG
-    latDeg = latitude * RAD_TO_DEG
-    zoneNumber = int((longDeg + 180) / 6) + 1
-    # +3 puts origin in middle of zone
-    longOrigin = (zoneNumber - 1) * 6 - 180 + 3
-    longOriginRad = longOrigin * DEG_TO_RAD
-    N = a / np.sqrt(1 - eccSquared * np.sin(latitude) * np.sin(latitude))
-    T = np.tan(latitude) * np.tan(latitude)
-    C = eccPrimeSquared * np.cos(latitude) * np.cos(latitude)
-    A = np.cos(latitude) * (longitude - longOriginRad)
-    M = a * ((1 - eccSquared / 4 - 3 * eccSquared * eccSquared / 64 - 5 * eccSquared * eccSquared * eccSquared / 256) * latitude -
-        (3 * eccSquared / 8 + 3 * eccSquared * eccSquared / 32 + 45 * eccSquared * eccSquared * eccSquared / 1024) * np.sin(2 * latitude) +
-        (15 * eccSquared * eccSquared / 256 + 45 * eccSquared * eccSquared * eccSquared / 1024) * np.sin(4 * latitude) -
-        (35 * eccSquared * eccSquared * eccSquared / 3072) * np.sin(6 * latitude))
-    UTMEasting = k0 * N * (A + (1 - T + C) * A * A * A / 6 +
-        (5 - 18 * T + T * T + 72 * C - 58 * eccPrimeSquared) * A * A * A * A * A / 120) + 500000.0
-    UTMNorthing = k0 * (M + N * np.tan(latitude) *
-        (A * A / 2 + (5 - T + 9 * C + 4 * C * C) * A * A * A * A / 24 +
-        (61 - 58 * T + T * T + 600 * C - 330 * eccPrimeSquared) * A * A * A * A * A * A / 720))
-
-    if latitude < 0:
-        # 10000000 meter offset for southern hemisphere
-        UTMNorthing += 10000000.0
-
-    return UTMEasting, UTMNorthing, zoneNumber
-
-
 def get_gt_data_for_frame(root, sensType, frame):
     """Retrieves ground truth applanix data for a given sensor frame
     Args:
