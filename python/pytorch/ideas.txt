@@ -1,1 +1,0 @@
-Do we want to include example training and evaluation scripts for training odometry, detection, localization models?
