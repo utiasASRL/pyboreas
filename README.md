@@ -107,7 +107,31 @@ T_enu_lidar = lidar_frame.pose  # 4x4 homogenous transform [R t; 0 0 0 1]
 vbar = lidar_frame.velocity  # 6x1 vel in ENU frame [v_se_in_e; w_se_in_e] 
 varpi = lidar_frame.body_rate  # 6x1 vel in sensor frame [v_se_in_s; w_se_in_s]
 ```
+## Data Visualizer
+We provide a tool for visualization of sequence frames. Currently, the visualizer supports BEV lidar visualization, BEV radar visualization, Perspective camera + lidar visualization, and 3D lidar point visualization.
+```Python
+from pyboreas import BoreasDataset
+from pyboreas.vis.visualizer import BoreasVisualizer
 
+root = '/path/to/data/boreas/'
+bd = BoreasDataset(root)
+seq = bd.sequences[0]
+
+visualizer = BoreasVisualizer(seq)
+visualizer.visualize(frame_idx=0)
+```
+Running the above code will start a local web server that visualizes the selected sequence.
+```
+Dash is running on http://127.0.0.1:8050/
+
+ * Serving Flask app 'pyboreas.vis.visualizer' (lazy loading)
+ * Environment: production
+   WARNING: This is a development server. Do not use it in a production deployment.
+   Use a production WSGI server instead.
+ * Debug mode: off
+ * Running on http://127.0.0.1:8050/ (Press CTRL+C to quit)
+```
+Open a web browser and navigate to the provided ip (in this case 127.0.0.1:8050) to view the sequence visualization.
 ## Tutorials
 Note that we provide a few simple tutorials for getting started with the Boreas dataset. Also note that we provide instructions for using this dataset using an AWS SageMaker instance, instructions at: pyboreas/tutorials/aws/README.md.
 

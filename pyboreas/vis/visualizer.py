@@ -3,15 +3,14 @@ import io
 from pathlib import Path
 
 import dash
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dcc
+from dash import html
 import numpy as np
 import plotly.graph_objects as go
 from PIL import Image
 from dash.dependencies import Input, Output, State
 from matplotlib import cm
 
-from pyboreas.data.sequence import Sequence
 from pyboreas.vis import map_utils
 
 
@@ -398,11 +397,5 @@ class BoreasVisualizer:
                 return not playing
             return playing
 
-        app.run_server(debug=True)
+        app.run_server(debug=False)
 
-
-if __name__ == "__main__":
-    seq = Sequence("/home/shichen/datasets/", ["boreas_mini_v2", 1616518050000000, 1616518060000000])
-    # seq = Sequence("/home/jqian/datasets/boreas-devkit/",["boreas_mini_v2", 1616518050000000, 1616518060000000])
-    visualizer = BoreasVisualizer(seq)
-    visualizer.visualize(0)
