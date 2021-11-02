@@ -1,23 +1,21 @@
-import plotly.graph_objects as go
-import numpy as np
+import base64
+import io
+from pathlib import Path
+
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output, State
-import plotly.express as px
-import pandas as pd
-from copy import deepcopy
-import base64
+import numpy as np
+import plotly.graph_objects as go
 from PIL import Image
+from dash.dependencies import Input, Output, State
 from matplotlib import cm
-import io
-import time
-from pathlib import Path
 
-from data_classes.sequence import Sequence
-from vis import map_utils
+from pyboreas.data.sequence import Sequence
+from pyboreas.vis import map_utils
 
-class BoreasPlotly:
+
+class BoreasVisualizer:
     def __init__(self, sequence):
         self.sequence = sequence
         self.calib = sequence.calib
@@ -45,9 +43,9 @@ class BoreasPlotly:
         C_l_enu = lidar_frame.pose[:3, :3].T
         C_a_enu = self.calib.T_applanix_lidar[0:3, 0:3] @ C_l_enu
         C_a_l = self.calib.T_applanix_lidar[0:3, 0:3]
-        lidar_points = lidar_frame.load_data()[:,0:3]
+        lidar_points = lidar_frame.load_data()[:, 0:3]
         # Draw lidar points
-        rand_idx = np.random.choice(lidar_points.shape[0], size=int(lidar_points.shape[0]*down_sample_rate), replace=False)
+        rand_idx = np.random.choice(lidar_points.shape[0], size=int(lidar_points.shape[0] * down_sample_rate), replace=False)
         return lidar_points[rand_idx, :], lidar_frame, C_a_enu, C_a_l
 
     def get_cam(self, idx):
@@ -62,7 +60,7 @@ class BoreasPlotly:
     def get_radar(self, idx, grid_size, grid_res):
         radar_frame = self.radar_frames[idx]
         radar_frame.load_data()
-        radar_ndarray = radar_frame.get_cartesian(grid_res, grid_size)
+        radar_ndarray = radar_frame.polar_to_cart(grid_res, grid_size)
         return radar_ndarray
 
     def visualize(self, frame_idx):
@@ -77,7 +75,7 @@ class BoreasPlotly:
 
                 html.Div(children=[
                     dcc.Graph(id='radar_plot')], style={'display': 'inline-block'}),
-            ], style={'textAlign':'center'}),
+            ], style={'textAlign': 'center'}),
 
             html.Br(),
 
@@ -87,7 +85,7 @@ class BoreasPlotly:
 
                 html.Div(children=[
                     dcc.Graph(id='color_lidar_plot')], style={'display': 'inline-block'}),
-            ], style={'textAlign':'center'}),
+            ], style={'textAlign': 'center'}),
 
             html.Div(children=[
                 dcc.Slider(
@@ -97,8 +95,7 @@ class BoreasPlotly:
                     value=max(0, min(frame_idx, len(self.sequence.lidar_frames))),
                     marks={str(idx): str(idx) for idx in range(0, len(self.sequence.lidar_frames), 5)},
                     step=1)
-            ], style={'width': '70%','padding-left':'17%', 'padding-right':'13%'}),
-
+            ], style={'width': '70%', 'padding-left': '17%', 'padding-right': '13%'}),
 
             dcc.Interval(id='animator',
                          interval=2000,  # in milliseconds
@@ -108,7 +105,7 @@ class BoreasPlotly:
 
             html.Div(children=[
                 html.Button("Play/Pause", id="play_btn")
-            ], style={'textAlign':'center'})
+            ], style={'textAlign': 'center'})
 
         ])
 
@@ -124,7 +121,7 @@ class BoreasPlotly:
             fig_bev = go.Figure()
             map_utils.draw_map_plotly(Path(__file__).parent.absolute() / "boreas_lane.osm", fig_bev, lidar_scan.pose[0, 3], lidar_scan.pose[1, 3], C_a_enu, utm=True)
             fig_bev.add_trace(
-                go.Scattergl(x=pcd_a[:,0], y=pcd_a[:,1], mode='markers', visible=True, marker_size=0.5, marker_color='blue')
+                go.Scattergl(x=pcd_a[:, 0], y=pcd_a[:, 1], mode='markers', visible=True, marker_size=0.5, marker_color='blue')
             )
             fig_bev.update_traces(marker_size=0.5)
             fig_bev.update_layout(
@@ -138,7 +135,6 @@ class BoreasPlotly:
             fig_bev.update_yaxes(range=[-75, 75])
 
             return fig_bev
-
 
         @app.callback(
             Output('persp_plot', 'figure'),
@@ -163,7 +159,7 @@ class BoreasPlotly:
             fig_persp = go.Figure()
             img_width = 2448
             img_height = 2048
-            scale_factor = 700/2448
+            scale_factor = 700 / 2448
 
             # Add invisible scatter trace.
             # This trace is added to help the autoresize logic work.
@@ -209,14 +205,14 @@ class BoreasPlotly:
 
             # Draw lidar
             fig_persp.add_trace(
-                    go.Scattergl(x=valid_pixel_x,
-                                 y=valid_pixel_y,
-                                 mode='markers',
-                                 visible=True,
-                                 marker_size=1,
-                                 marker_color=valid_pixel_z,
-                                 marker_colorscale='rainbow')
-                )
+                go.Scattergl(x=valid_pixel_x,
+                             y=valid_pixel_y,
+                             mode='markers',
+                             visible=True,
+                             marker_size=1,
+                             marker_color=valid_pixel_z,
+                             marker_colorscale='rainbow')
+            )
 
             # Configure other layout
             fig_persp.update_layout(
@@ -241,13 +237,13 @@ class BoreasPlotly:
             radar_image = self.get_radar(idx, grid_size, grid_res)
 
             # Draw image
-            radar_pil_image = Image.fromarray(np.uint8(cm.gist_gray(radar_image)[:,:,0:3]*255))
+            radar_pil_image = Image.fromarray(np.uint8(cm.gist_gray(radar_image)[:, :, 0:3] * 255))
             rawBytes = io.BytesIO()
             radar_pil_image.save(rawBytes, "PNG")
             rawBytes.seek(0)
             encoded_radar_string = base64.b64encode(rawBytes.read()).decode()
             encoded_radar_image = "data:image/png;base64," + encoded_radar_string
-            
+
             fig_radar.update_xaxes(
                 range=[-75, 75],
                 showgrid=False,
@@ -296,7 +292,9 @@ class BoreasPlotly:
             points_camera = np.matmul(self.calib.P0, points_camera_f)
             pixel_camera = np.divide(points_camera, points_camera[2, :])
             # Only select valid lidar points
-            valid_pixel_idx = (points_camera[2, :] > 0) & (points_camera[2, :] < 100) & (pixel_camera[1, :] > 0) & (pixel_camera[1, :] < 2048) & (pixel_camera[0, :] > 0) & (pixel_camera[0, :] < 2448)
+            valid_pixel_idx = (points_camera[2, :] > 0) & (points_camera[2, :] < 100) & \
+                              (pixel_camera[1, :] > 0) & (pixel_camera[1, :] < 2048) & \
+                              (pixel_camera[0, :] > 0) & (pixel_camera[0, :] < 2448)
             valid_pixel_x = pixel_camera[0][valid_pixel_idx]
             valid_pixel_y = pixel_camera[1][valid_pixel_idx]
 
@@ -327,7 +325,7 @@ class BoreasPlotly:
                 )
             )
 
-            scene=dict(aspectratio=dict(x=1, y=1, z=1),xaxis = dict(range=[-100,100]),yaxis = dict(range=[-100,100]),zaxis = dict(range=[-100,100]))
+            scene = dict(aspectratio=dict(x=1, y=1, z=1), xaxis=dict(range=[-100, 100]), yaxis=dict(range=[-100, 100]), zaxis=dict(range=[-100, 100]))
             camera = dict(
                 up=dict(x=0, y=0, z=0),
                 center=dict(x=0, y=0, z=0),
@@ -343,7 +341,7 @@ class BoreasPlotly:
             )
 
             return fig_color_lidar
-        
+
         @app.callback(
             Output('timestep_slider', 'value'),
             Input('animator', 'n_intervals'),
@@ -367,8 +365,9 @@ class BoreasPlotly:
 
         app.run_server(debug=True)
 
+
 if __name__ == "__main__":
     seq = Sequence("/home/shichen/datasets/", ["boreas_mini_v2", 1616518050000000, 1616518060000000])
     # seq = Sequence("/home/jqian/datasets/boreas-devkit/",["boreas_mini_v2", 1616518050000000, 1616518060000000])
-    visualizer = BoreasPlotly(seq)
+    visualizer = BoreasVisualizer(seq)
     visualizer.visualize(0)
