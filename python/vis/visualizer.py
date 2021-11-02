@@ -12,6 +12,7 @@ from PIL import Image
 from matplotlib import cm
 import io
 import time
+from pathlib import Path
 
 from data_classes.sequence import Sequence
 from vis import map_utils
@@ -121,7 +122,7 @@ class BoreasPlotly:
             # BEV
             pcd_a = np.matmul(C_a_l[0:2, 0:2].reshape(1, 2, 2), pcd[:, 0:2].reshape(pcd.shape[0], 2, 1)).squeeze(-1)
             fig_bev = go.Figure()
-            map_utils.draw_map_plotly("/home/shichen/datasets/boreas_mini/boreas_lane.osm", fig_bev, lidar_scan.pose[0, 3], lidar_scan.pose[1, 3], C_a_enu, utm=True)
+            map_utils.draw_map_plotly(Path(__file__).parent.absolute() / "boreas_lane.osm", fig_bev, lidar_scan.pose[0, 3], lidar_scan.pose[1, 3], C_a_enu, utm=True)
             fig_bev.add_trace(
                 go.Scattergl(x=pcd_a[:,0], y=pcd_a[:,1], mode='markers', visible=True, marker_size=0.5, marker_color='blue')
             )
