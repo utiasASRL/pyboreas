@@ -13,20 +13,32 @@ from matplotlib import cm
 import io
 import time
 
+from data_classes.sequence import Sequence
 from vis import map_utils
 
 class BoreasPlotly:
-    def __init__(self, visualizer):
-        # Data
-        self.seq = visualizer.sequence
-        self.calib = visualizer.sequence.calib
-        self.camera_frames = visualizer.camera_frames
-        self.radar_frames = visualizer.radar_frames
+    def __init__(self, sequence):
+        self.sequence = sequence
+        self.calib = sequence.calib
+        self.track_length = len(sequence.lidar_frames)
+        self.lidar_frames = sequence.lidar_frames
+        lstamps = [frame.timestamp for frame in sequence.lidar_frames]
+        cstamps = [frame.timestamp for frame in sequence.camera_frames]
+        rstamps = [frame.timestamp for frame in sequence.radar_frames]
+        # Get corresponding camera and radar frame for each lidar frame
+        self.camera_frames = [self._get_closest_frame(lstamp, cstamps, sequence.camera_frames) for lstamp in lstamps]
+        self.radar_frames = [self._get_closest_frame(lstamp, rstamps, sequence.radar_frames) for lstamp in lstamps]
         self.plots_initialized = False
+
+    def _get_closest_frame(self, query_time, target_times, targets):
+        times = np.array(target_times)
+        closest = np.argmin(np.abs(times - query_time))
+        assert (np.abs(query_time - times[closest]) < 1.0), "closest time to query: {} in rostimes not found.".format(query_time)
+        return targets[closest]
 
     def get_pcd(self, idx, down_sample_rate=0.5):
         # load points
-        lidar_frame = self.seq.get_lidar(idx)
+        lidar_frame = self.sequence.get_lidar(idx)
 
         # Calculate transformations for current data
         C_l_enu = lidar_frame.pose[:3, :3].T
@@ -80,9 +92,9 @@ class BoreasPlotly:
                 dcc.Slider(
                     id='timestep_slider',
                     min=0,
-                    max=len(self.seq.lidar_frames),
-                    value=max(0, min(frame_idx, len(self.seq.lidar_frames))),
-                    marks={str(idx): str(idx) for idx in range(0, len(self.seq.lidar_frames), 5)},
+                    max=len(self.sequence.lidar_frames),
+                    value=max(0, min(frame_idx, len(self.sequence.lidar_frames))),
+                    marks={str(idx): str(idx) for idx in range(0, len(self.sequence.lidar_frames), 5)},
                     step=1)
             ], style={'width': '70%','padding-left':'17%', 'padding-right':'13%'}),
 
@@ -109,7 +121,7 @@ class BoreasPlotly:
             # BEV
             pcd_a = np.matmul(C_a_l[0:2, 0:2].reshape(1, 2, 2), pcd[:, 0:2].reshape(pcd.shape[0], 2, 1)).squeeze(-1)
             fig_bev = go.Figure()
-            map_utils.draw_map_plotly("/home/jqian/datasets/boreas-devkit/boreas_mini_v2/boreas_lane.osm", fig_bev, lidar_scan.pose[0, 3], lidar_scan.pose[1, 3], C_a_enu, utm=True)
+            map_utils.draw_map_plotly("/home/shichen/datasets/boreas_mini/boreas_lane.osm", fig_bev, lidar_scan.pose[0, 3], lidar_scan.pose[1, 3], C_a_enu, utm=True)
             fig_bev.add_trace(
                 go.Scattergl(x=pcd_a[:,0], y=pcd_a[:,1], mode='markers', visible=True, marker_size=0.5, marker_color='blue')
             )
@@ -340,7 +352,7 @@ class BoreasPlotly:
             if n_intervals is None:
                 return 0
             else:
-                return (slider_idx + 1) % len(self.seq.lidar_frames)
+                return (slider_idx + 1) % len(self.sequence.lidar_frames)
 
         @app.callback(
             Output('animator', 'disabled'),
@@ -353,3 +365,9 @@ class BoreasPlotly:
             return playing
 
         app.run_server(debug=True)
+
+if __name__ == "__main__":
+    seq = Sequence("/home/shichen/datasets/", ["boreas_mini_v2", 1616518050000000, 1616518060000000])
+    # seq = Sequence("/home/jqian/datasets/boreas-devkit/",["boreas_mini_v2", 1616518050000000, 1616518060000000])
+    visualizer = BoreasPlotly(seq)
+    visualizer.visualize(0)
