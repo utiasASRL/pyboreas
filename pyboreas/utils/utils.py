@@ -176,7 +176,7 @@ def enforce_orthog(T, dim=3):
         R[1, 1] = a
         T[0:2, 0:2] = R
     if dim == 3:
-        if abs(np.linalg.det(T[0:3, 0:3]) - 1) < 1e-6:
+        if abs(np.linalg.det(T[0:3, 0:3]) - 1) < 1e-10:
             return T
         c1 = T[0:3, 1]
         c2 = T[0:3, 2]

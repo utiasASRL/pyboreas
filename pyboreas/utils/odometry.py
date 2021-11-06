@@ -25,17 +25,21 @@ class TrajStateVar:
         self.velocity: VectorSpaceStateVar = velocity
 
 
-def interpolate_poses(poses, times, query_times):
+def interpolate_poses(poses, times, query_times, solve=True, verbose=False):
     """Runs a steam optimization with locked poses and outputs poses queried at query_times
     Args:
         poses (List[np.ndarray]): list of 4x4 poses (T_v_i vehicle and inertial frames)
         times (List[int]): list of times for poses (int for microseconds)
         query_times (List[int]): list of query times (int for microseconds)
+        solve (bool): 'True' solves velocities with batch optimization. 'False' we use the finite-diff. approx.
+        verbose (bool): verbose setting for steam solver
     Returns:
         (List[np.ndarray]): list of 4x4 poses (T_v_i vehicle and inertial frames) at query_times
     """
-    # smoothing factor diagonal
-    Qc_inv = np.diag(1 / np.array([1.0, 0.001, 0.001, 0.001, 0.001, 1.0]))
+
+    # WNOA Qc diagonal
+    # Note: applanix frame is x-right, y-forward, z-up
+    Qc_inv = np.diag(1 / np.array([0.1, 1.0, 0.1, 0.01, 0.01, 0.1]))
 
     # steam state variables
     states = []
@@ -46,29 +50,29 @@ def interpolate_poses(poses, times, query_times):
         else:
             dt = (times[i] - times[i-1])*1e-6  # microseconds to seconds
             dT = Transformation(T_ba=poses[i]) @ Transformation(T_ba=poses[i-1]).inverse()
-        velocity = dT.vec() / dt
+        velocity = dT.vec() / dt    # initializing with finite difference
         states += [TrajStateVar(
                         Time(nsecs=int(times[i]*1e3)),  # microseconds to nano
-                        TransformStateVar(Transformation(T_ba=enforce_orthog(poses[i]))),
+                        TransformStateVar(Transformation(T_ba=poses[i])),
                         VectorSpaceStateVar(velocity))]
 
     # setup trajectory
     traj = TrajectoryInterface(Qc_inv=Qc_inv, allow_extrapolation=True)
     for state in states:
         traj.add_knot(time=state.time, T_k0=TransformStateEvaluator(state.pose), w_0k_ink=state.velocity)
-        # state.pose.set_lock(True)   # lock all pose variables
+        state.pose.set_lock(True)   # lock all pose variables
 
-    # TODO: Too slow, may remove entirely
-    # # construct the optimization problem
-    # opt_prob = OptimizationProblem()
-    # opt_prob.add_cost_term(*traj.get_prior_cost_terms())
-    # opt_prob.add_state_var(*[j for i in states for j in (i.pose, i.velocity)])
-    #
-    # # construct the solver
-    # optimizer = GaussNewtonSolver(opt_prob, verbose=False, use_sparse_matrix=True)
-    #
-    # # solve the problem (states are automatically updated)
-    # optimizer.optimize()
+    if solve:
+        # construct the optimization problem
+        opt_prob = OptimizationProblem()
+        opt_prob.add_cost_term(*traj.get_prior_cost_terms())
+        opt_prob.add_state_var(*[j for i in states for j in (i.pose, i.velocity)])
+
+        # construct the solver
+        optimizer = GaussNewtonSolver(opt_prob, verbose=verbose, use_sparse_matrix=True)
+
+        # solve the problem (states are automatically updated)
+        optimizer.optimize()
 
     query_poses = []
     for time in query_times:
@@ -189,7 +193,7 @@ def plot_stats(seq, root, T_odom, T_gt, lengths, t_err, r_err):
     # plot of path
     plt.figure(figsize=(6, 6))
     plt.plot(path_odom[:, 0], path_odom[:, 1], 'b', linewidth=0.5, label='Estimate')
-    plt.plot(path_gt[:, 0], path_gt[:, 1], 'r', linewidth=0.5, label='Groundtruth')
+    plt.plot(path_gt[:, 0], path_gt[:, 1], '--r', linewidth=0.5, label='Groundtruth')
     plt.plot(path_gt[0, 0], path_gt[0, 1], 'ks', markerfacecolor='none', label='Sequence Start')
     plt.xlabel('x [m]')
     plt.ylabel('y [m]')
@@ -224,7 +228,7 @@ def get_path_from_Tvi_list(Tvi_list):
     Returns:
         path (np.ndarray): K x 3 numpy array of xyz coordinates
     """
-    path = np.zeros((len(Tvi_list), 3), dtype=np.float32)
+    path = np.zeros((len(Tvi_list), 3))
     for j, Tvi in enumerate(Tvi_list):
         path[j] = (-Tvi[:3, :3].T @ Tvi[:3, 3:4]).squeeze()
     return path
@@ -285,6 +289,7 @@ def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_l
         err_list.append([t_err, r_err])
 
         print(seq[i], 'took', str(time() - ts), ' seconds')
+        print('Error: ', t_err, ' %, ', r_err, ' deg/m \n')
 
         plot_stats(seq[i], root, T_query, T_gt_seq, path_lengths, t_err_len, r_err_len)
     err_list = np.asarray(err_list)
@@ -292,7 +297,7 @@ def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_l
     t_err = avg[0]
     r_err = avg[1]
 
-    return t_err, r_err
+    return t_err, r_err, err_list
 
 
 def get_sequences(path, file_ext=''):
@@ -355,14 +360,25 @@ def get_sequence_poses_gt(path, seq, dim):
         if dim == 3:
             filepath = os.path.join(path, dir, 'applanix/lidar_poses.csv')  # use 'lidar_poses.csv' for groundtruth
             T_calib = np.loadtxt(os.path.join(path, dir, 'calib/T_applanix_lidar.txt'))
+            poses, times = read_traj_file_gt(filepath, T_calib, dim)
+            times_np = np.stack(times)
+
+            filepath = os.path.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
+            _, ctimes = read_traj_file_gt(filepath, np.identity(4), dim)
+            istart = np.searchsorted(times_np, ctimes[0])
+            iend = np.searchsorted(times_np, ctimes[-1])
+            poses = poses[istart:iend]
+            times = times[istart:iend]
+            if times[0] < ctimes[0] or times[-1] > ctimes[-1]:
+                raise ValueError('Invalid start and end indices for groundtruth.')
+
         elif dim == 2:
             filepath = os.path.join(path, dir, 'applanix/radar_poses.csv')  # use 'radar_poses.csv' for groundtruth
             T_calib = np.identity(4)
+            poses, times = read_traj_file_gt(filepath, T_calib, dim)
         else:
             raise ValueError('Invalid dim value in get_sequence_poses_gt. Use either 2 or 3.')
 
-        # parse file for list of poses and times
-        poses, times = read_traj_file_gt(filepath, T_calib, dim)
         seq_lens.append(len(times))
         all_poses.extend(poses)
         all_times.extend(times)
@@ -402,7 +418,7 @@ def read_traj_file(path):
         for line in file:
             line_split = line.strip().split()
             values = [float(v) for v in line_split[1:]]
-            pose = np.zeros((4, 4))
+            pose = np.zeros((4, 4), dtype=np.float64)
             pose[0, 0:4] = values[0:4]
             pose[1, 0:4] = values[4:8]
             pose[2, 0:4] = values[8:12]
@@ -411,6 +427,7 @@ def read_traj_file(path):
             times.append(int(line_split[0]))
 
     return poses, times
+
 
 def read_traj_file_gt(path, T_ab, dim):
     """Reads trajectory from a comma-separated file, see Boreas documentation for format
@@ -427,9 +444,10 @@ def read_traj_file_gt(path, T_ab, dim):
     poses = []
     times = []
 
+    T_ab = enforce_orthog(T_ab)
     for line in lines[1:]:
        pose, time = convert_line_to_pose(line, dim)
-       poses += [T_ab @ get_inverse_tf(pose)]  # convert T_iv to T_vi and apply calibration
+       poses += [enforce_orthog(T_ab @ get_inverse_tf(pose))]  # convert T_iv to T_vi and apply calibration
        times += [int(time)]  # microseconds
     return poses, times
 
@@ -448,11 +466,11 @@ def convert_line_to_pose(line, dim):
     line = [float(i) for i in line[:-1]]
     # x, y, z -> 1, 2, 3
     # roll, pitch, yaw -> 7, 8, 9
-    T = np.eye(4)
-    T[0, 3] = line[1]   # x
-    T[1, 3] = line[2]   # y
+    T = np.eye(4, dtype=np.float64)
+    T[0, 3] = line[1]  # x
+    T[1, 3] = line[2]  # y
     if dim == 3:
-        T[2, 3] = line[3]   # z
+        T[2, 3] = line[3]  # z
         T[:3, :3] = yawPitchRollToRot(line[9], line[8], line[7])
     elif dim == 2:
         T[:3, :3] = yawPitchRollToRot(line[9], 0, 0)
