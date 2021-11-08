@@ -16,6 +16,8 @@ if __name__ == '__main__':
 
     # evaluation mode
     dim = 2 if args.radar else 3
+    if dim == 2:
+        args.interp = False  # force interpolation to be off for radar (2D) evaluation
 
     # parse sequences
     seq = get_sequences(args.pred, '.txt')
