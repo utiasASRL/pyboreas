@@ -135,6 +135,8 @@ Open a web browser and navigate to the provided ip (in this case 127.0.0.1:8050)
 ## Tutorials
 Note that we provide a few simple tutorials for getting started with the Boreas dataset. Also note that we provide instructions for using this dataset using an AWS SageMaker instance, instructions at: pyboreas/tutorials/aws/README.md.
 
+**NOTE:** ground truth poses have dtype=np.float64, but PyTorch defaults to float32. Avoid using implicit type conversion as this will result in significant quantization error. Implicit conversion is only safe when the translation values are small, such as a pose with respect to a sensor frame or with respect to a starting position, but NOT with respect to ENU (very large).
+
 TODO:
 - Tutorials (pose interp)
 - Ground plane removal
