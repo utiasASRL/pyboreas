@@ -6,7 +6,7 @@ import matplotlib
 from datetime import datetime
 
 # Periods during which daylight savings is in effect in Toronto
-dst = [(1583632800, 1604196000), (1615687200, 1636250400), (1647136800, 1667700000), (1678586400, 1699236000)]
+dst = [(1583650800, 1604210399), (1615705200, 1636264799), (1647154800, 1667714399), (1678604400, 1699163999), (1710054000, 1730613599)]
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

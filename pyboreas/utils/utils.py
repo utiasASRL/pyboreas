@@ -7,6 +7,7 @@ import cv2
 
 def load_lidar(path):
     """Loads a pointcloud (np.ndarray) (N, 6) from path [x, y, z, intensity, laser_number, time]"""
+    # dtype MUST be float32 to load this properly!
     points = np.fromfile(path, dtype=np.float32).reshape((-1, 6)).astype(np.float64)
     t = get_time_from_filename(path)
     points[:, 5] += t
@@ -79,7 +80,7 @@ def get_transform2(R, t):
     return T
 
 
-def get_transform3(x, y, theta, dtype=np.float32):
+def get_transform3(x, y, theta, dtype=np.float64):
     """Returns a 4x4 homogeneous 3D transform for a given 2D (x, y, theta).
     Args:
         x (float): x-translation
@@ -220,7 +221,7 @@ def se3ToSE3(xi):
     Returns:
         np.ndarray: 4x4 transformation matrix
     """
-    T = np.identity(4, dtype=np.float32)
+    T = np.identity(4, dtype=np.float64)
     rho = xi[0:3].reshape(3, 1)
     phibar = xi[3:6].reshape(3, 1)
     phi = np.linalg.norm(phibar)
@@ -305,8 +306,8 @@ def get_time_from_filename(file):
     """Retrieves an epoch time from a file name in seconds"""
     tstr = str(Path(file).stem)
     gpstime = float(tstr)
-    timeconvert = 1e-9
-    if len(tstr) < 19:
+    timeconvert = 1e-6
+    if len(tstr) != 16 and len(tstr) > 10:
         timeconvert = 10**(-1 * (len(tstr) - 10))
     return gpstime * timeconvert
 
