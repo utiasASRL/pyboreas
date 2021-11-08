@@ -25,13 +25,13 @@ class TrajStateVar:
         self.velocity: VectorSpaceStateVar = velocity
 
 
-def interpolate_poses(poses, times, query_times, solve=True, verbose=False):
+def interpolate_poses(poses, times, query_times, solver=True, verbose=False):
     """Runs a steam optimization with locked poses and outputs poses queried at query_times
     Args:
         poses (List[np.ndarray]): list of 4x4 poses (T_v_i vehicle and inertial frames)
         times (List[int]): list of times for poses (int for microseconds)
         query_times (List[int]): list of query times (int for microseconds)
-        solve (bool): 'True' solves velocities with batch optimization. 'False' we use the finite-diff. approx.
+        solver (bool): 'True' solves velocities with batch optimization. 'False' we use a finite-diff. approx.
         verbose (bool): verbose setting for steam solver
     Returns:
         (List[np.ndarray]): list of 4x4 poses (T_v_i vehicle and inertial frames) at query_times
@@ -62,7 +62,7 @@ def interpolate_poses(poses, times, query_times, solve=True, verbose=False):
         traj.add_knot(time=state.time, T_k0=TransformStateEvaluator(state.pose), w_0k_ink=state.velocity)
         state.pose.set_lock(True)   # lock all pose variables
 
-    if solve:
+    if solver:
         # construct the optimization problem
         opt_prob = OptimizationProblem()
         opt_prob.add_cost_term(*traj.get_prior_cost_terms())
@@ -176,11 +176,11 @@ def get_stats(err, lengths):
         [a/float(b) * 180 / np.pi for a, b in zip(r_err_len, len_count)]
 
 
-def plot_stats(seq, root, T_odom, T_gt, lengths, t_err, r_err):
+def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err):
     """Outputs plots of calculated statistics to specified directory.
     Args:
         seq (List[string]): list of sequence file names
-        root (string): directory path for plot outputs
+        dir (string): directory path for plot outputs
         T_odom (List[np.ndarray]): list of 4x4 estimated poses T_vk_i (vehicle frame at time k and fixed frame i)
         T_gt (List[np.ndarray]): List of 4x4 groundtruth poses T_vk_i (vehicle frame at time k and fixed frame i)
         lengths (List[int]): list of lengths that odometry is evaluated at
@@ -199,7 +199,7 @@ def plot_stats(seq, root, T_odom, T_gt, lengths, t_err, r_err):
     plt.ylabel('y [m]')
     plt.axis('equal')
     plt.legend(loc="upper right")
-    plt.savefig(os.path.join(root, seq[:-4] + '_path.pdf'), bbox_inches='tight')
+    plt.savefig(os.path.join(dir, seq[:-4] + '_path.pdf'), bbox_inches='tight')
     plt.close()
 
     # plot of translation error along path length
@@ -208,7 +208,7 @@ def plot_stats(seq, root, T_odom, T_gt, lengths, t_err, r_err):
     plt.plot(lengths, t_err, 'b')
     plt.xlabel('Path Length [m]')
     plt.ylabel('Translation Error [%]')
-    plt.savefig(os.path.join(root, seq[:-4] + '_tl.pdf'), bbox_inches='tight')
+    plt.savefig(os.path.join(dir, seq[:-4] + '_tl.pdf'), bbox_inches='tight')
     plt.close()
 
     # plot of rotation error along path length
@@ -217,7 +217,7 @@ def plot_stats(seq, root, T_odom, T_gt, lengths, t_err, r_err):
     plt.plot(lengths, r_err, 'b')
     plt.xlabel('Path Length [m]')
     plt.ylabel('Rotation Error [deg/m]')
-    plt.savefig(os.path.join(root, seq[:-4] + '_rl.pdf'), bbox_inches='tight')
+    plt.savefig(os.path.join(dir, seq[:-4] + '_rl.pdf'), bbox_inches='tight')
     plt.close()
 
 
@@ -234,7 +234,7 @@ def get_path_from_Tvi_list(Tvi_list):
     return path
 
 
-def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, root, dim, interp):
+def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, dir, dim, crop, interp, solver):
     """Computes the translational (%) and rotational drift (deg/m) in the KITTI style.
         KITTI rotation and translation metrics are computed for each sequence individually and then
         averaged across the sequences.
@@ -246,9 +246,11 @@ def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_l
         seq_lens_gt (List[int]): List of sequence lengths corresponding to T_gt
         seq_lens_pred (List[int]): List of sequence lengths corresponding to T_pred
         seq (List[string]): List of sequence file names
-        root (string): path to output directory for plots
+        dir (string): path to output directory for plots. Set to 'None' to prevent plotting
         dim (int): dimension for evaluation. Set to '3' for SE(3) or '2' for SE(2)
-        interp (bool): True for using built-in interpolation
+        crop (List[Tuple]): sequences are cropped to prevent extrapolation, this list holds start and end indices
+        interp (bool): 'True' for using built-in interpolation
+        solver (bool): 'True' solves velocities for built-in interpolation. 'False' we use a finite-diff. approx.
     Returns:
         t_err: Average KITTI Translation ERROR (%)
         r_err: Average KITTI Rotation Error (deg / m)
@@ -280,9 +282,9 @@ def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_l
 
         # query predicted trajectory at groundtruth times
         if interp:
-            T_query = interpolate_poses(T_pred_seq, times_pred_seq, times_gt_seq)
+            T_query = interpolate_poses(T_pred_seq, times_pred_seq, times_gt_seq, solver)
         else:
-            T_query = T_pred_seq
+            T_query = T_pred_seq[crop[i][0]:crop[i][1]]
 
         err, path_lengths = calc_sequence_errors(T_gt_seq, T_query, step_size)
         t_err, r_err, t_err_len, r_err_len = get_stats(err, path_lengths)
@@ -291,7 +293,8 @@ def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_l
         print(seq[i], 'took', str(time() - ts), ' seconds')
         print('Error: ', t_err, ' %, ', r_err, ' deg/m \n')
 
-        plot_stats(seq[i], root, T_query, T_gt_seq, path_lengths, t_err_len, r_err_len)
+        if dir is not None:
+            plot_stats(seq[i], dir, T_query, T_gt_seq, path_lengths, t_err_len, r_err_len)
     err_list = np.asarray(err_list)
     avg = np.mean(err_list, axis=0)
     t_err = avg[0]
@@ -348,12 +351,14 @@ def get_sequence_poses_gt(path, seq, dim):
         all_poses (List[np.ndarray]): list of 4x4 poses from all sequence files
         all_times (List[int]): list of times in microseconds from all sequence files
         seq_lens (List[int]): list of sequence lengths
+        crop (List[Tuple]): sequences are cropped to prevent extrapolation, this list holds start and end indices
     """
 
     # loop for each sequence
     all_poses = []
     all_times = []
     seq_lens = []
+    crop = []
     for filename in seq:
         # determine path to gt file
         dir = filename[:-4]     # assumes last four characters are '.txt'
@@ -369,6 +374,7 @@ def get_sequence_poses_gt(path, seq, dim):
             iend = np.searchsorted(times_np, ctimes[-1])
             poses = poses[istart:iend]
             times = times[istart:iend]
+            crop += [(istart, iend)]
             if times[0] < ctimes[0] or times[-1] > ctimes[-1]:
                 raise ValueError('Invalid start and end indices for groundtruth.')
 
@@ -376,6 +382,7 @@ def get_sequence_poses_gt(path, seq, dim):
             filepath = os.path.join(path, dir, 'applanix/radar_poses.csv')  # use 'radar_poses.csv' for groundtruth
             T_calib = np.identity(4)
             poses, times = read_traj_file_gt(filepath, T_calib, dim)
+            crop += [(0, len(poses))]
         else:
             raise ValueError('Invalid dim value in get_sequence_poses_gt. Use either 2 or 3.')
 
@@ -383,7 +390,7 @@ def get_sequence_poses_gt(path, seq, dim):
         all_poses.extend(poses)
         all_times.extend(times)
 
-    return all_poses, all_times, seq_lens
+    return all_poses, all_times, seq_lens, crop
 
 
 def write_traj_file(path, poses, times):

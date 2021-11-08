@@ -2,10 +2,12 @@
 import os
 import unittest
 import numpy as np
+import math
 
 from pylgmath import Transformation, se3op
 from pyboreas.utils.utils import get_inverse_tf
-from pyboreas.utils.odometry import interpolate_poses, write_traj_file, read_traj_file
+from pyboreas.utils.odometry import interpolate_poses, write_traj_file, read_traj_file, \
+    get_sequences, get_sequence_poses, get_sequence_poses_gt, compute_kitti_metrics
 
 
 class OdometryTestCase(unittest.TestCase):
@@ -65,7 +67,31 @@ class OdometryTestCase(unittest.TestCase):
         # delete file
         os.remove('pyboreas/test/test_traj.txt')
 
+    def test_module(self):
+        pred = 'pyboreas/test/demo/pred/3d'
+        gt = 'pyboreas/test/demo/gt'
+        dim = 3
+        interp = True
+        solver = False
+
+        # parse sequences
+        seq = get_sequences(pred, '.txt')
+        T_pred, times_pred, seq_lens_pred = get_sequence_poses(pred, seq)
+        T_gt, times_gt, seq_lens_gt, crop = get_sequence_poses_gt(gt, seq, dim)
+
+        # compute errors
+        t_err, r_err, err_list = compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred,
+                                             seq_lens_gt, seq_lens_pred, seq, None, dim, crop, interp, solver)
+
+        # first sequence should be close to kitti C++ results: 0.011094 0.000077
+        self.assertTrue(math.fabs(err_list[0][0] - 0.011094*100) < 1e-4)
+        self.assertTrue(math.fabs(err_list[0][1] - 0.000077*180/math.pi) < 1e-5)
+
+        # second sequence should be close to 0
+        self.assertTrue(err_list[1][0] < 1e-1)
+        self.assertTrue(err_list[1][1] < 1e-2)
+
 
 if __name__ == '__main__':
-    # run 'python -m unittest' from root directory
+    # run 'python -m unittest' from root directory (one above pyboreas directory)
     unittest.main()
