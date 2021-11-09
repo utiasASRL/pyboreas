@@ -1,6 +1,8 @@
 import base64
 import io
 from pathlib import Path
+import time
+import copy
 
 import dash
 from dash import dcc
@@ -12,65 +14,38 @@ from dash.dependencies import Input, Output, State
 from matplotlib import cm
 
 from pyboreas.vis import map_utils
-
+from pyboreas.utils.utils import get_closest_frame, get_inverse_tf
+from pyboreas.vis.vis_utils import bilinear_interp
 
 class BoreasVisualizer:
     def __init__(self, sequence):
-        self.sequence = sequence
+        self.seq = copy.deepcopy(sequence)
         self.calib = sequence.calib
         self.track_length = len(sequence.lidar_frames)
-        self.lidar_frames = sequence.lidar_frames
-        lstamps = [frame.timestamp for frame in sequence.lidar_frames]
-        cstamps = [frame.timestamp for frame in sequence.camera_frames]
-        rstamps = [frame.timestamp for frame in sequence.radar_frames]
-        # Get corresponding camera and radar frame for each lidar frame
-        self.camera_frames = [self._get_closest_frame(lstamp, cstamps, sequence.camera_frames) for lstamp in lstamps]
-        self.radar_frames = [self._get_closest_frame(lstamp, rstamps, sequence.radar_frames) for lstamp in lstamps]
+        
+        self.seq.synchronize_frames('lidar')
+        self.lidar_frames = self.seq.lidar_frames
+        self.radar_frames = self.seq.radar_frames
+        self.camera_frames = self.seq.camera_frames
+
         self.render_selection = {'lidar_bev': True, 'radar_bev': True, 'cam_persp': True, '3d_lidar': True}
         self.plot_functions = {'lidar_bev': self.plot_lidar_bev, 'radar_bev': self.plot_radar_bev, 'cam_persp': self.plot_cam_persp, '3d_lidar': self.plot_3d_lidar}
         self.plots_initialized = False
 
-    def _get_closest_frame(self, query_time, target_times, targets):
-        times = np.array(target_times)
-        closest = np.argmin(np.abs(times - query_time))
-        assert (np.abs(query_time - times[closest]) < 1.0), "closest time to query: {} in rostimes not found.".format(query_time)
-        return targets[closest]
-
-    def get_pcd(self, idx, down_sample_rate=0.5):
-        # load points
-        lidar_frame = self.sequence.get_lidar(idx)
-
-        # Calculate transformations for current data
-        C_l_enu = lidar_frame.pose[:3, :3].T
-        C_a_enu = self.calib.T_applanix_lidar[0:3, 0:3] @ C_l_enu
-        C_a_l = self.calib.T_applanix_lidar[0:3, 0:3]
-        lidar_points = lidar_frame.load_data()[:, 0:3]
-        # Draw lidar points
-        rand_idx = np.random.choice(lidar_points.shape[0], size=int(lidar_points.shape[0] * down_sample_rate), replace=False)
-        return lidar_points[rand_idx, :], lidar_frame, C_a_enu, C_a_l
-
-    def get_cam(self, idx):
-        camera_frame = self.camera_frames[idx]
-        camera_image = camera_frame.load_data()
-        return camera_image
-
-    def get_cam_path(self, idx):
-        cam = self.camera_frames[idx]
-        return cam.path
-
-    def get_radar(self, idx, grid_size, grid_res):
-        radar_frame = self.radar_frames[idx]
-        radar_frame.load_data()
-        radar_ndarray = radar_frame.polar_to_cart(grid_res, grid_size)
-        return radar_ndarray
-
     def plot_lidar_bev(self, idx):
-        pcd, lidar_scan, C_a_enu, C_a_l = self.get_pcd(idx, 0.5)
-        pcd_a = np.matmul(C_a_l[0:2, 0:2].reshape(1, 2, 2), pcd[:, 0:2].reshape(pcd.shape[0], 2, 1)).squeeze(-1)
+        lid = self.seq.get_lidar(idx)
+        lid.passthrough([-75, 75, -75, 75, -5, 10])
+        lid.random_downsample(0.5)
+        lid.transform(self.calib.T_applanix_lidar)
+        T_a_enu = self.calib.T_applanix_lidar @ get_inverse_tf(lid.pose)
+        C_a_enu = T_a_enu[:3, :3]
+        points = lid.points
+        lid.unload_data()
 
         fig_bev = go.Figure()
-        map_utils.draw_map_plotly(Path(__file__).parent.absolute() / "boreas_lane.osm", fig_bev, lidar_scan.pose[0, 3], lidar_scan.pose[1, 3], C_a_enu, utm=True)
-        fig_bev.add_trace(go.Scattergl(x=pcd_a[:, 0], y=pcd_a[:, 1], mode='markers', visible=True, marker_size=0.5, marker_color='blue'))
+        # map_utils.draw_map_plotly(Path(__file__).parent.absolute() / "boreas_lane.osm", fig_bev,
+        #                          lid.pose[0, 3], lid.pose[1, 3], C_a_enu, utm=True)
+        fig_bev.add_trace(go.Scattergl(x=points[:, 0], y=points[:, 1], mode='markers', visible=True, marker_size=0.5, marker_color='blue'))
         fig_bev.update_traces(marker_size=0.5)
         fig_bev.update_layout(
             title="BEV Visualization",
@@ -87,12 +62,13 @@ class BoreasVisualizer:
     def plot_radar_bev(self, idx):
         # Radar
         fig_radar = go.Figure()
-        grid_size = 700
-        grid_res = 0.5
-        radar_image = self.get_radar(idx, grid_size, grid_res)
+        rad = self.seq.get_radar(idx)
+        radar_image = rad.cartesian
+        rad.unload_data()
+        mwidth = 640 * 0.2384
 
         # Draw image
-        radar_pil_image = Image.fromarray(np.uint8(cm.gist_gray(radar_image)[:, :, 0:3] * 255))
+        radar_pil_image = Image.fromarray((radar_image).astype(np.uint8))
         rawBytes = io.BytesIO()
         radar_pil_image.save(rawBytes, "PNG")
         rawBytes.seek(0)
@@ -101,16 +77,16 @@ class BoreasVisualizer:
 
         fig_radar.add_layout_image(
             dict(
-                x=-75,
-                sizex=150,
-                y=-75,
-                sizey=150,
+                x=-mwidth/2,
+                sizex=mwidth,
+                y=-mwidth/2,
+                sizey=mwidth,
                 xref="x",
                 yref="y",
                 opacity=1.0,
                 layer="below",
                 sizing="stretch",
-                source=encoded_radar_image)
+                source=encoded_radar_image),
         )
 
         # Configure plot
@@ -128,27 +104,29 @@ class BoreasVisualizer:
 
         fig_radar.update_layout(
             title="Radar Visualization",
-            width=grid_size,
-            height=grid_size,
+            width=712,
+            height=712,
             autosize=False,
             showlegend=False
         )
 
         return fig_radar
 
+    def get_T_camera_lidar(self, idx):
+        T_enu_camera = self.camera_frames[idx].pose
+        T_enu_lidar = self.lidar_frames[idx].pose
+        return np.matmul(get_inverse_tf(T_enu_camera), T_enu_lidar)
+
     def plot_cam_persp(self, idx):
         # Project lidar points into pixel frame
-        pcd, lidar_scan, C_a_enu, C_a_l = self.get_pcd(idx, 0.5)
-        pcd = pcd.T
-        pcd = np.vstack((pcd, np.ones(pcd.shape[1])))
-        points_camera = np.matmul(self.calib.T_camera_lidar, pcd)
-        points_camera = np.matmul(self.calib.P0, points_camera)
-        pixel_camera = np.divide(points_camera, points_camera[2, :])
-        # Only select valid lidar points
-        valid_pixel_idx = (points_camera[2, :] > 0) & (pixel_camera[1, :] > 0) & (pixel_camera[1, :] < 2048) & (pixel_camera[0, :] > 0) & (pixel_camera[0, :] < 2448)
-        valid_pixel_x = pixel_camera[0][valid_pixel_idx]
-        valid_pixel_y = pixel_camera[1][valid_pixel_idx]
-        valid_pixel_z = points_camera[2][valid_pixel_idx]
+
+        lid = self.seq.get_lidar(idx)
+        lid.remove_motion(lid.body_rate)
+        T_camera_lidar = self.get_T_camera_lidar(idx)
+        lid.transform(T_camera_lidar)
+        lid.passthrough([-75, 75, -20, 10, 2, 40])  # xmin, xmax, ymin, ymax, zmin, zmax
+        uv, colors, _ = lid.project_onto_image(self.calib.P0)
+        lid.unload_data()
 
         # Image in figure background taken from https://plotly.com/python/images/#zoom-on-static-images
         fig_persp = go.Figure()
@@ -161,7 +139,7 @@ class BoreasVisualizer:
         fig_persp.add_trace(go.Scatter(x=[0, img_width], y=[0, img_height], mode="markers", marker_opacity=0))
 
         # Load image. Use 64bit encoding for speed
-        with open(self.get_cam_path(idx), "rb") as image_file:
+        with open(self.camera_frames[idx].path, "rb") as image_file:
             encoded_string = base64.b64encode(image_file.read()).decode()  # add the prefix that plotly will want when using the string as source
         encoded_image = "data:image/png;base64," + encoded_string
 
@@ -181,12 +159,12 @@ class BoreasVisualizer:
 
         # Draw lidar
         fig_persp.add_trace(
-            go.Scattergl(x=valid_pixel_x,
-                         y=valid_pixel_y,
+            go.Scattergl(x=uv[:, 0],
+                         y=uv[:, 1],
                          mode='markers',
                          visible=True,
                          marker_size=1,
-                         marker_color=valid_pixel_z,
+                         marker_color=colors,
                          marker_colorscale='rainbow')
         )
 
@@ -213,22 +191,15 @@ class BoreasVisualizer:
 
     def plot_3d_lidar(self, idx):
         # Colored lidar
-        pcd, lidar_scan, C_a_enu, C_a_l = self.get_pcd(idx, 0.5)
-        pcd = pcd.T
-        pcd = np.vstack((pcd, np.ones(pcd.shape[1])))
-        points_camera_f = np.matmul(self.calib.T_camera_lidar, pcd)
-        points_camera = np.matmul(self.calib.P0, points_camera_f)
-        pixel_camera = np.divide(points_camera, points_camera[2, :])
-        # Only select valid lidar points
-        valid_pixel_idx = (points_camera[2, :] > 0) & (points_camera[2, :] < 100) & \
-                          (pixel_camera[1, :] > 0) & (pixel_camera[1, :] < 2048) & \
-                          (pixel_camera[0, :] > 0) & (pixel_camera[0, :] < 2448)
-        valid_pixel_x = pixel_camera[0][valid_pixel_idx]
-        valid_pixel_y = pixel_camera[1][valid_pixel_idx]
 
-        valid_coord_x = points_camera_f[0][valid_pixel_idx]
-        valid_coord_y = points_camera_f[1][valid_pixel_idx]
-        valid_coord_z = points_camera_f[2][valid_pixel_idx]
+        lid = self.seq.get_lidar(idx)
+        lid.remove_motion(lid.body_rate)
+        T_camera_lidar = self.get_T_camera_lidar(idx)
+        lid.transform(T_camera_lidar)
+        lid.passthrough([-50, 50, -10, 5, 2, 80])  # xmin, xmax, ymin, ymax, zmin, zmax
+        uv, _, mask = lid.project_onto_image(self.calib.P0)
+        points = lid.points[mask][:, :3]
+        lid.unload_data()
 
         # Layout initialization fix
         if not self.plots_initialized:
@@ -239,18 +210,22 @@ class BoreasVisualizer:
         fig_color_lidar = go.Figure(layout=layout)
 
         # Get lidar point colors from image
-        image = self.get_cam(idx)
-        colors = image[valid_pixel_y.astype(int), valid_pixel_x.astype(int)]
-        colors_str = [f'rgb({colors[i][0]}, {colors[i][1]}, {colors[i][2]})' for i in range(colors.shape[0])]
+        camera_frame = self.seq.get_camera(idx)
+        image = camera_frame.img
+        camera_frame.unload_data()
 
+        # colors = image[uv[:, 1].astype(int), uv[:, 0].astype(int)]
+        colors = bilinear_interp(image, uv[:, 0], uv[:, 1])
+        colors_str = [f'rgb({colors[i][0]}, {colors[i][1]}, {colors[i][2]})' for i in range(colors.shape[0])]
+        
         # Plot points
         fig_color_lidar.add_trace(
             go.Scatter3d(
-                x=valid_coord_x,
-                y=valid_coord_y,
-                z=valid_coord_z,
+                x=points[:, 0],
+                y=points[:, 1],
+                z=points[:, 2],
                 mode='markers',
-                marker_size=2,
+                marker_size=1,
                 marker_color=colors_str,
             )
         )
@@ -322,9 +297,9 @@ class BoreasVisualizer:
                 dcc.Slider(
                     id='timestep_slider',
                     min=0,
-                    max=len(self.sequence.lidar_frames),
-                    value=max(0, min(frame_idx, len(self.sequence.lidar_frames))),
-                    marks={str(idx): str(idx) for idx in range(0, len(self.sequence.lidar_frames), 5)},
+                    max=len(self.lidar_frames),
+                    value=max(0, min(frame_idx, len(self.lidar_frames))),
+                    marks={str(idx): str(idx) for idx in range(0, len(self.lidar_frames), 5)},
                     step=1)
             ], style={'width': '70%', 'padding-left': '17%', 'padding-right': '13%'}),
 
@@ -385,7 +360,7 @@ class BoreasVisualizer:
             if n_intervals is None:
                 return 0
             else:
-                return (slider_idx + 1) % len(self.sequence.lidar_frames)
+                return (slider_idx + 1) % len(self.lidar_frames)
 
         @app.callback(
             Output('animator', 'disabled'),

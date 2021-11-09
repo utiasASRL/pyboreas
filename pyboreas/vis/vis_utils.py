@@ -41,7 +41,7 @@ def transform_bounding_boxes(T, C_yaw, raw_labels):
 def vis_camera(cam, figsize=(24.48, 20.48), dpi=100):
     fig = plt.figure(figsize=figsize, dpi=dpi)
     ax = fig.add_subplot()
-    ax.imshow(cam.img[:, :, ::-1])
+    ax.imshow(cam.img)
     ax.set_axis_off()
     plt.show()
 
@@ -88,3 +88,43 @@ def vis_radar(rad, figsize=(10, 10), dpi=100, cart_resolution=0.2384, cart_pixel
     ax.imshow(cart, cmap=cmap)
     ax.set_axis_off()
     plt.show()
+
+def bilinear_interp(img, X, Y):
+
+    x = np.array(X).squeeze()
+    y = np.array(Y).squeeze()
+
+    x1 = np.floor(x).astype(np.int32)
+    x2 = np.ceil(x).astype(np.int32)
+    y1 = np.floor(y).astype(np.int32)
+    y2 = np.ceil(y).astype(np.int32)
+
+    mask = np.where(x1 == x2)
+
+    q11 = img[y1, x1]  # N x 3
+    q12 = img[y2, x1]
+    q21 = img[y1, x2]
+    q22 = img[y2, x2]
+
+    EPS = 1e-14
+    x_21 = (x2 - x1 + EPS)
+    x_2 = ((x2 - x) / x_21).reshape(-1, 1)
+    x_1 = ((x - x1) / x_21).reshape(-1, 1)
+
+    f_y1 = q11 * x_2 + q21 * x_1
+    f_y2 = q12 * x_2 + q22 * x_1
+
+    f_y1[mask] = q11[mask]
+    f_y2[mask] = q22[mask]
+
+    mask = np.where(y1 == y2)
+
+    y_21 = (y2 - y1 + EPS)
+    y_2 = ((y2 - y) / y_21).reshape(-1, 1)
+    y_1 = ((y - y1) / y_21).reshape(-1, 1)
+
+    f = y_2 * f_y1 + y_1 * f_y2
+    f[mask] = f_y1[mask]
+
+    return f.squeeze()
+

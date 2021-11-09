@@ -3,7 +3,7 @@ import os.path as osp
 
 from pyboreas.data.calib import Calib
 from pyboreas.data.sensors import Camera, Lidar, Radar
-from pyboreas.utils.utils import get_closest_index
+from pyboreas.utils.utils import get_closest_frame
 
 
 class Sequence:
@@ -174,17 +174,12 @@ class Sequence:
         lstamps = [frame.timestamp for frame in self.lidar_frames]
         rstamps = [frame.timestamp for frame in self.radar_frames]
 
-        def get_closest(query_time, target_times, targets):
-            closest = get_closest_index(query_time, target_times)
-            assert(abs(query_time - target_times[closest]) < 1.0), 'query: {}'.format(query_time)
-            return targets[closest]
-
         if ref == 'camera':
-            self.lidar_frames = [get_closest(cstamp, lstamps, self.lidar_frames) for cstamp in cstamps]
-            self.radar_frames = [get_closest(cstamp, rstamps, self.radar_frames) for cstamp in cstamps]
+            self.lidar_frames = [get_closest_frame(cstamp, lstamps, self.lidar_frames) for cstamp in cstamps]
+            self.radar_frames = [get_closest_frame(cstamp, rstamps, self.radar_frames) for cstamp in cstamps]
         elif ref == 'lidar':
-            self.camera_frames = [get_closest(lstamp, cstamps, self.camera_frames) for lstamp in lstamps]
-            self.radar_frames = [get_closest(lstamp, rstamps, self.radar_frames) for lstamp in lstamps]
+            self.camera_frames = [get_closest_frame(lstamp, cstamps, self.camera_frames) for lstamp in lstamps]
+            self.radar_frames = [get_closest_frame(lstamp, rstamps, self.radar_frames) for lstamp in lstamps]
         elif ref == 'radar':
-            self.camera_frames = [get_closest(rstamp, cstamps, self.camera_frames) for rstamp in rstamps]
-            self.lidar_frames = [get_closest(rstamp, lstamps, self.lidar_frames) for rstamp in rstamps]
+            self.camera_frames = [get_closest_frame(rstamp, cstamps, self.camera_frames) for rstamp in rstamps]
+            self.lidar_frames = [get_closest_frame(rstamp, lstamps, self.lidar_frames) for rstamp in rstamps]

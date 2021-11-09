@@ -117,8 +117,8 @@ root = '/path/to/data/boreas/'
 bd = BoreasDataset(root)
 seq = bd.sequences[0]
 
-visualizer = BoreasVisualizer(seq)
-visualizer.visualize(frame_idx=0)
+bv = BoreasVisualizer(seq)
+bv.visualize(frame_idx=0)
 ```
 Running the above code will start a local web server that visualizes the selected sequence.
 ```

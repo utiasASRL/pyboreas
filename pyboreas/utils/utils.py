@@ -353,6 +353,20 @@ def get_closest_index(query, targets):
     return idx
 
 
+def get_closest_frame(query_time, frame_times, frames):
+    """Retrives the closest frame to query_time
+    Args:
+        query_time (float)
+        frame_times (list): list of timestamps which corresponds to the frames list
+        frames: (list): list of frames
+    Returns:
+        closest_frame (SensorType)
+    """
+    closest = get_closest_index(query_time, frame_times)
+    assert(abs(query_time - frame_times[closest]) < 1.0), 'query: {}'.format(query_time)
+    return frames[closest]
+
+
 def is_sorted(x):
     """Returns True is x is a sorted list, otherwise False"""
     return (np.diff(x) >= 0).all()
