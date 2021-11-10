@@ -17,12 +17,18 @@ from pyboreas.vis import map_utils
 from pyboreas.utils.utils import get_closest_frame, get_inverse_tf
 from pyboreas.vis.vis_utils import bilinear_interp
 
+# Disable Info Logging for Dash
+import logging
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
+
+
 class BoreasVisualizer:
     def __init__(self, sequence):
         self.seq = copy.deepcopy(sequence)
         self.calib = sequence.calib
         self.track_length = len(sequence.lidar_frames)
-        
+
         self.seq.synchronize_frames('lidar')
         self.lidar_frames = self.seq.lidar_frames
         self.radar_frames = self.seq.radar_frames
@@ -63,7 +69,7 @@ class BoreasVisualizer:
         # Radar
         fig_radar = go.Figure()
         rad = self.seq.get_radar(idx)
-        radar_image = rad.cartesian
+        radar_image = rad.polar_to_cart(0.5, 712)
         rad.unload_data()
         mwidth = 640 * 0.2384
 
@@ -217,7 +223,7 @@ class BoreasVisualizer:
         # colors = image[uv[:, 1].astype(int), uv[:, 0].astype(int)]
         colors = bilinear_interp(image, uv[:, 0], uv[:, 1])
         colors_str = [f'rgb({colors[i][0]}, {colors[i][1]}, {colors[i][2]})' for i in range(colors.shape[0])]
-        
+
         # Plot points
         fig_color_lidar.add_trace(
             go.Scatter3d(
