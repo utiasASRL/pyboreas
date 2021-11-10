@@ -72,12 +72,11 @@ class BoreasVisualizer:
         # Radar
         fig_radar = go.Figure()
         rad = self.seq.get_radar(idx)
-        radar_image = rad.polar_to_cart(0.5, 712)
+        radar_image = rad.polar_to_cart(0.25, 600)
         rad.unload_data()
-        mwidth = 640 * 0.2384
 
         # Draw image
-        radar_pil_image = Image.fromarray((radar_image).astype(np.uint8))
+        radar_pil_image = Image.fromarray((radar_image * 255).astype(np.uint8))
         rawBytes = io.BytesIO()
         radar_pil_image.save(rawBytes, "PNG")
         rawBytes.seek(0)
@@ -86,10 +85,10 @@ class BoreasVisualizer:
 
         fig_radar.add_layout_image(
             dict(
-                x=-mwidth/2,
-                sizex=mwidth,
-                y=-mwidth/2,
-                sizey=mwidth,
+                x=-74,
+                sizex=150,
+                y=-75,
+                sizey=150,
                 xref="x",
                 yref="y",
                 opacity=1.0,
@@ -113,8 +112,8 @@ class BoreasVisualizer:
 
         fig_radar.update_layout(
             title="Radar Visualization",
-            width=712,
-            height=712,
+            width=700,
+            height=700,
             autosize=False,
             showlegend=False
         )
