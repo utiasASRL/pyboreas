@@ -38,6 +38,9 @@ class BoreasVisualizer:
         self.plot_functions = {'lidar_bev': self.plot_lidar_bev, 'radar_bev': self.plot_radar_bev, 'cam_persp': self.plot_cam_persp, '3d_lidar': self.plot_3d_lidar}
         self.plots_initialized = False
 
+        self.map_data, self.map_point_ids, self.map_points = map_utils.load_map(Path(__file__).parent.absolute() / "boreas_lane.osm")
+
+
     def plot_lidar_bev(self, idx):
         lid = self.seq.get_lidar(idx)
         lid.passthrough([-75, 75, -75, 75, -5, 10])
@@ -49,8 +52,8 @@ class BoreasVisualizer:
         lid.unload_data()
 
         fig_bev = go.Figure()
-        # map_utils.draw_map_plotly(Path(__file__).parent.absolute() / "boreas_lane.osm", fig_bev,
-        #                          lid.pose[0, 3], lid.pose[1, 3], C_a_enu, utm=True)
+        points_a = map_utils.transform_points(self.map_points, C_a_enu, lid.pose[0, 3], lid.pose[1, 3])  # Transform loaded map points into current frame before plotting
+        map_utils.draw_map_plotly(self.map_data, self.map_point_ids, points_a, fig_bev, cutoff_radius=100)
         fig_bev.add_trace(go.Scattergl(x=points[:, 0], y=points[:, 1], mode='markers', visible=True, marker_size=0.5, marker_color='blue'))
         fig_bev.update_traces(marker_size=0.5)
         fig_bev.update_layout(
@@ -271,7 +274,7 @@ class BoreasVisualizer:
                         {'label': 'Camera Perspective', 'value': 'cam_persp'},
                         {'label': '3D Lidar', 'value': '3d_lidar'},
                     ],
-                    value=['lidar_bev', 'radar_bev', 'cam_persp', '3d_lidar'],
+                    value=[name for name in self.render_selection.keys() if self.render_selection[name]],
                     labelStyle={'display': 'inline-block', 'padding': '0.1rem 0.5rem'},
                     style={'fontFamily': 'helvetica', 'textAlign': 'left'}
                 )
