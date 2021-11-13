@@ -237,7 +237,8 @@ def get_path_from_Tvi_list(Tvi_list):
 def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, dir, dim, crop, interp, solver):
     """Computes the translational (%) and rotational drift (deg/m) in the KITTI style.
         KITTI rotation and translation metrics are computed for each sequence individually and then
-        averaged across the sequences.
+        averaged across the sequences. If 'interp' specifies a directory, we instead interpolate
+        for poses at the groundtruth times and write them out as txt files.
     Args:
         T_gt (List[np.ndarray]): List of 4x4 SE(3) transforms (fixed reference frame 'i' to frame 'v', T_vi)
         T_pred (List[np.ndarray]): List of 4x4 SE(3) transforms (fixed reference frame 'i' to frame 'v', T_vi)
@@ -249,7 +250,7 @@ def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_l
         dir (string): path to output directory for plots. Set to 'None' to prevent plotting
         dim (int): dimension for evaluation. Set to '3' for SE(3) or '2' for SE(2)
         crop (List[Tuple]): sequences are cropped to prevent extrapolation, this list holds start and end indices
-        interp (bool): 'True' for using built-in interpolation
+        interp (string): path to directory for interpolation output. Empty string if not interpolating and evaluating
         solver (bool): 'True' solves velocities for built-in interpolation. 'False' we use a finite-diff. approx.
     Returns:
         t_err: Average KITTI Translation ERROR (%)
@@ -273,20 +274,27 @@ def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_l
     err_list = []
     for i in range(len(seq_lens_pred)):
         ts = time()  # start time
-        print('processing sequence', seq[i], '...')
+
         # get poses and times of current sequence
         T_gt_seq = T_gt[indices_gt[i]:indices_gt[i+1]]
         T_pred_seq = T_pred[indices_pred[i]:indices_pred[i+1]]
         times_gt_seq = times_gt[indices_gt[i]:indices_gt[i+1]]
         times_pred_seq = times_pred[indices_pred[i]:indices_pred[i+1]]
 
-        # query predicted trajectory at groundtruth times
+        # query predicted trajectory at groundtruth times and write out
         if interp:
-            T_query = interpolate_poses(T_pred_seq, times_pred_seq, times_gt_seq, solver)
-        else:
-            T_query = T_pred_seq[crop[i][0]:crop[i][1]]
+            print('interpolating sequence', seq[i], '...')
+            T_query = interpolate_poses(T_pred_seq, times_pred_seq, times_gt_seq, solver)   # interpolate
+            write_traj_file(os.path.join(interp, seq[i]), T_query, times_gt_seq)    # write out
+            print(seq[i], 'took', str(time() - ts), ' seconds')
+            print('output file:', os.path.join(interp, seq[i]), '\n')
+            continue    # do not evaluate if interpolating, go to next sequqnce
 
-        err, path_lengths = calc_sequence_errors(T_gt_seq, T_query, step_size)
+        print('processing sequence', seq[i], '...')
+        if len(T_pred_seq) != len(T_gt_seq):
+            T_pred_seq = T_pred_seq[crop[i][0]:crop[i][1]]
+
+        err, path_lengths = calc_sequence_errors(T_gt_seq, T_pred_seq, step_size)
         t_err, r_err, t_err_len, r_err_len = get_stats(err, path_lengths)
         err_list.append([t_err, r_err])
 
@@ -294,7 +302,12 @@ def compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred, seq_lens_gt, seq_l
         print('Error: ', t_err, ' %, ', r_err, ' deg/m \n')
 
         if dir is not None:
-            plot_stats(seq[i], dir, T_query, T_gt_seq, path_lengths, t_err_len, r_err_len)
+            plot_stats(seq[i], dir, T_pred_seq, T_gt_seq, path_lengths, t_err_len, r_err_len)
+
+    # return with nothing if interpolating
+    if interp:
+        return 0, 0, []
+
     err_list = np.asarray(err_list)
     avg = np.mean(err_list, axis=0)
     t_err = avg[0]
