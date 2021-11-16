@@ -71,17 +71,28 @@ class OdometryTestCase(unittest.TestCase):
         pred = 'pyboreas/test/demo/pred/3d'
         gt = 'pyboreas/test/demo/gt'
         dim = 3
-        interp = True
+        interp = 'pyboreas/test/demo/pred/3d/interptest'
         solver = False
+
+        # make interp directory if it doesn't exist
+        if not os.path.exists(interp):
+            os.mkdir(interp)
 
         # parse sequences
         seq = get_sequences(pred, '.txt')
         T_pred, times_pred, seq_lens_pred = get_sequence_poses(pred, seq)
         T_gt, times_gt, seq_lens_gt, crop = get_sequence_poses_gt(gt, seq, dim)
 
-        # compute errors
-        t_err, r_err, err_list = compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred,
+        # interpolate
+        _, _, _ = compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred,
                                              seq_lens_gt, seq_lens_pred, seq, None, dim, crop, interp, solver)
+
+        # read in interpolated sequences
+        T_pred, times_pred, seq_lens_pred = get_sequence_poses(interp, seq)
+
+        # compute errors
+        _, _, err_list = compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred,
+                                             seq_lens_gt, seq_lens_pred, seq, None, dim, crop, '', solver)
 
         # first sequence should be close to kitti C++ results: 0.011094 0.000077
         self.assertTrue(math.fabs(err_list[0][0] - 0.011094*100) < 1e-4)
@@ -90,6 +101,12 @@ class OdometryTestCase(unittest.TestCase):
         # second sequence should be close to 0
         self.assertTrue(err_list[1][0] < 1e-1)
         self.assertTrue(err_list[1][1] < 1e-2)
+
+        # delete file
+        for i in range(2):
+            file = os.path.join(interp, seq[i])
+            os.remove(file)
+        os.rmdir(interp)
 
 
 if __name__ == '__main__':
