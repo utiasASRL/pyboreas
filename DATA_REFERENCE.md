@@ -114,6 +114,7 @@ Lidar pointclouds are stored in a binary format to minimize storage requirements
 import numpy as np
 from pathlib import Path
 def load_lidar(path):
+	# dtype MUST be float32 to load this properly!
        points = np.fromfile(path, dtype=np.float32).reshape((-1, 6))
        t = float(Path(path).stem) * 1e-6
        points[:, 5] += t
@@ -166,7 +167,7 @@ We also provide an `imu.csv` file which can be used to improve odometry or local
 The camera was configured to emit a square-wave pulse where the rising edge of each pulse corresponds to the start of a new camera exposure event. The Applanix receiver was then configured to receive and timestamp these event signals. The Velodyne lidar was synchronized to UTC time using a hardwired connection to the Applanix sensor carrying NMEA data and PPS signals. The data-recording computer was synchronized to UTC time in the same fashion. The Navtech radar synchronizes its local clock to the NTP time broadcasted on its ethernet subnet. Since the computer publishing the NTP time is synchronized to UTC time, the radar is thereby also synchronized to UTC time.
 
 ### Camera Intrinsics
-Camera intrinsics are calibrated using [MATLAB's camera calibrator](https://www.mathworks.com/help/vision/ug/using-the-single-camera-calibrator-app.html) and are recorded in `camera0_intrinsics.yaml`. Images in the dataset have already been recitified and as such, the intrinsics parameters can be ignored for most applications. The recitified matrix `P`, stored in `P_camera.txt`, can then use used to project points onto the image plane.
+Camera intrinsics are calibrated using [MATLAB's camera calibrator](https://www.mathworks.com/help/vision/ug/using-the-single-camera-calibrator-app.html) and are recorded in `camera0_intrinsics.yaml`. Images in the dataset have already been rectified and as such, the intrinsics parameters can be ignored for most applications. The rectified matrix `P`, stored in `P_camera.txt`, can then use used to project points onto the image plane.
 
 ### Lidar-to-Camera Extrinsics
 The extrinsic calibration between the camera and lidar is obtained using [MATLAB's camera to LIDAR calibrator](https://www.mathworks.com/help/lidar/ug/lidar-and-camera-calibration.html). The results are stored in `T_camera_lidar.txt`.
@@ -174,7 +175,7 @@ The extrinsic calibration between the camera and lidar is obtained using [MATLAB
 ![calibration](figs/camvel.png)
 
 ### Lidar-to-Radar Extrinsics
-To calibrate the rotation between the lidar and radar, we use correlative scan matching via the Fourier Mellin transform: [git repo](https://github.com/keenan-burnett/radar_to_lidar_calib). Several lidar-radar pairs are collected while the vehicle is stationary in different positions. The final rotation estimate is obtained by avering over several measurements. The results are stored in `T_radar_lidar.txt`.
+To calibrate the rotation between the lidar and radar, we use correlative scan matching via the Fourier Mellin transform: [git repo](https://github.com/keenan-burnett/radar_to_lidar_calib). Several lidar-radar pairs are collected while the vehicle is stationary in different positions. The final rotation estimate is obtained by averaging over several measurements. The results are stored in `T_radar_lidar.txt`.
 
 ![calibration](figs/radvel.png)
 

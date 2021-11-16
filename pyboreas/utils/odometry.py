@@ -228,7 +228,7 @@ def get_path_from_Tvi_list(Tvi_list):
     Returns:
         path (np.ndarray): K x 3 numpy array of xyz coordinates
     """
-    path = np.zeros((len(Tvi_list), 3))
+    path = np.zeros((len(Tvi_list), 3), dtype=np.float64)
     for j, Tvi in enumerate(Tvi_list):
         path[j] = (-Tvi[:3, :3].T @ Tvi[:3, 3:4]).squeeze()
     return path
