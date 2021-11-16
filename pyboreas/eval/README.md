@@ -18,6 +18,10 @@ p_vk = T_vk_i * p_i
 ```
 Set the robot frame `v` to be the `applanix` frame for the 3D benchmark, and to the `radar` sensor frame for the 2D benchmark. The choice of the stationary frame `i` does not matter as long as it is consistent for the entire sequence. We suggest to simply set it as the first frame of the sequence, `v0`. This will make the first row entry of the table `T_v0_v0` (i.e., the identity transformation), the second row will be `T_v1_v0`, the `k`th row will be `T_vk_v0`, and so on.
 
+For the 2D benchmark, provide odometry estimates that correspond exactly to the radar sensor timestamps.
+
+For the 3D benchmark, provide odometry estimates that correspond exactly to the lidar sensor timestamps. If, for example, you wish to evaluate visual odometry using the camera images, you will need to interpolate your estimates to match the lidar timestamps. We offer an interpolation method through our benchmark script (interpolation demo shown in subsection `Local Evaluation`). You can also use your own interpolation scheme.
+
 ### Local evaluation
 The benchmark evaluation can be run locally for sequences with known groundtruth. We will use the sequences under `pyboreas/test/demo/pred/3d/` for our example demo.
 
@@ -28,12 +32,12 @@ python eval/odometry_benchmark.py -h
 usage: odometry_benchmark.py [-h] [--pred PRED] [--gt GT] [--radar] [--no-interp] [--no-solver]
 
 optional arguments:
-  -h, --help   show this help message and exit
-  --pred PRED  path to prediction files
-  --gt GT      path to groundtruth files
-  --radar      evaluate radar odometry in SE(2)
-  --no-interp  disable built-in interpolation
-  --no-solver  disable solver for built-in interpolation
+  -h, --help       show this help message and exit
+  --pred PRED      path to prediction files
+  --gt GT          path to groundtruth files
+  --radar          evaluate radar odometry in SE(2)
+  --interp INTERP  path to interpolation output, do not set if evaluating
+  --no-solver      disable solver for built-in interpolation
 ```
 The `pred` argument is the directory containing the odometry sequence files, which is `pyboreas/test/demo/pred/3d/` for this demo. 
 
@@ -41,29 +45,38 @@ The `gt` argument is for the root directory of your dataset, which should contai
 
 The `radar` argument should be included to evaluate the 2D benchmark. The 3D benchmark is run by default.
 
-The `no-interp` argument should be included to evaluate without the built-in interpolation method. By default the benchmark will interpolate your odometry results to the timestamps of the evaluation groundtruth, which exactly correspond to the lidar frame timestamps for the 3D benchmark. The 2D benchmark timestamps exactly correspond to the radar timestamps. If the provided odometry estimates are provided with the correct timestamps, including `no-interp` will disable the interpolation and run much faster.
+The `interp` argument should be set as the output directory for the interpolation files. Setting this argument will change the operation of the benchmark script to interpolation mode, i.e., it will not compute the errors and output error results. Instead, it will output a `.txt` file for each of your odometry sequences interpolated at the groundtruth (lidar) timestamps. Use this argument only if you need to interpolate.
 
-The `no-solver` argument should be included to disable the solver for the built-in interpolation method. The benchmark applies a batch optimization routine to solve for velocity estimates of each frame in order to interpolate. If the solver is disabled, the benchmark instead interpolates with velocities approximated with finite difference. This is less accurate, but will run faster.
+The `no-solver` argument should be included to disable the solver for the built-in interpolation method. We use a batch optimization routine to solve for velocity estimates of each frame in order to interpolate. If the solver is disabled, the script instead interpolates with velocities approximated with finite difference. This is less accurate, but will run much faster. Suggested use is for debugging.
 
-This demo requires the built-in interpolation method. To run the demo without the solver:
+This demo requires the built-in interpolation method. We will interpolate without the solver just for demonstration purposes (run it faster):
 ```
-python eval/odometry_benchmark.py --pred test/demo/pred/3d/ --gt test/demo/gt/ --no-solver
+python eval/odometry_benchmark.py --pred test/demo/pred/3d/ --gt test/demo/gt/ --interp test/demo/pred/3d/interp/ --no-solver
+
+interpolating sequence boreas-2021-08-05-13-34.txt ...
+boreas-2021-08-05-13-34.txt took 9.404045581817627  seconds
+output file: test/demo/pred/3d/interp/boreas-2021-08-05-13-34.txt 
+
+interpolating sequence boreas-2021-09-02-11-42.txt ...
+boreas-2021-09-02-11-42.txt took 24.32158589363098  seconds
+output file: test/demo/pred/3d/interp/boreas-2021-09-02-11-42.txt
+```
+
+Now to evaluate the interpolated sequences:
+```
+python eval/odometry_benchmark.py --pred test/demo/pred/3d/interp/ --gt test/demo/gt/
+
 processing sequence boreas-2021-08-05-13-34.txt ...
-boreas-2021-08-05-13-34.txt took 11.260696411132812  seconds
+boreas-2021-08-05-13-34.txt took 2.0557074546813965  seconds
 Error:  1.1093740051895995  %,  0.004420958778842962  deg/m 
 
 processing sequence boreas-2021-09-02-11-42.txt ...
-boreas-2021-09-02-11-42.txt took 26.46020483970642  seconds
+boreas-2021-09-02-11-42.txt took 1.6580510139465332  seconds
 Error:  0.02641292148342157  %,  0.00017168761982101885  deg/m 
 
 Evaluated sequences:  ['boreas-2021-08-05-13-34.txt', 'boreas-2021-09-02-11-42.txt']
 Overall error:  0.5678934633365106  %,  0.0022963231993319904  deg/m
 ```
-To run the demo with the solver:
-```
-python eval/odometry_benchmark.py --pred test/demo/pred/3d/ --gt test/demo/gt/
-```
-Note that this can take a couple minutes for each sequence, depending on your hardware.
 
 ### Online evaluation
 TODO
