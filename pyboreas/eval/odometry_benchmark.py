@@ -1,6 +1,7 @@
 import argparse
 import os
-from pyboreas.utils.odometry import get_sequences, get_sequence_poses, get_sequence_poses_gt, compute_kitti_metrics
+from pyboreas.utils.odometry import get_sequences, get_sequence_poses, get_sequence_poses_gt, \
+    compute_kitti_metrics, compute_interpolation
 
 if __name__ == '__main__':
     # parse arguments
@@ -24,8 +25,7 @@ if __name__ == '__main__':
     T_pred, times_pred, seq_lens_pred = get_sequence_poses(args.pred, seq)
     T_gt, times_gt, seq_lens_gt, crop = get_sequence_poses_gt(args.gt, seq, dim)
 
-    # if we are interpolating...
-    if args.interp:
+    if args.interp:     # if we are interpolating...
         # can't be the same as pred
         if args.interp == args.pred:
             raise ValueError('`interp` directory path cannot be the same as the `pred` directory path')
@@ -34,12 +34,12 @@ if __name__ == '__main__':
         if not os.path.exists(args.interp):
             os.mkdir(args.interp)
 
-    # compute errors
-    t_err, r_err, _ = compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred,
-                                         seq_lens_gt, seq_lens_pred, seq, args.pred, dim, crop, args.interp, args.solver)
+        # interpolate
+        compute_interpolation(T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, args.interp, args.solver)
+    else:
+        # compute errors
+        t_err, r_err, _ = compute_kitti_metrics(T_gt, T_pred, seq_lens_gt, seq_lens_pred, seq, args.pred, dim, crop)
 
-    # if we are evaluating, output print statements
-    if not args.interp:
         # print out results
         print('Evaluated sequences: ', seq)
         print('Overall error: ', t_err, ' %, ', r_err, ' deg/m')

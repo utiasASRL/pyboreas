@@ -7,7 +7,7 @@ import math
 from pylgmath import Transformation, se3op
 from pyboreas.utils.utils import get_inverse_tf
 from pyboreas.utils.odometry import interpolate_poses, write_traj_file, read_traj_file, \
-    get_sequences, get_sequence_poses, get_sequence_poses_gt, compute_kitti_metrics
+    get_sequences, get_sequence_poses, get_sequence_poses_gt, compute_kitti_metrics, compute_interpolation
 
 
 class OdometryTestCase(unittest.TestCase):
@@ -84,15 +84,13 @@ class OdometryTestCase(unittest.TestCase):
         T_gt, times_gt, seq_lens_gt, crop = get_sequence_poses_gt(gt, seq, dim)
 
         # interpolate
-        _, _, _ = compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred,
-                                             seq_lens_gt, seq_lens_pred, seq, None, dim, crop, interp, solver)
+        compute_interpolation(T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, interp, solver)
 
         # read in interpolated sequences
         T_pred, times_pred, seq_lens_pred = get_sequence_poses(interp, seq)
 
         # compute errors
-        _, _, err_list = compute_kitti_metrics(T_gt, T_pred, times_gt, times_pred,
-                                             seq_lens_gt, seq_lens_pred, seq, None, dim, crop, '', solver)
+        _, _, err_list = compute_kitti_metrics(T_gt, T_pred, seq_lens_gt, seq_lens_pred, seq, '', dim, crop)
 
         # first sequence should be close to kitti C++ results: 0.011094 0.000077
         self.assertTrue(math.fabs(err_list[0][0] - 0.011094*100) < 1e-4)
