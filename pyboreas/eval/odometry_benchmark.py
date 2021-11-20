@@ -11,6 +11,7 @@ if __name__ == '__main__':
     parser.add_argument('--radar', dest='radar', action='store_true', help='evaluate radar odometry in SE(2)')
     parser.set_defaults(radar=False)
     parser.add_argument('--interp', default='', type=str, help='path to interpolation output, do not set if evaluating')
+    parser.add_argument('--processes', default=os.cpu_count(), type=int, help='number of workers to use for built-in interpolation')
     parser.add_argument('--no-solver', dest='solver', action='store_false', help='disable solver for built-in interpolation')
     parser.set_defaults(solver=True)
     args = parser.parse_args()
@@ -35,7 +36,7 @@ if __name__ == '__main__':
             os.mkdir(args.interp)
 
         # interpolate
-        compute_interpolation(T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, args.interp, args.solver)
+        compute_interpolation(T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, args.interp, args.solver, args.processes)
     else:
         # compute errors
         t_err, r_err, _ = compute_kitti_metrics(T_gt, T_pred, seq_lens_gt, seq_lens_pred, seq, args.pred, dim, crop)
