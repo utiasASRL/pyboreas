@@ -109,6 +109,7 @@ varpi = lidar_frame.body_rate  # 6x1 vel in sensor frame [v_se_in_s; w_se_in_s]
 ```
 ## Data Visualizer
 We provide a tool for visualization of sequence frames. Currently, the visualizer supports BEV lidar visualization, BEV radar visualization, Perspective camera + lidar visualization, and 3D lidar point visualization.
+
 ```Python
 from pyboreas import BoreasDataset
 from pyboreas.vis.visualizer import BoreasVisualizer
@@ -118,7 +119,7 @@ bd = BoreasDataset(root)
 seq = bd.sequences[0]
 
 bv = BoreasVisualizer(seq)
-bv.visualize(frame_idx=0)
+bv.visualize(starting_frame_idx=0)
 ```
 Running the above code will start a local web server that visualizes the selected sequence.
 ```

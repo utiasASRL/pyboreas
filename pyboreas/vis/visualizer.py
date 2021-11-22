@@ -5,13 +5,15 @@ import time
 import copy
 
 import dash
-from dash import dcc
-from dash import html
+from dash import dcc, html, callback_context
+from dash.exceptions import PreventUpdate
 import numpy as np
 import plotly.graph_objects as go
+import plotly.express as px
 from PIL import Image
 from dash.dependencies import Input, Output, State
 from matplotlib import cm
+from threading import Lock
 
 from pyboreas.vis import map_utils
 from pyboreas.utils.utils import get_closest_frame, get_inverse_tf
@@ -39,6 +41,7 @@ class BoreasVisualizer:
         self.plots_initialized = False
 
         self.map_data, self.map_point_ids, self.map_points = map_utils.load_map(Path(__file__).parent.absolute() / "boreas_lane.osm")
+        self.fig_update_lock = Lock()
 
 
     def plot_lidar_bev(self, idx):
@@ -199,7 +202,6 @@ class BoreasVisualizer:
 
     def plot_3d_lidar(self, idx):
         # Colored lidar
-
         lid = self.seq.get_lidar(idx)
         lid.remove_motion(lid.body_rate)
         T_camera_lidar = self.get_T_camera_lidar(idx)
@@ -224,7 +226,7 @@ class BoreasVisualizer:
 
         # colors = image[uv[:, 1].astype(int), uv[:, 0].astype(int)]
         colors = bilinear_interp(image, uv[:, 0], uv[:, 1])
-        colors_str = [f'rgb({colors[i][0]}, {colors[i][1]}, {colors[i][2]})' for i in range(colors.shape[0])]
+        colors_str = [f'rgb({int(colors[i][0])}, {int(colors[i][1])}, {int(colors[i][2])})' for i in range(colors.shape[0])]
 
         # Plot points
         fig_color_lidar.add_trace(
@@ -263,7 +265,7 @@ class BoreasVisualizer:
 
         return fig_color_lidar
 
-    def visualize(self, frame_idx):
+    def visualize(self, starting_frame_idx):
         app = dash.Dash(__name__)
 
         app.layout = html.Div(children=[
@@ -286,12 +288,38 @@ class BoreasVisualizer:
             ], style={'padding-left': '10%'}),
 
             html.Div(children=[
+                html.H3(children='Frame Index Selection', style={'fontFamily': 'helvetica', 'textAlign': 'left'}),
+                html.Div(id='ts_info', children=f'Frame Index: {starting_frame_idx} | Timestamp: {self.lidar_frames[starting_frame_idx].timestamp}'),
+
+                html.Div(children=[
+                    dcc.Slider(
+                        id='timestep_slider',
+                        min=0,
+                        max=self.track_length - 1,
+                        value=max(0, min(starting_frame_idx, self.track_length - 1)),
+                        marks={str(idx): str(idx) for idx in range(0, self.track_length - 1, 5)},
+                        tooltip={"placement": "bottom"},
+                        step=1)
+                ], style={'textAlign': 'center'}),
+
+                html.Div(children=[
+                    html.Button(id='sub_10ts_btn', children='<<'),
+                    html.Button(id='sub_ts_btn', children='<'),
+                    dcc.Input(id='user_ts_val', type='number', min=0, max=self.track_length - 1, step=1, value=starting_frame_idx,
+                              style={'width': '50px', 'margin-left': '15px'}),
+                    html.Button(id='user_ts_btn', children='Set Frame Index', style={'margin-right': '15px'}),
+                    html.Button(id='add_ts_btn', children='>'),
+                    html.Button(id='add_10ts_btn', children='>>'),
+                ], style={'textAlign': 'center'}),
+            ], style={'padding-left': '10%', 'padding-right':'10%'}),
+
+            html.Div(children=[
                 html.Div(id="lidar_bev_div",
-                         children=[dcc.Graph(id='bev_plot')],
+                         children=[dcc.Graph(id='lidar_bev_graph', figure=self.plot_functions['lidar_bev'](starting_frame_idx))],
                          style={'display': 'inline-block'}),
 
                 html.Div(id="radar_bev_div",
-                         children=[dcc.Graph(id='radar_plot')],
+                         children=[dcc.Graph(id='radar_bev_graph', figure=self.plot_functions['radar_bev'](starting_frame_idx))],
                          style={'display': 'inline-block'}),
             ], style={'textAlign': 'center'}),
 
@@ -299,32 +327,12 @@ class BoreasVisualizer:
 
             html.Div(children=[
                 html.Div(id="cam_persp_div",
-                         children=[dcc.Graph(id='persp_plot')],
+                         children=[dcc.Graph(id='cam_persp_graph', figure=self.plot_functions['cam_persp'](starting_frame_idx))],
                          style={'display': 'inline-block'}),
 
                 html.Div(id="3d_lidar_div",
-                         children=[dcc.Graph(id='color_lidar_plot')],
+                         children=[dcc.Graph(id='3d_lidar_graph', figure=self.plot_functions['3d_lidar'](starting_frame_idx))],
                          style={'display': 'inline-block'}),
-            ], style={'textAlign': 'center'}),
-
-            html.Div(children=[
-                dcc.Slider(
-                    id='timestep_slider',
-                    min=0,
-                    max=len(self.lidar_frames),
-                    value=max(0, min(frame_idx, len(self.lidar_frames))),
-                    marks={str(idx): str(idx) for idx in range(0, len(self.lidar_frames), 5)},
-                    step=1)
-            ], style={'width': '70%', 'padding-left': '17%', 'padding-right': '13%'}),
-
-            dcc.Interval(id='animator',
-                         interval=2000,  # in milliseconds
-                         n_intervals=0,
-                         disabled=True,
-                         ),
-
-            html.Div(children=[
-                html.Button("Play/Pause", id="play_btn")
             ], style={'textAlign': 'center'}),
         ], style={'width': '60%', 'padding-left': '20%', 'padding-right': '20%'})
 
@@ -350,41 +358,65 @@ class BoreasVisualizer:
             return tuple(res)
 
         @app.callback(
-            Output('bev_plot', 'figure'),
-            Output('radar_plot', 'figure'),
-            Output('persp_plot', 'figure'),
-            Output('color_lidar_plot', 'figure'),
+            Output('lidar_bev_graph', 'figure'),
+            Output('radar_bev_graph', 'figure'),
+            Output('cam_persp_graph', 'figure'),
+            Output('3d_lidar_graph', 'figure'),
             Input('timestep_slider', 'value')
         )
         def plot_graphs(idx):
             res = []
-            for plot_name in self.render_selection.keys():
-                if self.render_selection[plot_name]:
-                    res.append(self.plot_functions[plot_name](idx))
-                else:
-                    res.append(go.Figure())
+            if self.fig_update_lock.acquire(timeout=1):  # Mutex to prevent repeated timestep updates from breaking the callbacks
+                try:
+                    for plot_name in self.render_selection.keys():
+                        if self.render_selection[plot_name]:
+                            res.append(self.plot_functions[plot_name](idx))
+                        else:
+                            res.append(go.Figure())
+                finally:
+                    self.fig_update_lock.release()
+            else:
+                raise PreventUpdate
+
             return tuple(res)
 
         @app.callback(
             Output('timestep_slider', 'value'),
-            Input('animator', 'n_intervals'),
+            Input('sub_10ts_btn', 'n_clicks'),
+            Input('sub_ts_btn', 'n_clicks'),
+            Input('add_ts_btn', 'n_clicks'),
+            Input('add_10ts_btn', 'n_clicks'),
+            Input('user_ts_btn', 'n_clicks'),
             State('timestep_slider', 'value'),
+            State('user_ts_val', 'value'),
         )
-        def on_click(n_intervals, slider_idx):
-            if n_intervals is None:
-                return 0
+        def update_timestep(sub10ts_nclicks, subts_nclicks, addts_nclicks, add10ts_nclicks, usertsbtn_nclicks, ts_value, user_ts_value):
+            if self.fig_update_lock.locked():
+                raise PreventUpdate
+
+            changed_id = [p['prop_id'] for p in callback_context.triggered][0]  # Check what changed the timestep value
+            if 'sub_10ts_btn' in changed_id:
+                new_ts = max(ts_value - 10, 0)
+            elif 'sub_ts_btn' in changed_id:
+                new_ts = max(ts_value - 1, 0)
+            elif 'add_ts_btn' in changed_id:
+                new_ts = min(ts_value + 1, self.track_length - 1)
+            elif 'add_10ts_btn' in changed_id:
+                new_ts = min(ts_value + 10, self.track_length - 1)
+            elif 'user_ts_btn' in changed_id:
+                if user_ts_value is None: raise PreventUpdate  # When input is out of range
+                new_ts = int(user_ts_value)  # Cast to int just in case, range is already limited to (0, track_length)
             else:
-                return (slider_idx + 1) % len(self.lidar_frames)
+                raise PreventUpdate
+
+            return new_ts
 
         @app.callback(
-            Output('animator', 'disabled'),
-            Input('play_btn', 'n_clicks'),
-            State('animator', 'disabled')
+            Output('ts_info', 'children'),
+            Input('timestep_slider', 'value'),
         )
-        def toggle(n, playing):
-            if n:
-                return not playing
-            return playing
+        def update_ts_info(ts_value):
+            return f'Frame Index: {ts_value} | Timestamp: {self.lidar_frames[ts_value].timestamp}'
 
         app.run_server(debug=False)
 
