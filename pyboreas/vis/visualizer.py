@@ -132,7 +132,7 @@ class BoreasVisualizer:
         lid.remove_motion(lid.body_rate)
         T_camera_lidar = self.get_T_camera_lidar(idx)
         lid.transform(T_camera_lidar)
-        lid.passthrough([-75, 75, -20, 10, 2, 40])  # xmin, xmax, ymin, ymax, zmin, zmax
+        lid.passthrough([-75, 75, -20, 10, 2, 60])  # xmin, xmax, ymin, ymax, zmin, zmax
         uv, colors, _ = lid.project_onto_image(self.calib.P0)
         lid.unload_data()
 
@@ -204,7 +204,7 @@ class BoreasVisualizer:
         lid.remove_motion(lid.body_rate)
         T_camera_lidar = self.get_T_camera_lidar(idx)
         lid.transform(T_camera_lidar)
-        lid.passthrough([-50, 50, -10, 5, 2, 80])  # xmin, xmax, ymin, ymax, zmin, zmax
+        lid.passthrough([-30, 30, -10, 5, 2, 80])  # xmin, xmax, ymin, ymax, zmin, zmax
         uv, _, mask = lid.project_onto_image(self.calib.P0)
         points = lid.points[mask][:, :3]
         lid.unload_data()
@@ -239,11 +239,15 @@ class BoreasVisualizer:
         )
 
         # Configure scene & camera
-        scene = dict(aspectratio=dict(x=1, y=1, z=1), xaxis=dict(range=[-100, 100]), yaxis=dict(range=[-100, 100]), zaxis=dict(range=[-100, 100]))
+        scene = dict(aspectratio=dict(x=1, y=1, z=1),
+                     xaxis=dict(range=[-100, 100], showgrid=False, backgroundcolor="rgb(255, 255, 255)", gridcolor="white", zerolinecolor="white"),
+                     yaxis=dict(range=[-100, 100], showgrid=False, backgroundcolor="rgb(255, 255, 255)", gridcolor="white", zerolinecolor="white"),
+                     zaxis=dict(range=[-100, 100], showgrid=False, backgroundcolor="rgb(255, 255, 255)", gridcolor="white", zerolinecolor="white"),
+                     bgcolor='white',)
         camera = dict(
             up=dict(x=0, y=0, z=0),
             center=dict(x=0, y=0, z=0),
-            eye=dict(x=0., y=0, z=-0.03)
+            eye=dict(x=0, y=0, z=-0.03)
         )
 
         fig_color_lidar.update_layout(
@@ -253,6 +257,8 @@ class BoreasVisualizer:
             width=700,
             height=600,
             autosize=False,
+            plot_bgcolor='rgb(255,255,255)',
+            paper_bgcolor='rgb(255,255,255)'
         )
 
         return fig_color_lidar
