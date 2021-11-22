@@ -31,7 +31,7 @@ The Navtech CIR204-H radar has a range resolution of 0.0596m per range bin with 
 
 The FLIR Blackfly S monocular camera has a resolution of 2448 x 2048. Based on the calibration, the camera has a field of view of approximately 81 x 71 degrees. We extract camera images at 10Hz to minimize storage requirements.
 
-The Applanix POSLV system includes an external wheel encoder, and an extra satellite subscription (RTX) which improves the accuracy. All of the logged Applanix data is post-processed using their proprietary POSPac suite. This performs a batch optimization over each sequence. The post-processed position data can be expected to have an RMS error between 5 cm and 20 cm, depending on the sequence. Post-processed data is provided at 200Hz.
+The Applanix POSLV system includes an external wheel encoder, and an RTX subscription which improves the accuracy. All of the logged Applanix data is post-processed using their proprietary POSPac suite. This performs a batch optimization over each sequence. The post-processed position data can be expected to have an RMS error around 5 cm, depending on the sequence. Post-processed data is provided at 200Hz.
 
 ### Placement
 

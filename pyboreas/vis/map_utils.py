@@ -2,80 +2,63 @@ import math
 import xml.etree.ElementTree as xml
 import numpy as np
 import pyproj
+import plotly.graph_objects as go
 
 
-class Point:
-    def __init__(self):
-        self.x = None
-        self.y = None
+def load_map(filename):
+    map_data = xml.parse(filename).getroot()
+    map_point_ids = []
+    map_points = []
+
+    # zone = math.floor((x_origin + 180.) / 6) + 1  # convert longitude to utm zone. doesnt work for all zones
+    zone = 17  # Hardcode for now
+    projector = pyproj.Proj(proj='utm', ellps='WGS84', zone=zone, datum='WGS84')
+
+    for node in map_data.findall("node"):
+        point = projector(float(node.get('lon')), float(node.get('lat')))
+        map_point_ids.append(int(node.get('id')))
+        map_points.append(list(point))
+
+    return map_data, map_point_ids, map_points
 
 
-class MapframeProjector:
-    """
-    Class to convert incoming utm or lat/long points to be in a certain frame of reference (x/y origin & rotation).
-    **If using lat/long, convention is x is long, y is lat.**
-    """
-    def __init__(self, x_origin, y_origin, rot_mtx=None, utm=False):
-        if not utm:
-            self.zone = math.floor((x_origin+180.)/6)+1  # convert to utm zone. doesnt work for all zones
-            self.p = pyproj.Proj(proj='utm', ellps='WGS84', zone=self.zone, datum='WGS84')
-            [self.x_origin, self.y_origin] = self.p(x_origin, y_origin)
-        elif utm:
-            self.zone = 17  # Hardcode for now
-            self.p = pyproj.Proj(proj='utm', ellps='WGS84', zone=self.zone, datum='WGS84')
-            self.x_origin = x_origin
-            self.y_origin = y_origin
-
-        if rot_mtx is not None:
-            self.rot_mtx = rot_mtx[0:2, 0:2]  # Just take 2d component (x, y) of rotation matrix
-        else:
-            self.rot_mtx = None
-
-    def proj_latlon(self, lat, lon):
-        if self.rot_mtx is not None:
-            [x, y] = self.p(lon, lat)
-            rotated = np.matmul(self.rot_mtx, np.array([[x-self.x_origin], [y-self.y_origin]]))
-            return rotated[0][0], rotated[1][0]
-        else:
-            [x, y] = self.p(lon, lat)
-            return [x - self.x_origin, y - self.y_origin]
+def transform_points(points, rot_mtx, x_origin, y_origin):
+    # Transform loaded points into a given frame
+    pts = np.array(points).T
+    pts[0, :] -= x_origin
+    pts[1, :] -= y_origin
+    rotated = np.matmul(rot_mtx[0:2, 0:2], pts)
+    return rotated.T.tolist()
 
 
-def get_way_points(element, point_dict):
-    # Get all points in a way in the osm file
+def get_way_points_bounded(element, point_dict, radius=None):
+    # Get all points in a way in the osm file within a certain radius
     x_pts = []
     y_pts = []
     for nd in element.findall("nd"):
         pt_id = int(nd.get("ref"))
         point = point_dict[pt_id]
-        x_pts.append(point.x)
-        y_pts.append(point.y)
+        if radius is not None:
+            if point[0] ** 2 + point[1] **2 > radius ** 2:
+                continue
+        x_pts.append(point[0])
+        y_pts.append(point[1])
     return x_pts, y_pts
 
 
-def draw_map(filename, axes, x_origin, y_origin, rot_mtx=None, utm=False):
+def draw_map_plotly(map_data, map_point_ids, map_points, fig, cutoff_radius=None):
     """
-    Draws a map from an osm file on the given axis, wrt a given frame.
-
-    Args:
-        filename: path to the osm map file to draw
-        axes: axes to draw the map on
-        x_origin: x coords of origin frame
-        y_origin: y coords of origin frame
-        rot_mtx: rotation matrix of the map from wrt to an ENU frame
-        utm: flag for whether the origin is expressed in UTM or lat/long. If using lat/long, x is long, y is lat
+    Draws a map from map data/pts on the given axis. Uses plotly instead of mpl.
     """
-    map_data = xml.parse(filename).getroot()
-    projector = MapframeProjector(x_origin, y_origin, rot_mtx, utm)
+    # Create dictionary of point id to point data for faster access
+    point_dict = dict(zip(map_point_ids, map_points))
 
-    point_dict = {}
-    for node in map_data.findall("node"):
-        point = Point()
-        point.x, point.y = projector.proj_latlon(float(node.get('lat')), float(node.get('lon')))
-        point_dict[int(node.get('id'))] = point
-
-    axes.patch.set_facecolor('white')
+    all_x, all_y = [], []
     for way in map_data.findall('way'):  # RN: just plot everything as black
-        type_dict = dict(color="black", linewidth=1, zorder=10)
-        x_list, y_list = get_way_points(way, point_dict)
-        axes.plot(x_list, y_list, **type_dict)
+        x_list, y_list = get_way_points_bounded(way, point_dict, cutoff_radius)
+        if len(x_list) == 0 or len(y_list) == 0: continue
+        all_x += x_list
+        all_x.append(float('nan'))
+        all_y += y_list
+        all_y.append(float('nan'))
+    fig.add_trace(go.Scattergl(x=all_x, y=all_y, mode="lines", marker_color="black", line_width=0.5))

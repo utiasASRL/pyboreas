@@ -120,6 +120,7 @@ class PointCloud:
         Return:
             uv (np.ndarray): (N, 2) projected u-v pixel locations in an image
             colors (np.ndarray): (N,) a color value for each pixel location in uv.
+            mask (np.ndarray): mask to select only points that project onto image.
         """
         uv = []
         colors = []
@@ -139,7 +140,16 @@ class PointCloud:
         else:
             print('Warning: {} is not a valid color'.format(color))
             colors = self.points[mask][:, 2]
-        return x[:, :2], colors
+        return x[:, :2], colors, mask
+
+    def random_downsample(self, downsample_rate, in_place=True):
+        rand_idx = np.random.choice(self.points.shape[0],
+                                    size=int(self.points.shape[0] * downsample_rate),
+                                    replace=False)
+        p = self.points[rand_idx, :]
+        if in_place:
+            self.points = p
+        return p
 
 # TODO: remove_ground(self, bool: in_place)
 # TODO: voxelize(self)

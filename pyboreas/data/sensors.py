@@ -70,7 +70,8 @@ class Camera(Sensor):
         self.img = None
 
     def load_data(self):
-        self.img = cv2.imread(self.path)
+        img = cv2.imread(self.path)
+        self.img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         return self.img
 
     def visualize(self, **kwargs):

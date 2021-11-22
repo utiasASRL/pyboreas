@@ -24,5 +24,6 @@ setuptools.setup(
 					  "tqdm>=4.60.0",
 					  "pyproj>=3.1.0",
 					  "utm>=0.7.0",
-					  "asrl-pysteam>=1.0.0"]
+					  "asrl-pysteam>=1.0.4",
+					  "dash>=2.0.0"]
 )
