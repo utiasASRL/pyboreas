@@ -1,10 +1,12 @@
 import os
+from pathlib import Path
 from time import time
 from itertools import accumulate, repeat
 from multiprocessing import Pool
 import numpy as np
 import matplotlib.pyplot as plt
-from pyboreas.utils.utils import get_inverse_tf, rotation_error, translation_error, enforce_orthog, yawPitchRollToRot
+from pyboreas.utils.utils import get_inverse_tf, rotation_error, translation_error, enforce_orthog, yawPitchRollToRot, \
+    get_time_from_filename
 from pylgmath import Transformation
 from pysteam.trajectory import Time, TrajectoryInterface
 from pysteam.state import TransformStateVar, VectorSpaceStateVar
@@ -460,6 +462,53 @@ def get_sequence_poses_gt(path, seq, dim):
         all_times.extend(times)
 
     return all_poses, all_times, seq_lens, crop
+
+def get_sequence_times_gt(path, seq):
+    """Retrieves a list of groundtruth (lidar) timestamps corresponding to the given sequences for 3D evaluation
+    Args:
+        path (string): directory path to root directory of Boreas dataset
+        seq (List[string]): list of sequence file names
+    Returns:
+        all_times (List[int]): list of times in microseconds from all sequence files
+        seq_lens (List[int]): list of sequence lengths
+        crop (List[Tuple]): sequences are cropped to prevent extrapolation, this list holds start and end indices
+    """
+    # loop for each sequence
+    all_times = []
+    seq_lens = []
+    crop = []
+    for filename in seq:
+        # determine path to gt file
+        dir = filename[:-4]     # assumes last four characters are '.txt'
+        lfilepath = os.path.join(path, dir, 'applanix/lidar_poses.csv')  # use 'lidar_poses.csv' for groundtruth
+        cfilepath = os.path.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
+        if os.path.isfile(lfilepath) and os.path.isfile(cfilepath):
+            # csv files exist, use them
+            _, times = read_traj_file_gt(lfilepath, np.identity(4), dim=3)
+            times_np = np.stack(times)
+            _, ctimes = read_traj_file_gt(cfilepath, np.identity(4), dim=3)
+        else:
+            # read timestamps from data
+            lpath = os.path.join(path, dir, 'lidar')  # read lidar data filenames
+            times = [int(Path(f).stem) for f in os.listdir(lpath) if '.bin' in f]
+            times.sort()
+            times_np = np.stack(times)
+
+            cpath = os.path.join(path, dir, 'camera')  # read camera data filenames
+            ctimes = [int(Path(f).stem) for f in os.listdir(cpath) if '.png' in f]
+            ctimes.sort()
+
+        istart = np.searchsorted(times_np, ctimes[0])
+        iend = np.searchsorted(times_np, ctimes[-1])
+        times = times[istart:iend]
+        crop += [(istart, iend)]
+        if times[0] < ctimes[0] or times[-1] > ctimes[-1]:
+            raise ValueError('Invalid start and end indices for groundtruth.')
+
+        seq_lens.append(len(times))
+        all_times.extend(times)
+
+    return all_times, seq_lens, crop
 
 
 def write_traj_file(path, poses, times):
