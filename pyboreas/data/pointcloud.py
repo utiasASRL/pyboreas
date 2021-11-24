@@ -2,7 +2,8 @@ import numpy as np
 import multiprocessing
 from multiprocessing import Pool
 from pyboreas.utils.utils import se3ToSE3, is_sorted
-
+import open3d as o3d
+import time
 
 class PointCloud:
     """
@@ -151,5 +152,30 @@ class PointCloud:
             self.points = p
         return p
 
-# TODO: remove_ground(self, bool: in_place)
-# TODO: voxelize(self)
+    def remove_ground_ransac(self, distance_threshold=0.2, ransac_n=3, num_iterations=300, in_place=True, show=False):
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(self.points[:, 0:3])
+        plane_model, inliers = pcd.segment_plane(distance_threshold=distance_threshold,
+                                                 ransac_n=ransac_n,
+                                                 num_iterations=num_iterations)
+        if show:
+            inlier_cloud = pcd.select_by_index(inliers)
+            inlier_cloud.paint_uniform_color([0, 0, 0])
+            outlier_cloud = pcd.select_by_index(inliers, invert=True)
+            o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud])
+
+        inliers_select = np.in1d(range(self.points.shape[0]), np.asarray(inliers))  # Create selection indicies for ransac inliers
+        if in_place:
+            self.points = self.points[~inliers_select]
+        else:
+            not_ground = self.points[~inliers_select]
+            ground = self.points[inliers_select]
+            return not_ground, ground
+
+    def voxelize(self, voxel_size=0.1, show=False):
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(self.points[:, 0:3])
+        voxel_grid = o3d.geometry.VoxelGrid.create_from_point_cloud(input=pcd, voxel_size=voxel_size)
+        if show:
+            o3d.visualization.draw_geometries([voxel_grid])
+        return voxel_grid  # This is an o3d VoxelGrid object
