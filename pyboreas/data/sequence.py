@@ -37,6 +37,8 @@ class Sequence:
         # Creates list of frame objects for cam, lidar, radar, and inits poses
         self.get_all_frames()
 
+        self.load_label_files()
+
         self._check_download()  # prints warning when sensor data missing
 
     def print(self):
@@ -183,3 +185,21 @@ class Sequence:
         elif ref == 'radar':
             self.camera_frames = [get_closest_frame(rstamp, cstamps, self.camera_frames) for rstamp in rstamps]
             self.lidar_frames = [get_closest_frame(rstamp, lstamps, self.lidar_frames) for rstamp in rstamps]
+
+    def filter_frames_gt(self):
+        # Only keep lidar frames that were labelled, NO interpolated frames
+        keep = []
+        for frame in self.lidar_frames:
+            if frame.has_bbs():
+                keep.append(frame)
+        self.lidar_frames = keep
+
+    def load_label_files(self):
+        self.labelFiles = []
+        self.labelTimes = []
+        self.labelPoses = []
+        for frame in self.lidar_frames:
+            if frame.has_bbs():
+                self.labelFiles.append(osp.join(self.seq_root, 'labels', frame.frame + '.txt'))
+                self.labelTimes.append(frame.timestamp)
+                self.labelPoses.append(frame.pose)

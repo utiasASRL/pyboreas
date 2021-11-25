@@ -2,9 +2,9 @@ import io
 import PIL
 import numpy as np
 import matplotlib.pyplot as plt
+import cv2
 
-from pyboreas.data.bounding_boxes import BoundingBox2D
-from pyboreas.utils.utils import rotToYawPitchRoll, yaw
+from pyboreas.utils.utils import rotToYawPitchRoll, yaw, get_transform2
 
 
 def convert_plt_to_img(dpi=128):
@@ -13,29 +13,6 @@ def convert_plt_to_img(dpi=128):
     plt.close()
     buf.seek(0)
     return PIL.Image.open(buf)
-
-
-def transform_bounding_boxes(T, C_yaw, raw_labels):
-    """
-    Generate bounding boxes from labels and transform them
-    by a SE3 transformation
-    :param T: required SE3 transformation
-    :param C_yaw: yaw component of the SE3 transformation
-    :param raw_labels: original label data
-    """
-    boxes = []
-    for i in range(len(raw_labels)):
-        # Load Labels
-        bbox_raw_pos = np.concatenate(
-            (np.fromiter(raw_labels[i]['position'].values(), dtype=float), [1]))
-        # Create Bounding Box
-        pos = np.matmul(T, np.array([bbox_raw_pos]).T)[:3]
-        rotation = np.matmul(C_yaw, yaw(raw_labels[i]['yaw']))
-        rotToYawPitchRoll(rotation)
-        extent = np.array(list(raw_labels[i]['dimensions'].values())).reshape(3, 1)  # Convert to 2d
-        box = BoundingBox2D(pos, rotation, extent, raw_labels[i]['label'])
-        boxes.append(box)
-    return boxes
 
 
 def vis_camera(cam, figsize=(24.48, 20.48), dpi=100, show=True, save=None):
@@ -47,6 +24,7 @@ def vis_camera(cam, figsize=(24.48, 20.48), dpi=100, show=True, save=None):
         plt.show()
     if save is not None:
         plt.savefig(save, bbox_inches='tight')
+    return ax
 
 
 def vis_lidar(lid, figsize=(10, 10), cmap='winter',
@@ -91,6 +69,7 @@ def vis_lidar(lid, figsize=(10, 10), cmap='winter',
         plt.show()
     if save is not None:
         plt.savefig(save, bbox_inches='tight')
+    return ax
 
 
 def vis_radar(rad, figsize=(10, 10), dpi=100, cart_resolution=0.2384, cart_pixel_width=640, cmap='gray',
@@ -104,6 +83,8 @@ def vis_radar(rad, figsize=(10, 10), dpi=100, cart_resolution=0.2384, cart_pixel
         plt.show()
     if save is not None:
         plt.savefig(save, bbox_inches='tight')
+    return ax
+
 
 def bilinear_interp(img, X, Y):
 
@@ -144,3 +125,52 @@ def bilinear_interp(img, X, Y):
 
     return f.squeeze()
 
+
+def draw_point(img, pixels, color=[0, 0, 255], diameter=3, line_width=4):
+    cv2.circle(img,(pixels[0],pixels[1]), diameter, color, line_width)
+
+
+def draw_box(img, uv, color, line_width, draw_corners=False, draw_box=True):
+    assert(uv.shape[0] == 8 and uv.shape[1] >= 2)
+    box = []
+    for i in range(uv.shape[0]):
+        box.append(tuple(uv[i, :].astype(np.int32)))
+
+    corner_map = {'ftr':0, 'ftl':1, 'btl':2, 'btr':3,
+              'fbr':4, 'fbl':5, 'bbl':6, 'bbr':7}
+    if draw_corners:
+        draw_point(img, box[corner_map['ftl']], [0, 0, 255], 3, 4) # [b,g,r]
+        draw_point(img, box[corner_map['ftr']], [0, 255, 0], 3, 4)
+        draw_point(img, box[corner_map['fbl']], [255, 0, 0], 3, 4)
+        draw_point(img, box[corner_map['fbr']], [255, 255, 0], 3, 4)
+        draw_point(img, box[corner_map['btl']], [0, 0, 128], 3, 4)
+        draw_point(img, box[corner_map['btr']], [0, 128, 0], 3, 4)
+        draw_point(img, box[corner_map['bbl']], [128, 0, 0], 3, 4)
+        draw_point(img, box[corner_map['bbr']], [255, 255, 0], 3, 4)
+
+    if draw_box:
+        cv2.line(img, box[corner_map['ftl']], box[corner_map['ftr']], color, line_width)
+        cv2.line(img, box[corner_map['ftl']], box[corner_map['fbl']], color, line_width)
+        cv2.line(img, box[corner_map['ftr']], box[corner_map['fbr']], color, line_width)
+        cv2.line(img, box[corner_map['fbl']], box[corner_map['fbr']], color, line_width)
+
+        cv2.line(img, box[corner_map['ftl']], box[corner_map['fbr']], color, line_width)
+        cv2.line(img, box[corner_map['ftr']], box[corner_map['fbl']], color, line_width)
+
+        cv2.line(img, box[corner_map['btl']], box[corner_map['btr']], color, line_width)
+        cv2.line(img, box[corner_map['btl']], box[corner_map['bbl']], color, line_width)
+        cv2.line(img, box[corner_map['btr']], box[corner_map['bbr']], color, line_width)
+        cv2.line(img, box[corner_map['bbl']], box[corner_map['bbr']], color, line_width)
+
+        cv2.line(img, box[corner_map['ftl']], box[corner_map['btl']], color, line_width)
+        cv2.line(img, box[corner_map['ftr']], box[corner_map['btr']], color, line_width)
+        cv2.line(img, box[corner_map['fbl']], box[corner_map['bbl']], color, line_width)
+        cv2.line(img, box[corner_map['fbr']], box[corner_map['bbr']], color, line_width)
+
+
+def draw_boxes(img, UV, color=[0,0,255], line_width=2, draw_corners=False):
+    # UV: list of 8x2 np arrays corresponding to BB corners projected onto image coordinates
+    for uv in UV:
+        if uv is None:
+            continue
+        draw_box(img, uv, color, line_width, draw_corners)
