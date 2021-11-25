@@ -1,9 +1,12 @@
 import os
+from pathlib import Path
 from time import time
-from itertools import accumulate
+from itertools import accumulate, repeat
+from multiprocessing import Pool
 import numpy as np
 import matplotlib.pyplot as plt
-from pyboreas.utils.utils import get_inverse_tf, rotation_error, translation_error, enforce_orthog, yawPitchRollToRot
+from pyboreas.utils.utils import get_inverse_tf, rotation_error, translation_error, enforce_orthog, yawPitchRollToRot, \
+    get_time_from_filename
 from pylgmath import Transformation
 from pysteam.trajectory import Time, TrajectoryInterface
 from pysteam.state import TransformStateVar, VectorSpaceStateVar
@@ -234,7 +237,25 @@ def get_path_from_Tvi_list(Tvi_list):
     return path
 
 
-def compute_interpolation(T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, out_dir, solver):
+def compute_interpolation_one_seq(T_pred, times_gt, times_pred, out_fname, solver):
+    """Interpolate for poses at the groundtruth times and write them out as txt files.
+    Args:
+        T_pred (List[np.ndarray]): List of 4x4 SE(3) transforms (fixed reference frame 'i' to frame 'v', T_vi)
+        times_gt (List[int]): List of times (microseconds) corresponding to T_gt
+        times_pred (List[int]): List of times (microseconds) corresponding to T_pred
+        out_fname (string): path to output file for interpolation output
+        solver (bool): 'True' solves velocities for built-in interpolation. 'False' we use a finite-diff. approx.
+    Returns:
+        Nothing
+    """
+    T_query = interpolate_poses(T_pred, times_pred, times_gt, solver)   # interpolate
+    write_traj_file(out_fname, T_query, times_gt)    # write out
+    print(f'interpolated sequence {os.path.basename(out_fname)}, output file: {out_fname}')
+
+    return
+
+
+def compute_interpolation(T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, out_dir, solver, processes):
     """Interpolate for poses at the groundtruth times and write them out as txt files.
     Args:
         T_pred (List[np.ndarray]): List of 4x4 SE(3) transforms (fixed reference frame 'i' to frame 'v', T_vi)
@@ -249,26 +270,41 @@ def compute_interpolation(T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pr
         Nothing
     """
     # get start and end indices of each sequence
-    indices_gt = [0]
-    indices_gt.extend(list(accumulate(seq_lens_gt)))
-    indices_pred = [0]
-    indices_pred.extend(list(accumulate(seq_lens_pred)))
+    indices_gt = tuple(accumulate(seq_lens_gt, initial=0))
+    indices_pred = tuple(accumulate(seq_lens_pred, initial=0))
 
-    # loop for each sequence
-    for i in range(len(seq_lens_pred)):
-        ts = time()  # start time
+    # prepare input iterators to compute_interpolation_one_seq
+    T_pred_seq =  (T_pred[indices_pred[i]:indices_pred[i+1]] for i in range(len(seq_lens_pred)))
+    times_gt_seq = (times_gt[indices_gt[i]:indices_gt[i+1]] for i in range(len(seq_lens_pred)))
+    times_pred_seq = (times_pred[indices_pred[i]:indices_pred[i+1]] for i in range(len(seq_lens_pred)))
+    out_fname_seq = (os.path.join(out_dir, seq[i]) for i in range(len(seq_lens_pred)))
+    solver_seq = repeat(solver, len(seq_lens_pred))
 
-        # get poses and times of current sequence
-        T_pred_seq = T_pred[indices_pred[i]:indices_pred[i+1]]
-        times_gt_seq = times_gt[indices_gt[i]:indices_gt[i+1]]
-        times_pred_seq = times_pred[indices_pred[i]:indices_pred[i+1]]
+    if processes == 1:
+        # loop for each sequence
+        for i in range(len(seq_lens_pred)):
+            ts = time()  # start time
 
-        # query predicted trajectory at groundtruth times and write out
-        print('interpolating sequence', seq[i], '...')
-        T_query = interpolate_poses(T_pred_seq, times_pred_seq, times_gt_seq, solver)   # interpolate
-        write_traj_file(os.path.join(out_dir, seq[i]), T_query, times_gt_seq)    # write out
-        print(seq[i], 'took', str(time() - ts), ' seconds')
-        print('output file:', os.path.join(out_dir, seq[i]), '\n')
+            # get poses and times of current sequence
+            T_pred_i = next(T_pred_seq)
+            times_gt_i = next(times_gt_seq)
+            times_pred_i = next(times_pred_seq)
+
+            # query predicted trajectory at groundtruth times and write out
+            print('interpolating sequence', seq[i], '...')
+            T_query = interpolate_poses(T_pred_i, times_pred_i, times_gt_i, solver)   # interpolate
+            write_traj_file(os.path.join(out_dir, seq[i]), T_query, times_gt_i)    # write out
+            print(seq[i], 'took', str(time() - ts), ' seconds')
+            print('output file:', os.path.join(out_dir, seq[i]), '\n')
+    else:
+        # compute interpolation for each sequence in parallel
+        with Pool(processes) as p:
+            ts = time()  # start time
+
+            print(f'interpolating {len(seq_lens_pred)} sequences in parallel using {processes} workers ...')
+            p.starmap(
+                compute_interpolation_one_seq, zip(T_pred_seq, times_gt_seq, times_pred_seq, out_fname_seq, solver_seq))
+            print(f'interpolation took {time() - ts:.2f} seconds\n')
 
     return
 
@@ -427,6 +463,53 @@ def get_sequence_poses_gt(path, seq, dim):
 
     return all_poses, all_times, seq_lens, crop
 
+def get_sequence_times_gt(path, seq):
+    """Retrieves a list of groundtruth (lidar) timestamps corresponding to the given sequences for 3D evaluation
+    Args:
+        path (string): directory path to root directory of Boreas dataset
+        seq (List[string]): list of sequence file names
+    Returns:
+        all_times (List[int]): list of times in microseconds from all sequence files
+        seq_lens (List[int]): list of sequence lengths
+        crop (List[Tuple]): sequences are cropped to prevent extrapolation, this list holds start and end indices
+    """
+    # loop for each sequence
+    all_times = []
+    seq_lens = []
+    crop = []
+    for filename in seq:
+        # determine path to gt file
+        dir = filename[:-4]     # assumes last four characters are '.txt'
+        lfilepath = os.path.join(path, dir, 'applanix/lidar_poses.csv')  # use 'lidar_poses.csv' for groundtruth
+        cfilepath = os.path.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
+        if os.path.isfile(lfilepath) and os.path.isfile(cfilepath):
+            # csv files exist, use them
+            _, times = read_traj_file_gt(lfilepath, np.identity(4), dim=3)
+            times_np = np.stack(times)
+            _, ctimes = read_traj_file_gt(cfilepath, np.identity(4), dim=3)
+        else:
+            # read timestamps from data
+            lpath = os.path.join(path, dir, 'lidar')  # read lidar data filenames
+            times = [int(Path(f).stem) for f in os.listdir(lpath) if '.bin' in f]
+            times.sort()
+            times_np = np.stack(times)
+
+            cpath = os.path.join(path, dir, 'camera')  # read camera data filenames
+            ctimes = [int(Path(f).stem) for f in os.listdir(cpath) if '.png' in f]
+            ctimes.sort()
+
+        istart = np.searchsorted(times_np, ctimes[0])
+        iend = np.searchsorted(times_np, ctimes[-1])
+        times = times[istart:iend]
+        crop += [(istart, iend)]
+        if times[0] < ctimes[0] or times[-1] > ctimes[-1]:
+            raise ValueError('Invalid start and end indices for groundtruth.')
+
+        seq_lens.append(len(times))
+        all_times.extend(times)
+
+    return all_times, seq_lens, crop
+
 
 def write_traj_file(path, poses, times):
     """Writes trajectory into a space-separated txt file
@@ -488,9 +571,9 @@ def read_traj_file_gt(path, T_ab, dim):
 
     T_ab = enforce_orthog(T_ab)
     for line in lines[1:]:
-       pose, time = convert_line_to_pose(line, dim)
-       poses += [enforce_orthog(T_ab @ get_inverse_tf(pose))]  # convert T_iv to T_vi and apply calibration
-       times += [int(time)]  # microseconds
+        pose, time = convert_line_to_pose(line, dim)
+        poses += [enforce_orthog(T_ab @ get_inverse_tf(pose))]  # convert T_iv to T_vi and apply calibration
+        times += [int(time)]  # microseconds
     return poses, times
 
 def convert_line_to_pose(line, dim):
@@ -520,4 +603,3 @@ def convert_line_to_pose(line, dim):
         raise ValueError('Invalid dim value in convert_line_to_pose. Use either 2 or 3.')
     time = int(line[0])
     return T, time
-

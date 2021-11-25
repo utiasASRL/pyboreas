@@ -73,6 +73,7 @@ class OdometryTestCase(unittest.TestCase):
         dim = 3
         interp = 'pyboreas/test/demo/pred/3d/interptest'
         solver = False
+        processes = 2
 
         # make interp directory if it doesn't exist
         if not os.path.exists(interp):
@@ -84,7 +85,7 @@ class OdometryTestCase(unittest.TestCase):
         T_gt, times_gt, seq_lens_gt, crop = get_sequence_poses_gt(gt, seq, dim)
 
         # interpolate
-        compute_interpolation(T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, interp, solver)
+        compute_interpolation(T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, interp, solver, processes)
 
         # read in interpolated sequences
         T_pred, times_pred, seq_lens_pred = get_sequence_poses(interp, seq)
