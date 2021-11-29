@@ -1,4 +1,8 @@
 import numpy as np
+from mpl_toolkits import mplot3d
+import matplotlib.pyplot as plt
+# import matplotlib
+# matplotlib.use('tkagg')
 import multiprocessing
 from multiprocessing import Pool
 from pyboreas.utils.utils import se3ToSE3, is_sorted
@@ -15,6 +19,7 @@ class PointCloud:
 
     def transform(self, T, in_place=True):
         """Transforms points given a transform, T. x_out = np.matmul(T, x)
+
         Args:
             T (np.ndarray): 4x4 transformation matrix
             in_place (bool): if True, self.points is updated
@@ -32,6 +37,7 @@ class PointCloud:
 
     def remove_motion(self, body_rate, tref=None, in_place=True):
         """Removes motion distortion from a pointcloud
+
         Args:
             body_rate (np.ndarray): (6, 1) [vx, vy, vz, wx, wy, wz] in sensor frame
             tref (float): reference time to transform the points towards
@@ -89,6 +95,7 @@ class PointCloud:
 
     def passthrough(self, bounds=[], in_place=True):
         """Removes points outside the specified bounds
+
         Args:
             bounds (list): [xmin, xmax, ymin, ymax, zmin, zmax]
             in_place (bool): if True, self.points is updated
@@ -113,6 +120,7 @@ class PointCloud:
     # returns pixel locations for lidar point projections onto an image plane
     def project_onto_image(self, P, width=2448, height=2048, color='depth'):
         """Projects 3D points onto a 2D image plane
+
         Args:
             P (np.ndarray): [fx 0 cx 0; 0 fy cy 0; 0 0 1 0; 0 0 0 1] cam projection
             width (int): width of image
@@ -152,25 +160,79 @@ class PointCloud:
             self.points = p
         return p
 
-    def remove_ground_ransac(self, distance_threshold=0.2, ransac_n=3, num_iterations=300, in_place=True, show=False):
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(self.points[:, 0:3])
-        plane_model, inliers = pcd.segment_plane(distance_threshold=distance_threshold,
-                                                 ransac_n=ransac_n,
-                                                 num_iterations=num_iterations)
-        if show:
-            inlier_cloud = pcd.select_by_index(inliers)
-            inlier_cloud.paint_uniform_color([0, 0, 0])
-            outlier_cloud = pcd.select_by_index(inliers, invert=True)
-            o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud])
+    def remove_ground_ransac(self, inlier_thresh=0.3, term_thresh=0.95, pts_range_xy=20, pts_range_z=0.5, max_iters=500,
+                             in_place=True, show=False, show_subsample=False, print_debug=False):
+        """Removes ground plane points via a RANSAC plane fit on a subsampled portion of the lidar pointcloud around the vehicle.
 
-        inliers_select = np.in1d(range(self.points.shape[0]), np.asarray(inliers))  # Create selection indicies for ransac inliers
+        Args:
+            inlier_thresh (float): threshold to consider a point an inlier in the plane (m)
+            term_thresh (float): inlier probability threshold to terminate the RANSNAC plane fit
+            pts_range_xy (float): distance around lidar (in x and y axis) to clip pointcloud before doing plane fit (m)
+            pts_range_z (float): distance around ground (in z axis) to clip pointcloud before doing plane fit (m)
+            max_iters (int): max iterations for RANSAC algorithm
+            in_place (bool): if True, self.points is updated
+            show (bool): if True, generates a plot of the plane fit result
+            show_subsample: (bool) if True, generates a plot of the subsampled lidar cloud
+            print_debug (bool): if True, prints simple debug information
+
+        Returns:
+            points (nd.array): [n x 6] array of points with the ground plane removed
+        """
+        lidar_height_z = 2.13  # From calibration
+        subsample = self.passthrough([-pts_range_xy, pts_range_xy,  # Only use a subsample of points around the vehicle for ransac plane fit
+                                      -pts_range_xy, pts_range_xy,
+                                      -pts_range_z - lidar_height_z, pts_range_z - lidar_height_z], in_place=False)[:, 0:3]
+        max_inlier_pct = -1
+        plane_norm = None
+
+        for i in range(max_iters):
+            rand_idx = np.random.choice(subsample.shape[0], 3)  # Choose 3 points for plane fit
+
+            # Construct plane
+            p_a = subsample[rand_idx[0]]
+            p_b = subsample[rand_idx[1]]
+            p_c = subsample[rand_idx[2]]
+            v_a = p_a - p_b
+            v_c = p_c - p_b
+            norm = np.cross(v_a, v_c)
+            u_norm = norm/np.linalg.norm(norm)
+
+            # Get errors/inliers
+            dists = np.abs((subsample - p_a) @ u_norm)
+            inliers_count = (np.where(dists < inlier_thresh))[0].shape[0]
+            inliers_pct = inliers_count / subsample.shape[0]
+            if inliers_pct > max_inlier_pct:
+                max_inlier_pct = inliers_pct
+                plane_norm = u_norm
+                dists_sub = dists
+                if inliers_pct > term_thresh:  # Terminate if threshold met
+                    break
+
+        if print_debug:
+            print(f"Iterations: {i+1} | Inliers% on Subsample: {max_inlier_pct:.4f}")
+
+        dists = np.abs((self.points[:, 0:3] - [0, 0, -lidar_height_z]) @ plane_norm)
+        outliers = self.points[np.where(dists > inlier_thresh)[0], :]
+
+        if show_subsample:  # Plot the subsampled points used for plane fit
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(subsample)
+            inlier_cloud = pcd.select_by_index(np.where(dists_sub < inlier_thresh)[0])
+            inlier_cloud.paint_uniform_color([0, 0, 0])
+            outlier_cloud = pcd.select_by_index(np.where(dists_sub < inlier_thresh)[0], invert=True)
+            o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud], window_name='Subsampled Pointcloud for GP Removal')
+
+        if show:  # Plot inliers/outliers result of plane fit
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(self.points[:, 0:3])
+            inlier_cloud = pcd.select_by_index(np.where(dists < inlier_thresh)[0])
+            inlier_cloud.paint_uniform_color([0, 0, 0])
+            outlier_cloud = pcd.select_by_index(np.where(dists < inlier_thresh)[0], invert=True)
+            o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud], window_name='GP Removal Results (Black = Ground)')
+
         if in_place:
-            self.points = self.points[~inliers_select]
-        else:
-            not_ground = self.points[~inliers_select]
-            ground = self.points[inliers_select]
-            return not_ground, ground
+            self.points = outliers
+        return outliers
 
     def voxelize(self, voxel_size=0.1, show=False):
         pcd = o3d.geometry.PointCloud()
