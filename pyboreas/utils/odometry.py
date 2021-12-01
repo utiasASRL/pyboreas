@@ -190,8 +190,7 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err):
         t_err (List[float]): list of average translation error corresponding to lengths
         r_err (List[float]): list of average rotation error corresponding to lengths
     """
-    path_odom = get_path_from_Tvi_list(T_odom)
-    path_gt = get_path_from_Tvi_list(T_gt)
+    path_odom, path_gt = get_path_from_Tvi_list(T_odom, T_gt)
 
     # plot of path
     plt.figure(figsize=(6, 6))
@@ -224,17 +223,27 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err):
     plt.close()
 
 
-def get_path_from_Tvi_list(Tvi_list):
-    """Gets 3D path (xyz) from list of poses T_vk_i (transform between vehicle frame at time k and fixed frame i).
+def get_path_from_Tvi_list(T_vi_odom, T_vi_gt):
+    """Gets 3D path (xyz) from list of poses T_vk_i (transform between vehicle frame at time k and fixed frame i) and
+    aligns the groundtruth path with the estimated path.
     Args:
-        Tvi_list (List[np.ndarray]): K length list of 4x4 poses T_vk_i
+        T_vi_odom (List[np.ndarray]): list of 4x4 estimated poses T_vk_i (vehicle frame at time k and fixed frame i)
+        T_vi_gt (List[np.ndarray]): List of 4x4 groundtruth poses T_vk_i (vehicle frame at time k and fixed frame i)
     Returns:
-        path (np.ndarray): K x 3 numpy array of xyz coordinates
+        path_odom (np.ndarray): K x 3 numpy array of estimated xyz coordinates
+        path_gt (np.ndarray): K x 3 numpy array of groundtruth xyz coordinates
     """
-    path = np.zeros((len(Tvi_list), 3), dtype=np.float64)
-    for j, Tvi in enumerate(Tvi_list):
-        path[j] = (-Tvi[:3, :3].T @ Tvi[:3, 3:4]).squeeze()
-    return path
+    assert len(T_vi_odom) == len(T_vi_gt)  # assume 1:1 correspondence
+    T_iv_odom = [np.linalg.inv(T_vk_i_odom) for T_vk_i_odom in T_vi_odom]
+
+    T_iv_gt = [np.linalg.inv(T_vk_i_gt) for T_vk_i_gt in T_vi_gt]
+    T_odom_gt_i = T_iv_odom[0] @ np.linalg.inv(T_iv_gt[0])  # align the first pose
+    T_iv_gt_aligned = [T_odom_gt_i @ T_i_vk_gt for T_i_vk_gt in T_iv_gt]
+
+    path_odom = np.array([T_i_vk[:3, 3] for T_i_vk in T_iv_odom], dtype=np.float64)
+    path_gt = np.array([T_i_vk[:3, 3] for T_i_vk in T_iv_gt_aligned], dtype=np.float64)
+
+    return path_odom, path_gt
 
 
 def compute_interpolation_one_seq(T_pred, times_gt, times_pred, out_fname, solver):
