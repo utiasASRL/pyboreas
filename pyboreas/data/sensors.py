@@ -16,6 +16,7 @@ from pyboreas.data.bounding_boxes import BoundingBoxes
 class Sensor:
     def __init__(self, path):
         self.path = path
+        self.labelFolder = None
         p = Path(path)
         self.frame = p.stem
         self.sensType = p.parts[-2]
@@ -47,7 +48,7 @@ class Sensor:
 
     def get_bounding_boxes(self, seqLabelFiles=[], seqLabelTimes=[], seqLabelPoses=[]):
         self.bbs = BoundingBoxes()
-        labelPath = osp.join(self.seq_root, 'labels', self.frame + '.txt')
+        labelPath = osp.join(self.seq_root, self.labelFolder, self.frame + '.txt')
         if osp.exists(labelPath):
             self.bbs.load_from_file(labelPath)
         else:
@@ -81,10 +82,8 @@ class Lidar(Sensor, PointCloud):
         self.points = None
 
     def has_bbs(self):
-        labelPath = osp.join(self.seq_root, 'labels', self.frame + '.txt')
+        labelPath = osp.join(self.seq_root, self.labelFolder, self.frame + '.txt')
         return osp.exists(labelPath)
-
-    # TODO: get_semantics()
 
 
 class Camera(Sensor):
@@ -102,8 +101,6 @@ class Camera(Sensor):
 
     def unload_data(self):
         self.img = None
-
-    # TODO: get_bounding_boxes() # retrieve from file, cache to class variable
 
 
 class Radar(Sensor):

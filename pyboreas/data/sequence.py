@@ -10,7 +10,7 @@ class Sequence:
     """
     Class for working with an individual Boreas dataset sequence
     """
-    def __init__(self, boreas_root, seqSpec):
+    def __init__(self, boreas_root, seqSpec, labelFolder='labels'):
         """init
         Args:
             boreas_root (str): path to root folder ex: /path/to/data/boreas/
@@ -24,6 +24,7 @@ class Sequence:
         else:
             self.start_ts = '0'  # dummy start and end if not specified
             self.end_ts = '9' * 21
+        self.labelFolder = labelFolder
         self.seq_root = osp.join(boreas_root, self.ID)
         self.applanix_root = osp.join(self.seq_root, 'applanix')
         self.calib_root = osp.join(self.seq_root, 'calib')
@@ -139,6 +140,7 @@ class Sequence:
                     if self.start_ts <= ts and ts <= self.end_ts:
                         frame = SensorType(osp.join(root, ts + ext))
                         frame.init_pose(data)
+                        frame.labelFolder = self.labelFolder
                         frames.append(frame)
         else:
             framenames = sorted([f for f in os.listdir(root) if ext in f])
@@ -200,6 +202,6 @@ class Sequence:
         self.labelPoses = []
         for frame in self.lidar_frames:
             if frame.has_bbs():
-                self.labelFiles.append(osp.join(self.seq_root, 'labels', frame.frame + '.txt'))
+                self.labelFiles.append(osp.join(self.seq_root, self.labelFolder, frame.frame + '.txt'))
                 self.labelTimes.append(frame.timestamp)
                 self.labelPoses.append(frame.pose)

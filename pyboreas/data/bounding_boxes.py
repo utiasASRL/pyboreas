@@ -12,7 +12,7 @@ class BoundingBoxes:
         self.path = None
 
     def load_from_file(self, path):
-        assert(osp.exists(path))
+        assert(osp.exists(path)), path
         self.bbs = []
         self.path = path
         with open(path) as f:
@@ -41,7 +41,7 @@ class BoundingBoxes:
 
     def render_2d(self, ax, color='r', **kwargs):
         for bb in self.bbs:
-            bb.render_2d(ax, color=color, **kwargs)
+            bb.render_2d(ax, color, **kwargs)
 
     def transform(self, T):
         for bb in self.bbs: 
@@ -162,7 +162,7 @@ class BoundingBox:
             points.append(_get_point_with_offset(pose, self.extent.squeeze() * np.array(dims[i]) / 2))
         self.pc = PointCloud(np.array(points))
 
-    def render_2d(self, ax, color="r", **kwargs):
+    def render_2d(self, ax, color='r', **kwargs):
         """Render the bbox into a top-down 2d view
 
         Args:
