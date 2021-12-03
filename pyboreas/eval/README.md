@@ -28,8 +28,8 @@ The benchmark evaluation can be run locally for sequences with known groundtruth
 From the root directory, go to the directory `pyboreas`. We can see the arguments of the benchmark script as follows:
 ```
 cd pyboreas
-python eval/odometry_benchmark.py -h
-usage: odometry_benchmark.py [-h] [--pred PRED] [--gt GT] [--radar] [--no-interp] [--no-solver]
+python eval/odometry.py -h
+usage: odometry.py [-h] [--pred PRED] [--gt GT] [--radar] [--no-interp] [--no-solver]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -55,7 +55,7 @@ The `no-solver` argument should be included to disable the solver for the built-
 
 This demo requires the built-in interpolation method. We will interpolate without the solver just for demonstration purposes (run it faster):
 ```
-python eval/odometry_benchmark.py --pred test/demo/pred/3d/ --gt test/demo/gt/ --interp test/demo/pred/3d/interp/ --processes 1 --no-solver
+python eval/odometry.py --pred test/demo/pred/3d/ --gt test/demo/gt/ --interp test/demo/pred/3d/interp/ --processes 1 --no-solver
 
 interpolating sequence boreas-2021-08-05-13-34.txt ...
 boreas-2021-08-05-13-34.txt took 9.404045581817627  seconds
@@ -68,7 +68,7 @@ output file: test/demo/pred/3d/interp/boreas-2021-09-02-11-42.txt
 
 Now to evaluate the interpolated sequences:
 ```
-python eval/odometry_benchmark.py --pred test/demo/pred/3d/interp/ --gt test/demo/gt/
+python eval/odometry.py --pred test/demo/pred/3d/interp/ --gt test/demo/gt/
 
 processing sequence boreas-2021-08-05-13-34.txt ...
 boreas-2021-08-05-13-34.txt took 2.0557074546813965  seconds

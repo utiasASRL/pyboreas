@@ -21,9 +21,7 @@ setuptools.setup(
 	install_requires=["numpy>=1.21.0",
 					  "opencv-python>=4.5.3.56",
 					  "matplotlib>=3.4.2",
-					  "tqdm>=4.60.0",
 					  "pyproj>=3.1.0",
-					  "utm>=0.7.0",
 					  "asrl-pysteam>=1.0.4",
 					  "dash>=2.0.0"]
 )
