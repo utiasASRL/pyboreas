@@ -21,17 +21,17 @@ The moving robot frame and corresponding timestamps for evaluation depend on whe
 ### Evaluation Frame and Timestamps (3D Benchmark)
 Set the moving robot frame to be the `applanix` frame for the 3D benchmark. Set the stationary frame `i` as the first frame of the estimated trajectory. This will make the first row entry of the table `T_applanix0_applanix0` (i.e., the identity transformation), the second row will be `T_applanix1_applanix0`, the `k`th row will be `T_applanixk_applanix0`, and so on.
 
-For the 3D benchmark, provide odometry estimates that **correspond exactly to the lidar sensor timestamps**. If your estimator does not output estimates at the lidar sensor timestamps, you will need to [interpolate](#interpolation).
+For the 3D benchmark, provide odometry estimates that **correspond exactly to the `lidar` sensor timestamps**. If your estimator does not output estimates at the `lidar` sensor timestamps, you will need to [interpolate](#interpolation).
 
 #### Example Scenario 1: Lidar Odometry
-Report SE(3) pose estimates corresponding to each lidar sensor frame. If your estimator outputs estimates in the lidar sensor frame, make sure you transform your estimates to the `applanix` frame, e.g.,
+Report SE(3) pose estimates corresponding to each `lidar` frame timestamp. If your estimator outputs estimates in the `lidar` sensor frame, make sure you transform your estimates to the `applanix` frame, e.g.,
 ```
 T_applanixk_applanix0 = T_applanix_lidar * T_lidark_lidar0 * T_lidar_applanix
 ```
 where `T_applanix_lidar` is the extrinsic calibration between the `applanix` frame and `lidar` sensor frame.
 
 #### Example Scenario 2: Visual Odometry (Camera)
-You will need to interpolate your pose estimates to match the lidar timestamps. Either use an interpolation method of your choice, or apply the interpolation method offered in this devkit. A demo is shown in subsection [`Interpolation`](#interpolation).
+You will need to interpolate your pose estimates to match the `lidar` timestamps. Either use an interpolation method of your choice, or apply the interpolation method offered in this devkit. A demo is shown in subsection [`Interpolation`](#interpolation).
 
 Similar to [`Example Scenario 1: Lidar Odometry`](#example-scenario-1-lidar-odometry), make sure to transform your `camera` frame estimates to the `applanix` frame, e.g.,
 ```
@@ -44,10 +44,10 @@ Set the moving robot frame to be the `radar` sensor frame for the 2D benchmark. 
 
 Set the stationary frame `i` as the first frame of the estimated trajectory. This will make the first row entry of the table `T_radar0_radar0` (i.e., the identity transformation), the second row will be `T_radar1_radar0`, the `k`th row will be `T_radark_radar0`, and so on.
 
-Provide odometry estimates that **correspond exactly to the radar sensor timestamps**.
+Provide odometry estimates that **correspond exactly to the `radar` sensor timestamps**.
 
 ### Interpolation
-If your estimator is not outputing odometry estimates that correspond to the lidar sensor timestamps, you will need to interpolate your estimates. A demo of the interpolation script is shown here.
+If your estimator is not outputing odometry estimates that correspond to the `lidar` sensor timestamps, you will need to interpolate your estimates. A demo of the interpolation script is shown here.
 
 From the root directory, go to the directory `pyboreas`. We can see the arguments of the interpolation script as follows:
 ```
@@ -68,7 +68,7 @@ The `pred` argument is the directory containing the odometry sequence files, whi
 
 The `gt` argument is for the root directory of your dataset, which should contain the corresponding groundtruth files required for evaluation. For this demo we will use `pyboreas/test/demo/gt/`, but for your use case it should be the root directory of where you stored your data.
 
-The `interp` argument should be set as the output directory for the interpolation files. A `.txt` file for each of your odometry sequences interpolated at the groundtruth (lidar) timestamps will be written out to this directory. For this demo, we will output to `pyboreas/test/demo/pred/3d/interp/`.
+The `interp` argument should be set as the output directory for the interpolation files. A `.txt` file for each of your odometry sequences interpolated at the groundtruth (`lidar`) timestamps will be written out to this directory. For this demo, we will output to `pyboreas/test/demo/pred/3d/interp/`.
 
 The `processes` argument sets the number of processes to use when interpolating. Setting this argument to 1 will result in no additional subprocesses being created. Default value is the CPU count of your machine.
 
