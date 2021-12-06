@@ -2,7 +2,7 @@
 ## Odometry Benchmark
 We offer an odometry benchmark for 3D (lidar, camera) and 2D (radar). Our evaluation metric is based on the KITTI odometry benchmark, which computes the relative position and orientation errors over segments of 100 m to 800 m with increments of 100 m.
 
-### File format
+### File Format
 Odometry results for each sequence are to be recorded into a separate `.txt` file and placed in the same directory. The name of each file is the sequence name followed by the `.txt` extension. The devkit contains an example demo with two sequences:
 ```
 ls -1 pyboreas/test/demo/pred/3d/
@@ -12,17 +12,39 @@ boreas-2021-09-02-11-42.txt
 
 The format of each `.txt` file is a space separated `K x 13` table, where `K` is the total number of frames in the sequence, and each row `k` corresponds to the odometry estimate of frame `k`. The first column is the timestamp (64 bit integer) in microseconds. The remaining 12 columns are the upper 3 x 4 block of the SE(3) transformation matrix (64 bit float) in row-aligned order (i.e., the first 4 entries correspond to the first row).
 
-The `k`th row entry is the SE(3) transformation between a stationary reference frame `i` and the `k`th estimated frame of the moving robot `vk`. E.g., a transformation `T_vk_i` that transforms a homogeneous point in the stationary frame `p_i` to the `k`th robot frame:
+The `k`th row entry is the SE(3) transformation between a stationary reference frame `i` and the `k`th estimated frame of the moving robot. E.g., a transformation `T_k_i` that transforms a homogeneous point in the stationary frame `p_i` to the `k`th robot frame:
 ```
-p_vk = T_vk_i * p_i
+p_k = T_k_i * p_i
 ```
-Set the robot frame `v` to be the `applanix` frame for the 3D benchmark, and to the `radar` sensor frame for the 2D benchmark. The choice of the stationary frame `i` does not matter as long as it is consistent for the entire sequence. We suggest to simply set it as the first frame of the sequence, `v0`. This will make the first row entry of the table `T_v0_v0` (i.e., the identity transformation), the second row will be `T_v1_v0`, the `k`th row will be `T_vk_v0`, and so on.
+The moving robot frame and corresponding timestamps for evaluation depend on whether you are submitting to the 3D benchmark or 2D benchmark.
 
-For the 2D benchmark, provide odometry estimates that correspond exactly to the radar sensor timestamps.
+### Evaluation Frame and Timestamps (3D Benchmark)
+Set the moving robot frame to be the `applanix` frame for the 3D benchmark. The choice of the stationary frame `i` does not matter as long as it is consistent for the entire sequence. We suggest to simply set it as the first frame of the sequence. This will make the first row entry of the table `T_applanixk_applanix0` (i.e., the identity transformation), the second row will be `T_applanix1_applanix0`, the `k`th row will be `T_applanixk_applanix0`, and so on.
 
-For the 3D benchmark, provide odometry estimates that correspond exactly to the lidar sensor timestamps. If, for example, you wish to evaluate visual odometry using the camera images, you will need to interpolate your estimates to match the lidar timestamps. We offer an interpolation method through our benchmark script (interpolation demo shown in subsection `Local Evaluation`). You can also use your own interpolation scheme.
+For the 3D benchmark, provide odometry estimates that **correspond exactly to the lidar sensor timestamps**. 
 
-### Local evaluation
+#### Example Scenario 1: Lidar Odometry
+Report SE(3) pose estimates corresponding to each lidar sensor frame. If your estimator outputs estimates in the lidar sensor frame, make sure you transform your estimates to the `applanix` frame, e.g.,
+```
+T_applanixk_applanix0 = T_applanix_lidar * T_lidark_lidar0 * T_lidar_applanix
+```
+where `T_applanix_lidar` is the extrinsic calibration between the `applanix` frame and `lidar` sensor frame.
+
+#### Example Scenario 2: Visual Odometry (Camera)
+You will need to interpolate your pose estimates to match the lidar timestamps. Either use an interpolation method of your choice, or apply the interpolation method offered in this devkit. A demonstration is shown in subsection `Interpolation`.
+
+Similar to [`Example Scenario 1: Lidar Odometry`](#example-scenario-1:-lidar-odometry), make sure to transform your `camera` frame estimates to the `applanix` frame, e.g.,
+```
+T_applanixk_applanix0 = T_applanix_camera * T_camerak_camera0 * T_camera_applanix
+```
+where `T_applanix_camera` is the extrinsic calibration between the `applanix` frame and `camera` sensor frame.
+
+### Evaluation Frame and Timestamps (2D Benchmark)
+Set the moving robot frame to be the `radar` sensor frame for the 2D benchmark. In other words, nothing needs to be done if your estimator is already reporting results in the `radar` frame. Your odometry estimates will be SE(2) poses, but still report your results as the corresponding SE(3) matrix.
+
+Provide odometry estimates that **correspond exactly to the radar sensor timestamps**.
+
+### Local Evaluation
 The benchmark evaluation can be run locally for sequences with known groundtruth. We will use the sequences under `pyboreas/test/demo/pred/3d/` for our example demo.
 
 From the root directory, go to the directory `pyboreas`. We can see the arguments of the benchmark script as follows:
@@ -82,5 +104,5 @@ Evaluated sequences:  ['boreas-2021-08-05-13-34.txt', 'boreas-2021-09-02-11-42.t
 Overall error:  0.5678934633365106  %,  0.0022963231993319904  deg/m
 ```
 
-### Online evaluation
+### Online Evaluation
 TODO
