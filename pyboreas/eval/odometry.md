@@ -31,9 +31,9 @@ T_applanixk_applanix0 = T_applanix_lidar * T_lidark_lidar0 * T_lidar_applanix
 where `T_applanix_lidar` is the extrinsic calibration between the `applanix` frame and `lidar` sensor frame.
 
 #### Example Scenario 2: Visual Odometry (Camera)
-You will need to interpolate your pose estimates to match the lidar timestamps. Either use an interpolation method of your choice, or apply the interpolation method offered in this devkit. A demonstration is shown in subsection `Interpolation`.
+You will need to interpolate your pose estimates to match the lidar timestamps. Either use an interpolation method of your choice, or apply the interpolation method offered in this devkit. A demonstration is shown in subsection [`Interpolation`](#interpolation).
 
-Similar to [`Example Scenario 1: Lidar Odometry`](#example-scenario-1:-lidar-odometry), make sure to transform your `camera` frame estimates to the `applanix` frame, e.g.,
+Similar to [`Example Scenario 1: Lidar Odometry`](#example-scenario-1-lidar-odometry), make sure to transform your `camera` frame estimates to the `applanix` frame, e.g.,
 ```
 T_applanixk_applanix0 = T_applanix_camera * T_camerak_camera0 * T_camera_applanix
 ```
@@ -103,6 +103,9 @@ Error:  0.02641292148342157  %,  0.00017168761982101885  deg/m
 Evaluated sequences:  ['boreas-2021-08-05-13-34.txt', 'boreas-2021-09-02-11-42.txt']
 Overall error:  0.5678934633365106  %,  0.0022963231993319904  deg/m
 ```
+
+### Interpolation
+TODO
 
 ### Online Evaluation
 TODO
