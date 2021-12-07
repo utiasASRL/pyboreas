@@ -19,30 +19,30 @@ p_k = T_k_i * p_i
 The moving robot frame and corresponding timestamps for evaluation depend on whether you are submitting to the 3D benchmark or 2D benchmark.
 
 ### Evaluation Frame and Timestamps (3D Benchmark)
-Set the moving robot frame to be the `applanix` frame for the 3D benchmark. Set the stationary frame `i` as the first frame of the estimated trajectory. This will make the first row entry of the table `T_applanix0_applanix0` (i.e., the identity transformation), the second row will be `T_applanix1_applanix0`, the `k`th row will be `T_applanixk_applanix0`, and so on.
+Set the moving robot frame to be the `applanix (a)` frame for the 3D benchmark. Set the stationary frame `i` as the first frame of the estimated trajectory. This will make the first row entry of the table `T_a0_a0` (i.e., the identity transformation), the second row will be `T_a1_a0`, the `k`th row will be `T_ak_a0`, and so on.
 
 For the 3D benchmark, provide odometry estimates that **correspond exactly to the `lidar` sensor timestamps**. If your estimator does not output estimates at the `lidar` sensor timestamps, you will need to [interpolate](#interpolation).
 
 #### Example Scenario 1: Lidar Odometry
-Report SE(3) pose estimates corresponding to each `lidar` frame timestamp. If your estimator outputs estimates in the `lidar` sensor frame, make sure you transform your estimates to the `applanix` frame, e.g.,
+Report SE(3) pose estimates corresponding to each `lidar` frame timestamp. If your estimator outputs estimates in the `lidar (l)` sensor frame, make sure you transform your estimates to the `applanix (a)` frame, e.g.,
 ```
-T_applanixk_applanix0 = T_applanix_lidar * T_lidark_lidar0 * T_lidar_applanix
+T_ak_a0 = T_a_l * T_lk_l0 * T_l_a
 ```
-where `T_applanix_lidar` is the extrinsic calibration between the `applanix` frame and `lidar` sensor frame.
+where `T_a_l` is the extrinsic calibration between the `applanix` frame and `lidar` sensor frame.
 
 #### Example Scenario 2: Visual Odometry (Camera)
 You will need to interpolate your pose estimates to match the `lidar` timestamps. Either use an interpolation method of your choice, or apply the interpolation method offered in this devkit. A demo is shown in subsection [`Interpolation`](#interpolation).
 
-Similar to [`Example Scenario 1: Lidar Odometry`](#example-scenario-1-lidar-odometry), make sure to transform your `camera` frame estimates to the `applanix` frame, e.g.,
+Similar to [`Example Scenario 1: Lidar Odometry`](#example-scenario-1-lidar-odometry), make sure to transform your `camera (c)` frame estimates to the `applanix (a)` frame, e.g.,
 ```
-T_applanixk_applanix0 = T_applanix_camera * T_camerak_camera0 * T_camera_applanix
+T_ak_a0 = T_a_c * T_ck_c0 * T_c_a
 ```
-where `T_applanix_camera` is the extrinsic calibration between the `applanix` frame and `camera` sensor frame.
+where `T_a_c` is the extrinsic calibration between the `applanix` frame and `camera` sensor frame.
 
 ### Evaluation Frame and Timestamps (2D Benchmark)
 Set the moving robot frame to be the `radar` sensor frame for the 2D benchmark. In other words, nothing needs to be done if your estimator is already reporting results in the `radar` frame. Your odometry estimates will be SE(2) poses, but still report your results as the corresponding SE(3) matrix as shown in [`File Format`](#file-format).
 
-Set the stationary frame `i` as the first frame of the estimated trajectory. This will make the first row entry of the table `T_radar0_radar0` (i.e., the identity transformation), the second row will be `T_radar1_radar0`, the `k`th row will be `T_radark_radar0`, and so on.
+Set the stationary frame `i` as the first frame of the estimated trajectory. Using the `radar (r)` frame, this will make the first row entry of the table `T_r0_r0` (i.e., the identity transformation), the second row will be `T_r1_r0`, the `k`th row will be `T_rk_r0`, and so on.
 
 Provide odometry estimates that **correspond exactly to the `radar` sensor timestamps**.
 
