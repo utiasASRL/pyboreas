@@ -7,14 +7,16 @@ from matplotlib import cm
 
 from pyboreas.data.pointcloud import PointCloud
 from pyboreas.utils.utils import get_transform, yawPitchRollToRot, get_time_from_filename, load_lidar
-from pyboreas.utils.utils import get_gt_data_for_frame
+from pyboreas.utils.utils import get_gt_data_for_frame, get_closest_index, get_inverse_tf
 from pyboreas.utils.radar import load_radar, radar_polar_to_cartesian
 from pyboreas.vis.vis_utils import vis_lidar, vis_camera, vis_radar
+from pyboreas.data.bounding_boxes import BoundingBoxes
 
 
 class Sensor:
     def __init__(self, path):
         self.path = path
+        self.labelFolder = None
         p = Path(path)
         self.frame = p.stem
         self.sensType = p.parts[-2]
@@ -44,24 +46,44 @@ class Sensor:
         vbar = np.matmul(self.pose[:3, :3].T, vbar).squeeze()
         self.body_rate = np.array([vbar[0], vbar[1], vbar[2], gt[12], gt[11], gt[10]]).reshape(6, 1)
 
+    def get_bounding_boxes(self, seqLabelFiles=[], seqLabelTimes=[], seqLabelPoses=[]):
+        self.bbs = BoundingBoxes()
+        labelPath = osp.join(self.seq_root, self.labelFolder, self.frame + '.txt')
+        if osp.exists(labelPath):
+            self.bbs.load_from_file(labelPath)
+        else:
+            if len(seqLabelFiles) == 0 or len(seqLabelTimes) == 0 or len(seqLabelPoses) == 0:
+                return None
+            idx = get_closest_index(self.timestamp, seqLabelTimes)
+            if idx == 0 or idx == len(seqLabelTimes) - 1:
+                self.bbs.load_from_file(seqLabelFiles[idx])
+                T_enu_lidar = seqLabelPoses[idx]
+                T = np.matmul(get_inverse_tf(self.pose), T_enu_lidar)
+                self.bbs.transform(T)
+            else:
+                self.bbs.interpolate(idx, self.timestamp, self.pose, seqLabelFiles, seqLabelTimes, seqLabelPoses)
+        return self.bbs
+
 
 class Lidar(Sensor, PointCloud):
     def __init__(self, path):
         Sensor.__init__(self, path)
         self.points = None
+        self.bbs = None
 
     def load_data(self):
         self.points = load_lidar(self.path)
         return self.points
 
     def visualize(self, **kwargs):
-        vis_lidar(self, **kwargs)
+        return vis_lidar(self, **kwargs)
 
     def unload_data(self):
         self.points = None
 
-    # TODO: get_bounding_boxes()
-    # TODO: get_semantics()
+    def has_bbs(self):
+        labelPath = osp.join(self.seq_root, self.labelFolder, self.frame + '.txt')
+        return osp.exists(labelPath)
 
 
 class Camera(Sensor):
@@ -75,13 +97,10 @@ class Camera(Sensor):
         return self.img
 
     def visualize(self, **kwargs):
-        vis_camera(self, **kwargs)
+        return vis_camera(self, **kwargs)
 
     def unload_data(self):
         self.img = None
-
-    # TODO: get_bounding_boxes() # retrieve from file, cache to class variable
-    # TODO: get_semantics() # retrieve from file, cache to class variable
 
 
 class Radar(Sensor):
@@ -130,6 +149,5 @@ class Radar(Sensor):
         return cartesian
 
     def visualize(self, **kwargs):
-        vis_radar(self, **kwargs)
+        return vis_radar(self, **kwargs)
 
-    # TODO: get_bounding_boxes() # retrieve from file, cache to class variable

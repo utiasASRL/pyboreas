@@ -10,7 +10,7 @@ class Sequence:
     """
     Class for working with an individual Boreas dataset sequence
     """
-    def __init__(self, boreas_root, seqSpec):
+    def __init__(self, boreas_root, seqSpec, labelFolder='labels'):
         """init
         Args:
             boreas_root (str): path to root folder ex: /path/to/data/boreas/
@@ -24,6 +24,7 @@ class Sequence:
         else:
             self.start_ts = '0'  # dummy start and end if not specified
             self.end_ts = '9' * 21
+        self.labelFolder = labelFolder
         self.seq_root = osp.join(boreas_root, self.ID)
         self.applanix_root = osp.join(self.seq_root, 'applanix')
         self.calib_root = osp.join(self.seq_root, 'calib')
@@ -36,6 +37,8 @@ class Sequence:
         self.calib = Calib(self.calib_root)
         # Creates list of frame objects for cam, lidar, radar, and inits poses
         self.get_all_frames()
+
+        self.load_label_files()
 
         self._check_download()  # prints warning when sensor data missing
 
@@ -137,6 +140,7 @@ class Sequence:
                     if self.start_ts <= ts and ts <= self.end_ts:
                         frame = SensorType(osp.join(root, ts + ext))
                         frame.init_pose(data)
+                        frame.labelFolder = self.labelFolder
                         frames.append(frame)
         else:
             framenames = sorted([f for f in os.listdir(root) if ext in f])
@@ -183,3 +187,21 @@ class Sequence:
         elif ref == 'radar':
             self.camera_frames = [get_closest_frame(rstamp, cstamps, self.camera_frames) for rstamp in rstamps]
             self.lidar_frames = [get_closest_frame(rstamp, lstamps, self.lidar_frames) for rstamp in rstamps]
+
+    def filter_frames_gt(self):
+        # Only keep lidar frames that were labelled, NO interpolated frames
+        keep = []
+        for frame in self.lidar_frames:
+            if frame.has_bbs():
+                keep.append(frame)
+        self.lidar_frames = keep
+
+    def load_label_files(self):
+        self.labelFiles = []
+        self.labelTimes = []
+        self.labelPoses = []
+        for frame in self.lidar_frames:
+            if frame.has_bbs():
+                self.labelFiles.append(osp.join(self.seq_root, self.labelFolder, frame.frame + '.txt'))
+                self.labelTimes.append(frame.timestamp)
+                self.labelPoses.append(frame.pose)

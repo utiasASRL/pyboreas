@@ -363,10 +363,22 @@ def get_closest_frame(query_time, frame_times, frames):
         closest_frame (SensorType)
     """
     closest = get_closest_index(query_time, frame_times)
-    assert(abs(query_time - frame_times[closest]) < 1.0), 'query: {}'.format(query_time)
+    assert(abs(query_time - frame_times[closest]) < 3.0), 'query: {}'.format(query_time)
     return frames[closest]
 
 
 def is_sorted(x):
     """Returns True is x is a sorted list, otherwise False"""
     return (np.diff(x) >= 0).all()
+
+
+def get_T_bev_metric(resolution, width):
+    alpha = 1 / resolution
+    if (width % 2) == 0:
+        min_range = (width / 2 - 0.5)
+    else:
+        min_range = width // 2
+    return np.array([[0, alpha, 0, min_range],
+                   [-alpha, 0, 0, min_range],
+                   [0, 0, 1, 0],
+                   [0, 0, 0, 1]])

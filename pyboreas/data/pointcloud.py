@@ -35,7 +35,7 @@ class PointCloud:
         points[:, :3] = np.matmul(p, T.transpose())[:, :3]
         return points
 
-    def remove_motion(self, body_rate, tref=None, in_place=True):
+    def remove_motion(self, body_rate, tref=None, in_place=True, single=False):
         """Removes motion distortion from a pointcloud
 
         Args:
@@ -118,7 +118,7 @@ class PointCloud:
     # Assumes pointcloud has already been transformed into the camera frame
     # color options: depth, intensity
     # returns pixel locations for lidar point projections onto an image plane
-    def project_onto_image(self, P, width=2448, height=2048, color='depth'):
+    def project_onto_image(self, P, width=2448, height=2048, color='depth', checkdims=True):
         """Projects 3D points onto a 2D image plane
 
         Args:
@@ -131,16 +131,18 @@ class PointCloud:
             colors (np.ndarray): (N,) a color value for each pixel location in uv.
             mask (np.ndarray): mask to select only points that project onto image.
         """
-        uv = []
         colors = []
         x = np.hstack((self.points[:, :3], np.ones((self.points.shape[0], 1))))
         x /= x[:, 2:3]
         x[:, 3] = 1
         x = np.matmul(x, P.transpose())
-        mask = np.where((x[:, 0] >= 0) &
-                        (x[:, 0] <= width - 1) &
-                        (x[:, 1] >= 0) &
-                        (x[:, 1] <= height - 1))
+        if checkdims:
+            mask = np.where((x[:, 0] >= 0) &
+                            (x[:, 0] <= width - 1) &
+                            (x[:, 1] >= 0) &
+                            (x[:, 1] <= height - 1))
+        else:
+            mask = np.ones(x.shape[0], dtype=np.bool)
         x = x[mask]
         if color == 'depth':
             colors = self.points[mask][:, 2]

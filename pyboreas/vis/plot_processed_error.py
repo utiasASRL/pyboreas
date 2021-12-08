@@ -3,6 +3,7 @@ import argparse
 import struct
 import matplotlib.pyplot as plt
 import matplotlib
+import numpy as np
 from datetime import datetime
 
 # Periods during which daylight savings is in effect in Toronto
@@ -59,38 +60,33 @@ if __name__ == '__main__':
         p.append(data[8])
         h.append(data[9])
 
-    matplotlib.rcParams.update({'font.size': 16, 'xtick.labelsize': 16, 'ytick.labelsize': 16,
-                                'axes.linewidth': 1.5, 'font.family': 'serif', 'pdf.fonttype': 42})
+    t = np.array(t)
+    t -= t[0]
 
-    plt.figure(figsize=(10, 5))
-    plt.plot(t, n, label='North position RMS error (m)')
-    plt.plot(t, e, label='East position RMS error (m)')
-    plt.plot(t, d, label='Down position RMS error (m)')
-    plt.grid(which='both', linestyle='--', alpha=0.5)
-    plt.xlabel('time (seconds)', fontsize=16)
-    plt.ylabel('Error (m)', fontsize=16)
-    plt.legend(loc="upper left", prop={'size': 12})
-    plt.xticks(rotation=45, ha="right")
-    plt.savefig(osp.join(args.root, 'applanix', 'gps_position_error.pdf'), bbox_inches='tight', pad_inches=0.0)
+    matplotlib.rcParams.update({'font.size': 18, 'xtick.labelsize': 18, 'ytick.labelsize': 18,
+                                'axes.linewidth': 2, 'font.family': 'serif', 'pdf.fonttype': 42})
 
-    plt.figure(figsize=(10, 5))
-    plt.plot(t, vn, label='North velocity RMS error (m/s)')
-    plt.plot(t, ve, label='East velocity RMS error (m/s)')
-    plt.plot(t, vd, label='Down velocity RMS error (m/s)')
-    plt.grid(which='both', linestyle='--', alpha=0.5)
-    plt.xlabel('time (seconds)', fontsize=16)
-    plt.ylabel('Error (m / s)', fontsize=16)
-    plt.legend(loc="upper left", prop={'size': 12})
-    plt.xticks(rotation=45, ha="right")
-    plt.savefig(osp.join(args.root, 'applanix', 'gps_velocity_error.pdf'), bbox_inches='tight', pad_inches=0.0)
+    fig, axs = plt.subplots(3, 1, figsize=(10, 10))
+    axs[0].plot(t, n, label='North', color='r', linewidth=3)
+    axs[0].plot(t, e, label='East', color='g', linewidth=3)
+    axs[0].plot(t, d, label='Down', color='b', linewidth=3)
+    axs[0].grid(which='both', linestyle='--', alpha=1.0)
+    axs[0].set_ylabel('Pos. Error (m)', fontsize=20)
+    axs[0].legend(loc="upper left", prop={'size': 16})
 
-    plt.figure(figsize=(10, 5))
-    plt.plot(t, r, label='Roll RMS error (arc-min)')
-    plt.plot(t, p, label='Pitch RMS error (arc-min)')
-    plt.plot(t, h, label='Heading RMS error (arc-min)')
-    plt.grid(which='both', linestyle='--', alpha=0.5)
-    plt.xlabel('time (seconds)', fontsize=16)
-    plt.ylabel('Error (arc-minutes)', fontsize=16)
-    plt.legend(loc="upper left", prop={'size': 12})
-    plt.xticks(rotation=45, ha="right")
-    plt.savefig(osp.join(args.root, 'applanix', 'gps_orientation_error.pdf'), bbox_inches='tight', pad_inches=0.0)
+    axs[1].plot(t, vn, label='V North', color='r', linewidth=3)
+    axs[1].plot(t, ve, label='V East', color='g', linewidth=3)
+    axs[1].plot(t, vd, label='V Down', color='b', linewidth=3)
+    axs[1].grid(which='both', linestyle='--', alpha=1.0)
+    axs[1].set_ylabel('Vel. Error (m / s)', fontsize=20)
+    axs[1].legend(loc="upper left", prop={'size': 16})
+
+    axs[2].plot(t, r, label='Roll', color='r', linewidth=3)
+    axs[2].plot(t, p, label='Pitch', color='g', linewidth=3)
+    axs[2].plot(t, h, label='Heading', color='b', linewidth=3)
+    axs[2].grid(which='both', linestyle='--', alpha=1.0)
+    axs[2].set_xlabel('time (seconds)', fontsize=20)
+    axs[2].set_ylabel("Ori. Error\n(arc-minutes)", fontsize=20)
+    axs[2].legend(loc="upper left", prop={'size': 16})
+
+    plt.savefig(osp.join(args.root, 'applanix', 'gps_error.pdf'), bbox_inches='tight', pad_inches=0.0)

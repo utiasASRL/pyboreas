@@ -19,7 +19,7 @@ Data was collected during repeated traversals of several routes in Toronto, Cana
 
 | ![sat_dt.png](figs/glen_shields.png) | ![glen_shields.png](figs/st_george.png) |
 | --- | --- |
-| [Glen Shields](figs/glen_shields.html) [Video](https://youtu.be/i-S_3qpEYpo) | [St George](figs/st_george.html) [Video](https://youtu.be/HTuleN_KEwY) |
+| [Glen Shields](figs/glen_shields.html) [Video](https://youtu.be/Siu5gNOYqt4) | [St George](figs/st_george.html) [Video](https://youtu.be/ldNI4Qe8lIs) |
 
 ## Sensor Details
 

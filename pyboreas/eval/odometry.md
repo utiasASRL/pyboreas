@@ -28,16 +28,18 @@ The benchmark evaluation can be run locally for sequences with known groundtruth
 From the root directory, go to the directory `pyboreas`. We can see the arguments of the benchmark script as follows:
 ```
 cd pyboreas
-python eval/odometry_benchmark.py -h
-usage: odometry_benchmark.py [-h] [--pred PRED] [--gt GT] [--radar] [--no-interp] [--no-solver]
+python eval/odometry.py -h
+usage: odometry.py [-h] [--pred PRED] [--gt GT] [--radar] [--no-interp] [--no-solver]
 
 optional arguments:
-  -h, --help       show this help message and exit
-  --pred PRED      path to prediction files
-  --gt GT          path to groundtruth files
-  --radar          evaluate radar odometry in SE(2)
-  --interp INTERP  path to interpolation output, do not set if evaluating
-  --no-solver      disable solver for built-in interpolation
+  -h, --help            show this help message and exit
+  --pred PRED           path to prediction files
+  --gt GT               path to groundtruth files
+  --radar               evaluate radar odometry in SE(2)
+  --interp INTERP       path to interpolation output, do not set if evaluating
+  --processes PROCESSES
+                        number of workers to use for built-in interpolation
+  --no-solver           disable solver for built-in interpolation
 ```
 The `pred` argument is the directory containing the odometry sequence files, which is `pyboreas/test/demo/pred/3d/` for this demo. 
 
@@ -47,11 +49,13 @@ The `radar` argument should be included to evaluate the 2D benchmark. The 3D ben
 
 The `interp` argument should be set as the output directory for the interpolation files. Setting this argument will change the operation of the benchmark script to interpolation mode, i.e., it will not compute the errors and output error results. Instead, it will output a `.txt` file for each of your odometry sequences interpolated at the groundtruth (lidar) timestamps. Use this argument only if you need to interpolate.
 
+The `processes` argument sets the number of processes to use when interpolating. Setting this argument to 1 will result in no additional subprocesses being created. Default value is the CPU count of your machine.
+
 The `no-solver` argument should be included to disable the solver for the built-in interpolation method. We use a batch optimization routine to solve for velocity estimates of each frame in order to interpolate. If the solver is disabled, the script instead interpolates with velocities approximated with finite difference. This is less accurate, but will run much faster. Suggested use is for debugging.
 
 This demo requires the built-in interpolation method. We will interpolate without the solver just for demonstration purposes (run it faster):
 ```
-python eval/odometry_benchmark.py --pred test/demo/pred/3d/ --gt test/demo/gt/ --interp test/demo/pred/3d/interp/ --no-solver
+python eval/odometry.py --pred test/demo/pred/3d/ --gt test/demo/gt/ --interp test/demo/pred/3d/interp/ --processes 1 --no-solver
 
 interpolating sequence boreas-2021-08-05-13-34.txt ...
 boreas-2021-08-05-13-34.txt took 9.404045581817627  seconds
@@ -64,7 +68,7 @@ output file: test/demo/pred/3d/interp/boreas-2021-09-02-11-42.txt
 
 Now to evaluate the interpolated sequences:
 ```
-python eval/odometry_benchmark.py --pred test/demo/pred/3d/interp/ --gt test/demo/gt/
+python eval/odometry.py --pred test/demo/pred/3d/interp/ --gt test/demo/gt/
 
 processing sequence boreas-2021-08-05-13-34.txt ...
 boreas-2021-08-05-13-34.txt took 2.0557074546813965  seconds

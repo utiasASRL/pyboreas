@@ -134,3 +134,6 @@ sample_boreas
 boreas_mini_v2
 
 build_and_upload_to_pypi.sh
+*.pdf
+pyboreas/test/demo/pred/3d/interp/*
+*tmp_results*

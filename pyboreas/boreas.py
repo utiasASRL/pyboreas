@@ -11,7 +11,7 @@ from pyboreas.vis.visualizer import BoreasVisualizer
 
 class BoreasDataset:
 
-    def __init__(self, root='/data/boreas/', split=None, verbose=False):
+    def __init__(self, root='/data/boreas/', split=None, verbose=False, labelFolder='labels'):
         self.root = root
         self.split = split
         self.camera_frames = []
@@ -20,6 +20,7 @@ class BoreasDataset:
         self.sequences = []
         self.seqDict = {}  # seq string to index
         self.map = None  # TODO: Load the HD map data
+        self.labelFolder = labelFolder
 
         if split is None:
             split = sorted([[f] for f in os.listdir(root) if 'boreas' in f])
@@ -27,7 +28,7 @@ class BoreasDataset:
         # It takes a few seconds to construct each sequence, so we parallelize this
         global _load_seq
         def _load_seq(seqSpec):
-            return Sequence(root, seqSpec)
+            return Sequence(root, seqSpec, labelFolder=self.labelFolder)
 
         pool = Pool(multiprocessing.cpu_count())
         self.sequences = list(pool.map(_load_seq, split))
