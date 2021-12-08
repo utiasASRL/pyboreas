@@ -38,6 +38,8 @@ class Himmelsbach:
         self.rmin = 3.0
         self.rmax = 108.0
 
+        self.n_bins = self.num_bins_small + self.num_bins_large
+
         self.segments = []
 
     def set_alpha(self, alpha):
@@ -54,6 +56,8 @@ class Himmelsbach:
         self.Tdprev = Tdprev
     
     def sort_points_segments(self):
+        num_segments = int(np.ceil((2 * np.pi) / self.alpha) + 1)
+        self.segments = [[] for i in range(num_segments)]
         for i in range(self.size):
             point = self.points[i,:]
             angle = np.arctan2(point[1], point[0])
@@ -63,7 +67,7 @@ class Himmelsbach:
             self.segments[segment].append(i)
 
     def sort_points_bins(self, segment):
-        bins = [[] for i in range(self.num_bins_small + self.num_bins_large)]
+        bins = [[] for i in range(self.n_bins)]
         rsmall = self.rmin + self.bin_size_small * self.num_bins_small
         for idx in segment:
             point = self.points[idx,:]
@@ -76,7 +80,7 @@ class Himmelsbach:
             if bin >= 0:
                 bins[int(bin)].append(idx)
         # The point with the lowest z-coordinate in each bin becomes the representative point
-        bins_out = [-1 for i in range(self.num_bins_small + self.num_bins_large)]
+        bins_out = [-1 for i in range(self.n_bins)]
         i = 0
         for bin_pts in bins:
             zmin = -1.1
@@ -121,8 +125,7 @@ class Himmelsbach:
         ground_idx = []
         if (self.size == 0):
             return
-        num_segments = int(np.ceil((2 * np.pi) / self.alpha) + 1)
-        self.segments = [[] for i in range(num_segments)]
+
         # Sort points into segments
         self.sort_points_segments()
         for segment in self.segments:
