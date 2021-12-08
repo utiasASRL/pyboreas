@@ -8,6 +8,7 @@ from multiprocessing import Pool
 from pyboreas.utils.utils import se3ToSE3, is_sorted
 import open3d as o3d
 import time
+from pyboreas.data.himmelsbach import Himmelsbach
 
 class PointCloud:
     """
@@ -235,6 +236,32 @@ class PointCloud:
         if in_place:
             self.points = outliers
         return outliers
+
+
+    def remove_ground_himmelsbach(self, show=False):
+
+        lidar_height_z = 2.13  # From calibration
+
+        himmel = Himmelsbach(self.points)
+        himmel.set_alpha(3.0/180.0*np.pi)
+        himmel.set_tolerance(0.25)
+        himmel.set_thresholds(0.4, 0.2, 0.8, 2, 2)
+        print("Himmelsbach initialized")
+        t_himmel_start = time.time()
+        ground_idx = himmel.compute_model_and_get_inliers()
+        t_himmel_end = time.time()
+
+        print("Himmelsbach finished in ", (t_himmel_end-t_himmel_start)*1000,'ms')
+
+        if show:  # Plot inliers/outliers result of plane fit
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(self.points[:, 0:3])
+            ground_cloud = pcd.select_by_index(ground_idx)
+            ground_cloud.paint_uniform_color([0, 0, 0])
+            object_cloud = pcd.select_by_index(ground_idx, invert=True)
+      
+            o3d.visualization.draw_geometries([ground_cloud,object_cloud], window_name='GP Removal Results (Black = Ground)')
+
 
     def voxelize(self, voxel_size=0.1, show=False):
         pcd = o3d.geometry.PointCloud()
