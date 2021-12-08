@@ -129,6 +129,26 @@ class Radar(Sensor):
             self.cartesian = cartesian
         return cartesian
 
+    def transform(self, radians, in_place=True):
+        """Rotates the radar data clockwise by a certain amount
+
+        Args:
+            radians (float): amount to rotate radar data by
+            in_place (bool): if True, self.cartesian and self.azimuths are updated
+
+        Returns:
+            The rotated azimuths data
+
+        """
+        rotated_azms = self.azimuths + radians
+        rotated_azms %= np.pi *2
+
+        if in_place:
+            self.azimuths = rotated_azms
+            if self.cartesian is not None:
+                self.cartesian = self.polar_to_cart(0.2384, 640, in_place=True)  # Use default visualization params
+        return rotated_azms
+
     def visualize(self, **kwargs):
         vis_radar(self, **kwargs)
 

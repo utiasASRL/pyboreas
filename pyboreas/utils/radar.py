@@ -77,12 +77,16 @@ def radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resoluti
     azimuth_step = (azimuths[-1] - azimuths[0]) / (azimuths.shape[0] - 1)
     sample_u = (sample_range - radar_resolution / 2) / radar_resolution
     sample_v = (sample_angle - azimuths[0]) / azimuth_step
+    sample_v += (sample_v < 0).astype(np.float32) * 400
+
     # This fixes the wobble in the old CIR204 data from Boreas
     M = azimuths.shape[0]
     azms = azimuths.squeeze()
     if fix_wobble:
-        c3 = np.searchsorted(azms, sample_angle.squeeze())
+        sort_idx = np.argsort(azms)  # sort azms in case it isnt already (so we can use np.searchsorted). keep track of sorted indices to recover original order later
+        c3 = np.searchsorted(azms, sample_angle.squeeze(), sorter=sort_idx)
         c3[c3 == M] -= 1
+        c3 = sort_idx[c3]  # get back original order of c3 -> azms mapping
         c2 = c3 - 1
         c2[c2 < 0] += 1
         a3 = azms[c3]
