@@ -12,7 +12,7 @@ v = t.voxelize()
 # t.random_downsample(0.7)
 start = time.time()
 total_load_time = 0
-for i in range(1):
+for i in range(5):
     load_start = time.time()
     t = seq.lidar_frames[i*10]
     t.load_data()

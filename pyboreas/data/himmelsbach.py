@@ -8,12 +8,12 @@ class Line:
         self.m = m
         self.b = b
 
-        idx = line_pts[0];
-        start_idx = idx;
-        self.start = np.sqrt(pow(cloud[start_idx,0], 2) + pow(cloud[start_idx,1], 2));
-        idx = line_pts[-1];
-        end_idx = idx;
-        self.end = np.sqrt(pow(cloud[end_idx,0], 2) + pow(cloud[end_idx,1], 2));
+        idx = line_pts[0]
+        start_idx = idx
+        self.start = np.sqrt(pow(cloud[start_idx,0], 2) + pow(cloud[start_idx,1], 2))
+        idx = line_pts[-1]
+        end_idx = idx
+        self.end = np.sqrt(pow(cloud[end_idx,0], 2) + pow(cloud[end_idx,1], 2))
 
 class Himmelsbach:
 
