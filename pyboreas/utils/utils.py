@@ -2,6 +2,7 @@ from bisect import bisect_left
 import os.path as osp
 from pathlib import Path
 import numpy as np
+from pyboreas.utils.lgmath import _vec2tran, _tran2vec, carrot
 import cv2
 
 
@@ -27,11 +28,7 @@ def yaw(y):
 
 
 def yawPitchRollToRot(y, p, r):
-    Y = yaw(y)
-    P = pitch(p)
-    R = roll(r)
-    C = np.matmul(P, Y)
-    return np.matmul(R, C)
+    return roll(r) @ pitch(p) @ yaw(y)
 
 
 def rotToYawPitchRoll(C):
@@ -128,7 +125,7 @@ def rotToQuaternion(C):
         xi = np.sqrt(np.diag(0.5 * (C + np.identity(3))))
         q = np.array([xi[0], xi[1], xi[2], eta]).reshape(4, 1)
     else:
-        phi = wrapto2pi(2 * np.arccos(eta))
+        phi = wrapto2pi(2 * np.arccos(max(min(eta, 1.0), -1.0)))
         eta = np.cos(phi / 2)
         xi_cross = (C.T - C) / (4 * eta)
         q = np.array([xi_cross[2, 1], xi_cross[0, 2], xi_cross[1, 0], eta]).reshape(4, 1)
@@ -142,11 +139,9 @@ def get_inverse_tf(T):
     Returns:
         np.ndarray: inv(T)
     """
-    T2 = np.identity(4, dtype=T.dtype)
-    R = T[:3, :3]
-    t = T[:3, 3:]
-    T2[:3, :3] = R.transpose()
-    T2[:3, 3:] = np.matmul(-1 * R.transpose(), t)
+    T2 = T.copy()
+    T2[:3, :3] = T2[:3, :3].transpose()
+    T2[:3, 3:] = -1 * T2[:3, :3] @ T2[:3, 3:]
     return T2
 
 
@@ -191,28 +186,6 @@ def enforce_orthog(T, dim=3):
     return T
 
 
-def carrot(xbar):
-    """Overloaded operator. converts 3x1 vectors into a member of Lie Alebra so(3)
-        Also, converts 6x1 vectors into a member of Lie Algebra se(3)
-    Args:
-        xbar (np.ndarray): if 3x1, xbar is a vector of rotation angles, if 6x1 a vector of 3 trans and 3 rot angles.
-    Returns:
-        np.ndarray: Lie Algebra 3x3 matrix so(3) if input 3x1, 4x4 matrix se(3) if input 6x1.
-    """
-    x = xbar.squeeze()
-    if x.shape[0] == 3:
-        return np.array([[0, -x[2], x[1]],
-                         [x[2], 0, -x[0]],
-                         [-x[1], x[0], 0]])
-    elif x.shape[0] == 6:
-        return np.array([[0, -x[5], x[4], x[0]],
-                         [x[5], 0, -x[3], x[1]],
-                         [-x[4], x[3], 0, x[2]],
-                         [0, 0, 0, 1]])
-    print('WARNING: attempted carrot operator on invalid vector shape')
-    return xbar
-
-
 def se3ToSE3(xi):
     """Converts 6x1 vectors representing the Lie Algebra, se(3) into a 4x4 homogeneous transform in SE(3)
         Lie Vector xi = [rho, phi]^T (6 x 1) --> SE(3) T = [C, r; 0 0 0 1] (4 x 4)
@@ -221,24 +194,10 @@ def se3ToSE3(xi):
     Returns:
         np.ndarray: 4x4 transformation matrix
     """
-    T = np.identity(4, dtype=np.float64)
-    rho = xi[0:3].reshape(3, 1)
-    phibar = xi[3:6].reshape(3, 1)
-    phi = np.linalg.norm(phibar)
-    R = np.identity(3)
-    if phi != 0:
-        phibar /= phi  # normalize
-        I = np.identity(3)
-        R = np.cos(phi) * I + (1 - np.cos(phi)) * phibar @ phibar.T + np.sin(phi) * carrot(phibar)
-        J = I * np.sin(phi) / phi + (1 - np.sin(phi) / phi) * phibar @ phibar.T + \
-            carrot(phibar) * (1 - np.cos(phi)) / phi
-        rho = J @ rho
-    T[0:3, 0:3] = R
-    T[0:3, 3:] = rho
-    return T
+    return _vec2tran(xi)
 
 
-def SE3Tose3(T):
+def SE3Tose3(TIn):
     """Converts 4x4 homogeneous transforms in SE(3) to 6x1 vectors representing the Lie Algebra, se(3)
         SE(3) T = [C, r; 0 0 0 1] (4 x 4) --> Lie Vector xi = [rho, phi]^T (6 x 1)
     Args:
@@ -246,26 +205,7 @@ def SE3Tose3(T):
     Returns:
         np.ndarray: 6x1 vector
     """
-    R = T[0:3, 0:3]
-    evals, evecs = np.linalg.eig(R)
-    idx = -1
-    for i in range(3):
-        if evals[i].real != 0 and evals[i].imag == 0:
-            idx = i
-            break
-    assert(idx != -1)
-    abar = evecs[idx].real.reshape(3, 1)
-    phi = np.arccos((np.trace(R) - 1) / 2)
-    rho = T[0:3, 3:]
-    if phi != 0:
-        I = np.identity(3)
-        J = I * np.sin(phi) / phi + (1 - np.sin(phi) / phi) * abar @ abar.T + \
-            carrot(abar) * (1 - np.cos(phi)) / phi
-        rho = np.linalg.inv(J) @ rho
-    xi = np.zeros((6, 1))
-    xi[0:3, 0:] = rho
-    xi[3:, 0:] = phi * abar
-    return xi
+    return _tran2vec(TIn)
 
 
 def rotation_error(T):
