@@ -8,7 +8,7 @@ import shutil
 from pyboreas.data.splits import odom_test
 
 def check_yaml(yml):
-    keys = ['benchmark', 'methodname', '2d', 'author', 'papertitle', 'paperurl',
+    keys = ['benchmark', 'methodname', 'email', '2d', 'author', 'papertitle', 'paperurl',
         'venue', 'year', 'runtimeseconds', 'computer']
     for key in keys:
         try:
@@ -32,6 +32,7 @@ def check_yaml(yml):
 
     # check length of metadata
     if len(yml['author']) > 100 or \
+       len(yml['email']) > 100 or \
     	len(yml['papertitle']) > 150 or \
     	len(yml['paperurl']) > 500 or \
     	len(yml['venue']) > 10 or \

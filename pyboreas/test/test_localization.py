@@ -76,4 +76,3 @@ if __name__ == '__main__':
 			gen_fake_submission(args.gt, args.ref_seq, args.ref, seq, args.pred, dim=dim)
 
 	results = eval_local(args.pred, args.gt, seqs, args.ref_seq, radar=radar, plot_dir=args.pred)
-	print(results)

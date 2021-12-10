@@ -9,6 +9,7 @@ metadata.yaml uses the following format:
 ```YAML
 benchmark: odometry
 methodname: RoBoDoMeTrY
+email: youremail@gmail.com
 2d: False
 author: First Last, First1 Last1
 papertitle: Our Wondrous Algorithm
@@ -32,4 +33,6 @@ Note that we provide a Python file to check the format of the submission zip fil
 
 See the other readme files for the format of the submission txt files.
 
-After uploading your submission, it will take several minutes before your results will apper in the "view / edit" section of the submission page. You will also be able to download a detailed csv file of your results along with some pdf plots when they are ready. Please be patient and do not submit your results more than once as this may cause problems.
+After uploading your submission, it will take several minutes before your results will apper in the "view / edit" section of the submission page.
+
+Detailed results will be sent to the `email` provided in the yaml file.

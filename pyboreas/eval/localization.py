@@ -114,7 +114,11 @@ def eval_local(predpath, gtpath, gt_seqs, gt_ref_seq, radar=False, ref='lidar', 
 	if seqs_have_cov:
 		c = np.mean(seq_consist)
 		print('Overall Consistency: {}'.format(c))
-	return seq_rmse, seq_consist, seqs_have_cov
+		con = np.array(seq_consist).reshape(-1, 1)
+		errs = np.concatenate(seq_rmse, con)
+	else:
+	    errs = seq_rmse
+	return errs, gt_seqs
 
 
 if __name__ ==  '__main__':
