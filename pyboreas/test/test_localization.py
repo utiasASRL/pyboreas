@@ -7,6 +7,7 @@ from pyboreas.eval.localization import eval_local
 from pyboreas.utils.utils import get_inverse_tf, rotToYawPitchRoll, \
 	yawPitchRollToRot, rotation_error, translation_error, se3ToSE3, SE3Tose3
 from pyboreas.utils.odometry import read_traj_file_gt2
+from pyboreas.data.splits import loc_test
 
 # gt: 4 x 4 x N
 # pred: 4 x 4
@@ -15,11 +16,10 @@ def get_matching_pose(pred, gt):
 		(gt[1, 3, :] - pred[1, 3])**2, axis=0)
 
 def gen_fake_submission(gtpath, gt_ref_seq, ref, seq, predpath, dim=3):
-	gt_ref_poses, gt_ref_times = read_traj_file_gt2(osp.join(gt_ref_seq,
+	gt_ref_poses, gt_ref_times = read_traj_file_gt2(osp.join(gtpath, gt_ref_seq,
 		'applanix', ref + '_poses.csv'), dim=dim)
 	pred_poses, pred_times = read_traj_file_gt2(osp.join(gtpath,
 		seq, 'applanix', ref + '_poses.csv'), dim=dim)
-	np.random.seed(42)
 	gt = np.stack(gt_ref_poses, -1)
 	f = open(osp.join(predpath, seq + '.txt'), 'w')
 	for i, p in enumerate(pred_poses):
@@ -55,7 +55,7 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--pred', default='test/demo/pred/loc')
 	parser.add_argument('--gt', default='test/demo/gt')
-	parser.add_argument('--ref_seq', default='test/demo/gt/boreas-2021-08-05-13-34')
+	parser.add_argument('--ref_seq', default='boreas-2021-08-05-13-34')
 	parser.add_argument('--ref', default='lidar')
 
 	args = parser.parse_args()
@@ -64,15 +64,18 @@ if __name__ == '__main__':
 	print(args.ref_seq)
 	print(args.ref)
 	gtpath = args.gt
-	seqs = sorted([b for b in os.listdir(args.gt) if 'boreas-20' in b])
+	seqs = [x[0] for x in loc_test]
+	# seqs = sorted([b for b in os.listdir(args.gt) if 'boreas-20' in b])
 	ss = Path(args.ref_seq).stem
 	if ss in seqs:
 		seqs.remove(ss)
 	dim = 3
 	radar = True if dim == 2 else False
 
+	np.random.seed(42)
 	for seq in seqs:
 		if not osp.exists(osp.join(args.pred, seq + '.txt')):
 			gen_fake_submission(args.gt, args.ref_seq, args.ref, seq, args.pred, dim=dim)
 
 	results = eval_local(args.pred, args.gt, seqs, args.ref_seq, radar=radar, plot_dir=args.pred)
+	print(results[0])

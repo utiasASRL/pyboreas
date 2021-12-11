@@ -1,0 +1,47 @@
+## Work-In-Progress
+Complete instructions and script for benchmark 3D detections coming soon...
+
+## Ground Truth Format:
+
+Label formats:
+
+Note that the name of each lidar file is a UNIX timestamp in microseconds and corresponds to the timestamp of the associated lidar frame that was labelled.
+
+The table below describes each column of the label files:
+
+| Values  |  Name   |   Description |
+| --- | --- | --- |
+|   1  |  uuid       |  Unique identifier for the object track, consistent across frames |
+|   1  |  type       |  Describes the type of object: 'Car', 'Pedestrian', 'Cyclist', 'Misc' |
+|   3  |  dimensions |  3D object dimensions: length, width, height (in meters) |
+|   3  |  location   |  3D object location x,y,z in the lidar frame (in meters) |
+|   1  |  rotation_z |  Rotation around Z-axis in lidar frame [-pi..pi] |
+|   1  |  numPoints  |  The number of lidar points associated with the bounding box. |
+                     
+Objects are labelled +/- 75m from the lidar sensor frame, in a square area centered on the vehicle.
+
+Pedestrian class: any person (adult, child, or baby) in any position. Exclusions: pedestrians in buildings, cars, balconies, or an image of a person. Includes: skateboarders, scooters.
+
+Cars includes: coupes, sedans, SUV, Vans, pick-up trucks, ambulances.
+
+Cyclist include: bicycles, motorcycles. Exclusion: parked bicycles, motorcycles.
+
+Other vehicles: bus, industrial truck, streetcar, train
+
+## Prediction Format:
+
+For the detection benchmark, you must submit one label file for each file in the test set. Defined in `detection_test_times.txt`.
+
+Each row of a label file will correspond to a predicted bounding box label with the following format.
+The table below describes each column of the label files:
+Values in the label files are separated by spaces.
+
+| Values |   Name  |    Description |
+| --- | --- | --- |
+|   1 |   uuid    |     Set to a default value, like 0, this value is ignored for the detection benchmark.
+|   1  |  type   |      Describes the type of object: 'Car', 'Pedestrian', 'Cyclist', 'Misc' |
+|   3  |  dimensions  | 3D object dimensions: length, width, height (in meters) |
+|   3  |  location  |   3D object location x,y,z in the lidar frame (in meters) in lidar frame |
+|   1   | rotation_z |  Rotation around Z-axis in lidar frame [-pi..pi] |
+|   1   | numPoints |  Set to a default value, like 0, this value is ignored for the detection benchmark. |
+|   1  |  score  |  Confidence in detection, needed for p/r curves  |

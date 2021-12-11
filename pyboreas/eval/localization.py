@@ -81,7 +81,6 @@ def eval_local(predpath, gtpath, gt_seqs, gt_ref_seq, radar=False, ref='lidar', 
 			T = pred_T_s1_s2 @ get_inverse_tf(gt_T_s1_s2)
 			Te = T_as @ T @ T_sa
 			errs.append(compute_errors(Te))
-
 			# If the user submitted a covariance matrix, calculate consistency
 			if has_cov:
 				if abs(np.sum(cov_matrices[j] - np.identity(6))) < 1e-3:
@@ -92,7 +91,6 @@ def eval_local(predpath, gtpath, gt_seqs, gt_ref_seq, radar=False, ref='lidar', 
 				consist.append(c[0, 0])  # assumes user has uploaded inverse covariance matrices
 				Cov.append(1 / cov_matrices[j].diagonal())
 		Xi = np.array(Xi)
-		print(np.array(consist).shape)
 		Cov = np.array(Cov)
 		if plot_dir is not None:
 			plot_loc_stats(seq, plot_dir, T_pred_seq, T_gt_seq, errs, consist, Xi, Cov, has_cov)
@@ -105,7 +103,7 @@ def eval_local(predpath, gtpath, gt_seqs, gt_ref_seq, radar=False, ref='lidar', 
 			# c = np.mean(np.sqrt(np.array(consist) / 6.0))
 			print('Consistency: {}'.format(c))
 		seq_consist.append(c)
-		print('\n')
+		print(' ')
 
 	seq_rmse = np.array(seq_rmse)
 	rmse = np.mean(seq_rmse, axis=0).squeeze()
@@ -115,7 +113,7 @@ def eval_local(predpath, gtpath, gt_seqs, gt_ref_seq, radar=False, ref='lidar', 
 		c = np.mean(seq_consist)
 		print('Overall Consistency: {}'.format(c))
 		con = np.array(seq_consist).reshape(-1, 1)
-		errs = np.concatenate(seq_rmse, con)
+		errs = np.concatenate((seq_rmse, con), -1)
 	else:
 	    errs = seq_rmse
 	return errs, gt_seqs

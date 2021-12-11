@@ -19,3 +19,5 @@ xi = SE3Tose3(T)
 c = xi.T @ Sigma_inv_s1_s2 @ xi
 c = np.sqrt(c / 6)
 ```
+
+For the localization benchmark, an additional metadata tag is required: `reference` which can be one of: `lidar, radar, camera`. This is used to determine which sensor is being used as a reference for ground truth poses.
