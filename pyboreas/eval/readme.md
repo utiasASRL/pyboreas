@@ -37,4 +37,4 @@ See the other readme files for the format of the submission txt files.
 
 After uploading your submission, it will take several minutes before your results will apper in the "view / edit" section of the submission page.
 
-Detailed results will be sent to the `email` provided in the yaml file.
+Detailed results will be sent to the `email` provided in the yaml file. Note that this `email` must match the one that was used to sign up for an account via our website. You should have received an Amazon Web Services confirmation link after confirming your account creation. Is this was not the case, please email us.
