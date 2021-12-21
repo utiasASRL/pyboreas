@@ -21,7 +21,7 @@ class BoundingBoxes:
                 parts = line.split()
                 uuid = parts[0]
                 label = parts[1]
-                ext = np.array([float(parts[2]), float(parts[3]), float(parts[4])]).reshape(-3, 1) # TODO: fix
+                ext = np.array([float(parts[2]), float(parts[3]), float(parts[4])]).reshape(-3, 1)
                 pos = np.array([float(parts[5]), float(parts[6]), float(parts[7])]).reshape(-3, 1)
                 yaw = float(parts[8])
                 rot = yawPitchRollToRot(yaw, 0, 0)
@@ -29,7 +29,7 @@ class BoundingBoxes:
                     numPoints = 0
                 else:
                     numPoints = int(parts[9])
-                score = 1
+                score = -1
                 if len(parts) >= 11:
                     score = float(parts[10])
                 self.bbs.append(BoundingBox(pos, ext, rot, label, uuid, numPoints, score))
@@ -38,9 +38,12 @@ class BoundingBoxes:
         with open(path, 'w') as f:
             for bb in self.bbs:
                 yaw, _, _ = rotToYawPitchRoll(bb.rot)
-                f.write('{} {} {} {} {} {} {} {} {} {}\n'.format(bb.uuid,
+                s = '{} {} {} {} {} {} {} {} {} {}'.format(bb.uuid,
                     bb.label, bb.extent[0, 0], bb.extent[1, 0], bb.extent[2, 0],
-                    bb.pos[0, 0], bb.pos[1, 0], bb.pos[2, 0], yaw, bb.numPoints))
+                    bb.pos[0, 0], bb.pos[1, 0], bb.pos[2, 0], yaw, bb.numPoints)
+                if bb.score >= 0:
+                    s += ' {}'.format(bb.score)
+                f.write(s + '\n')
 
     def render_2d(self, ax, color='r', **kwargs):
         for bb in self.bbs:

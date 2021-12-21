@@ -25,13 +25,12 @@ def check_yaml(yml):
     if yml['benchmark'] == 'localization':
         try:
             yml['reference']
+            if yml['reference'] not in ['camera', 'lidar', 'radar']:
+                print('incorrect reference: {}'.format(yml['reference']))
+                return False
         except KeyError:
             print('missing key: reference, see localization.md for instructions')
             return False
-
-    if yml['reference'] not in ['camera', 'lidar', 'radar']:
-        print('incorrect reference: {}'.format(yml['reference']))
-        return False
 
     if not isinstance(yml['2d'], bool):
         print('2d must be bool')
@@ -110,7 +109,7 @@ if __name__ == '__main__':
         if not osp.exists(args.test_times):
             raise Exception('{} not found'.format(args.test_times))
         with open(args.test_times) as f:
-            gt_times = f.readlines()
+            gt_times = sorted([l.strip() for l in f.readlines()])
         preds = sorted([f.split('.')[0] for f in files])
         if len(preds) != len(gt_times):
             raise Exception('number of predictions does not match number of gt times')

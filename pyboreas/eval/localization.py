@@ -122,7 +122,7 @@ def eval_local(predpath, gtpath, gt_seqs, gt_ref_seq, radar=False, ref='lidar', 
 if __name__ ==  '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--pred', type=str, help='path to prediction files')	
-	parser.add_argument('--gt', type=str, help='path to groundtruth sequence folders')
+	parser.add_argument('--gt', type=str, help='path to groundtruth sequences')
 	parser.add_argument('--radar', dest='radar', action='store_true', help='evaluate radar odometry in SE(2)')
 	parser.add_argument('--ref', default='lidar', type=str, help='Which sensor to use as a reference (camera|lidar|radar)')
 	parser.set_defaults(radar=False)
