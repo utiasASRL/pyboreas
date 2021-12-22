@@ -243,9 +243,10 @@ class PointCloud:
         lidar_height_z = 2.13  # From calibration
 
         himmel = Himmelsbach(self.points)
+        himmel.set_z_offset(lidar_height_z)
         himmel.set_alpha(2.0/180.0*np.pi)
         himmel.set_tolerance(0.25)
-        himmel.set_thresholds(0.4, 0.2, 0.8, 5, 5)
+        himmel.set_thresholds(0.4, 0.2, 0.8, 0.1, 1.0)
         print("Himmelsbach initialized")
         t_himmel_start = time.time()
         ground_idx = himmel.compute_model_and_get_inliers()
@@ -259,7 +260,7 @@ class PointCloud:
             ground_cloud = pcd.select_by_index(ground_idx)
             ground_cloud.paint_uniform_color([0, 0, 0])
             object_cloud = pcd.select_by_index(ground_idx, invert=True)
-      
+
             o3d.visualization.draw_geometries([ground_cloud,object_cloud], window_name='GP Removal Results (Black = Ground)')
 
 

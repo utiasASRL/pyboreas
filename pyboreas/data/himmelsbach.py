@@ -1,6 +1,4 @@
 import numpy as np
-import math
-from copy import deepcopy
 
 
 class Line:
@@ -22,6 +20,8 @@ class Himmelsbach:
         self.points = points
         self.size = points.shape[0]
 
+        self.z_offset = 0.0
+
         self.alpha = 5.0 * np.pi / 360.0
         self.tolerance = 0.25
         self.Tm = 15.0 * np.pi / 360.0
@@ -30,17 +30,18 @@ class Himmelsbach:
         self.Trmse = 0.1
         self.Tdprev = 0.25
 
-        self.num_bins_small = 30
-        self.num_bins_large = 30
-        self.bin_size_small = 0.5
-        self.bin_size_large = 3.0
-
         self.rmin = 3.0
-        self.rmax = 108.0
+        self.num_bins_small = 30
+        self.bin_size_small = 3.0
+        self.num_bins_large = 30
+        self.bin_size_large = 3.0
 
         self.n_bins = self.num_bins_small + self.num_bins_large
 
         self.segments = []
+
+    def set_z_offset(self, z_offset):
+        self.z_offset = z_offset
 
     def set_alpha(self, alpha):
         self.alpha = alpha
@@ -54,7 +55,7 @@ class Himmelsbach:
         self.Tb = Tb
         self.Trmse = Trmse
         self.Tdprev = Tdprev
-    
+
     def sort_points_segments(self):
         num_segments = int(np.ceil((2 * np.pi) / self.alpha))
         self.segments = [[] for i in range(num_segments)]
@@ -69,13 +70,14 @@ class Himmelsbach:
     def sort_points_bins(self, segment):
         bins = [[] for i in range(self.n_bins)]
         rsmall = self.rmin + self.bin_size_small * self.num_bins_small
+        rlarge = rsmall + self.bin_size_large * self.num_bins_large
         for idx in segment:
             point = self.points[idx,:]
-            r = math.sqrt(point[0]**2 + point[1]**2)
+            r = np.sqrt(point[0]**2 + point[1]**2)
             bin = -1
             if self.rmin <= r and r < rsmall:
                 bin = (r - self.rmin) / self.bin_size_small
-            elif rsmall <= r and r < self.rmax:
+            elif rsmall <= r and r < rlarge:
                 bin = self.num_bins_small + (r - rsmall) / self.bin_size_large
             if bin >= 0:
                 bins[int(bin)].append(idx)
@@ -83,7 +85,7 @@ class Himmelsbach:
         bins_out = [-1 for i in range(self.n_bins)]
         i = 0
         for bin_pts in bins:
-            zmin = -1.5
+            zmin = 1e9
             lowest = -1
             for idx in bin_pts:
                 point = self.points[idx,:]
@@ -141,7 +143,7 @@ class Himmelsbach:
                     continue
                 elif (len(line_set) >= 2):
                     rmse,m,b = self.fitline(line_set + [idx])
-                    if (abs(m) <= self.Tm and (abs(m) > self.Tm_small or abs(b+2.13) <= self.Tb) and rmse <= self.Trmse):
+                    if (abs(m) <= self.Tm and (abs(m) > self.Tm_small or abs(b + self.z_offset) <= self.Tb) and rmse <= self.Trmse):
                         line_set.append(idx)
                         i += 1
                     else:
@@ -160,10 +162,11 @@ class Himmelsbach:
                     if (dprev <= self.Tdprev or c == 0 or len(line_set) != 0):
                         line_set.append(idx)
                     i += 1
-            if len(lines) == 0:
+            if len(line_set) >= 2:
                 rmse, m, b = self.fitline(line_set)
                 line = Line(self.points, line_set, m, b)
                 lines.append(line)
+                line_set = []
 
             # Assign points as inliers if they are within a threshold of the ground model
             for idx in segment:
