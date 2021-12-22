@@ -155,11 +155,9 @@ class Himmelsbach:
                         line_set = []
                         c += 1
                 else:
-                    if (len(lines) > 0):
-                        dprev = self.distpointline(lines[c - 1], idx)
-                    else:
-                        dprev = -1
-                    if (dprev <= self.Tdprev or c == 0 or len(line_set) != 0):
+                    mprev = np.abs(lines[-1].m) if len(lines) > 0 else 0
+                    dprev = self.distpointline(lines[c - 1], idx) if len(lines) > 0 else -1
+                    if (mprev > self.Tm or dprev <= self.Tdprev or c == 0 or len(line_set) != 0):
                         line_set.append(idx)
                     i += 1
             if len(line_set) >= 2:
