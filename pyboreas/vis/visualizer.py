@@ -334,7 +334,7 @@ class BoreasVisualizer:
                          children=[dcc.Graph(id='3d_lidar_graph', figure=self.plot_functions['3d_lidar'](starting_frame_idx))],
                          style={'display': 'inline-block'}),
             ], style={'textAlign': 'center'}),
-        ], style={'width': '60%', 'padding-left': '20%', 'padding-right': '20%'})
+        ], style={'margin': 'auto', 'width': '80%'})
 
         @app.callback(Output('lidar_bev_div', 'style'),
                       Output('radar_bev_div', 'style'),
