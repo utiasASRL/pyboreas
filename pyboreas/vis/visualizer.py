@@ -82,7 +82,7 @@ class BoreasVisualizer:
         try:
             rad = self.seq.get_radar(idx)
         except:
-            print(f"WARNING: Could not get radar data at idx {idx} for radar visualization")
+            print(f"WARNING: Could not get radar data at index {idx} for radar visualization")
             return go.Figure()  # If we cant load radar data, return an empty figure
         radar_image = rad.polar_to_cart(0.25, 600)
         rad.unload_data()
@@ -140,7 +140,7 @@ class BoreasVisualizer:
 
     def plot_cam_persp(self, idx):
         if not Path(self.camera_frames[idx].path).exists():
-            print(f"WARNING: Could not find camera data at idx {idx} for perspective visualization")
+            print(f"WARNING: Could not find camera data at index {idx} for perspective visualization")
             return go.Figure()  # If we cant load camera data, return an empty figure
 
         # Image in figure background taken from https://plotly.com/python/images/#zoom-on-static-images
