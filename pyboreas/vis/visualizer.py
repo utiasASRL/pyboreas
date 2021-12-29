@@ -45,7 +45,12 @@ class BoreasVisualizer:
 
 
     def plot_lidar_bev(self, idx):
-        lid = self.seq.get_lidar(idx)
+        # Get & process lidar data
+        try:
+            lid = self.seq.get_lidar(idx)
+        except:
+            print(f"WARNING: Could not get lidar data at index {idx} for BEV visualization")
+            return go.Figure()  # If we cant load lidar data, return an empty figure
         lid.passthrough([-75, 75, -75, 75, -5, 10])
         lid.random_downsample(0.5)
         lid.transform(self.calib.T_applanix_lidar)
@@ -54,6 +59,7 @@ class BoreasVisualizer:
         points = lid.points
         lid.unload_data()
 
+        # Draw lidar points
         fig_bev = go.Figure()
         points_a = map_utils.transform_points(self.map_points, C_a_enu, lid.pose[0, 3], lid.pose[1, 3])  # Transform loaded map points into current frame before plotting
         map_utils.draw_map_plotly(self.map_data, self.map_point_ids, points_a, fig_bev, cutoff_radius=100)
@@ -72,13 +78,16 @@ class BoreasVisualizer:
         return fig_bev
 
     def plot_radar_bev(self, idx):
-        # Radar
-        fig_radar = go.Figure()
-        rad = self.seq.get_radar(idx)
+        # Get & process radar data
+        try:
+            rad = self.seq.get_radar(idx)
+        except:
+            print(f"WARNING: Could not get radar data at idx {idx} for radar visualization")
+            return go.Figure()  # If we cant load radar data, return an empty figure
         radar_image = rad.polar_to_cart(0.25, 600)
         rad.unload_data()
 
-        # Draw image
+        # Draw radar image
         radar_pil_image = Image.fromarray((radar_image * 255).astype(np.uint8))
         rawBytes = io.BytesIO()
         radar_pil_image.save(rawBytes, "PNG")
@@ -86,6 +95,7 @@ class BoreasVisualizer:
         encoded_radar_string = base64.b64encode(rawBytes.read()).decode()
         encoded_radar_image = "data:image/png;base64," + encoded_radar_string
 
+        fig_radar = go.Figure()
         fig_radar.add_layout_image(
             dict(
                 x=-74,
@@ -129,15 +139,9 @@ class BoreasVisualizer:
         return np.matmul(get_inverse_tf(T_enu_camera), T_enu_lidar)
 
     def plot_cam_persp(self, idx):
-        # Project lidar points into pixel frame
-
-        lid = self.seq.get_lidar(idx)
-        lid.remove_motion(lid.body_rate)
-        T_camera_lidar = self.get_T_camera_lidar(idx)
-        lid.transform(T_camera_lidar)
-        lid.passthrough([-75, 75, -20, 10, 2, 60])  # xmin, xmax, ymin, ymax, zmin, zmax
-        uv, colors, _ = lid.project_onto_image(self.calib.P0)
-        lid.unload_data()
+        if not Path(self.camera_frames[idx].path).exists():
+            print(f"WARNING: Could not find camera data at idx {idx} for perspective visualization")
+            return go.Figure()  # If we cant load camera data, return an empty figure
 
         # Image in figure background taken from https://plotly.com/python/images/#zoom-on-static-images
         fig_persp = go.Figure()
@@ -154,7 +158,7 @@ class BoreasVisualizer:
             encoded_string = base64.b64encode(image_file.read()).decode()  # add the prefix that plotly will want when using the string as source
         encoded_image = "data:image/png;base64," + encoded_string
 
-        # Draw image
+        # Draw cam image
         fig_persp.add_layout_image(
             dict(x=0,
                 sizex=img_width,
@@ -168,16 +172,28 @@ class BoreasVisualizer:
                 source=encoded_image)
         )
 
-        # Draw lidar
-        fig_persp.add_trace(
-            go.Scattergl(x=uv[:, 0],
-                         y=uv[:, 1],
-                         mode='markers',
-                         visible=True,
-                         marker_size=1,
-                         marker_color=colors,
-                         marker_colorscale='rainbow')
-        )
+        # Get & process lidar data
+        try:
+            lid = self.seq.get_lidar(idx)
+            lid.remove_motion(lid.body_rate)
+            T_camera_lidar = self.get_T_camera_lidar(idx)  # Project lidar points into pixel frame
+            lid.transform(T_camera_lidar)
+            lid.passthrough([-75, 75, -20, 10, 2, 60])  # xmin, xmax, ymin, ymax, zmin, zmax
+            uv, colors, _ = lid.project_onto_image(self.calib.P0)
+            lid.unload_data()
+
+            # Draw lidar points
+            fig_persp.add_trace(
+                go.Scattergl(x=uv[:, 0],
+                             y=uv[:, 1],
+                             mode='markers',
+                             visible=True,
+                             marker_size=1,
+                             marker_color=colors,
+                             marker_colorscale='rainbow')
+            )
+        except:
+            print(f"WARNING: Could not get lidar data at index {idx} for perspective visualization")
 
         # Configure axes
         fig_persp.update_xaxes(
@@ -201,10 +217,14 @@ class BoreasVisualizer:
         return fig_persp
 
     def plot_3d_lidar(self, idx):
-        # Colored lidar
-        lid = self.seq.get_lidar(idx)
+        # Get & process lidar points
+        try:
+            lid = self.seq.get_lidar(idx)
+        except:
+            print(f"WARNING: Could not get lidar data at index {idx} for 3d lidar visualization")
+            return go.Figure()  # If we cant load lidar data, return an empty figure
         lid.remove_motion(lid.body_rate)
-        T_camera_lidar = self.get_T_camera_lidar(idx)
+        T_camera_lidar = self.get_T_camera_lidar(idx)  # Project lidar points into pixel frame
         lid.transform(T_camera_lidar)
         lid.passthrough([-30, 30, -10, 5, 2, 80])  # xmin, xmax, ymin, ymax, zmin, zmax
         uv, _, mask = lid.project_onto_image(self.calib.P0)
