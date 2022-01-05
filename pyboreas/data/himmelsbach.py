@@ -24,11 +24,11 @@ class Himmelsbach:
 
         self.alpha = 5.0 * np.pi / 360.0
         self.tolerance = 0.25
-        self.Tm = 15.0 * np.pi / 360.0
-        self.Tm_small = 5.0 * np.pi / 360.0
+        self.Tm = 0.4
+        self.Tm_small = 0.2
         self.Tb = -1.5
         self.Trmse = 0.1
-        self.Tdprev = 0.25
+        self.Tdprev = 1.0
 
         self.num_bins_small = 30
         self.num_bins_large = 30
@@ -135,29 +135,32 @@ class Himmelsbach:
             bins = self.sort_points_bins(segment)
             lines = []
             line_set = []
-            c = 0
-            for idx in bins:
+            i = 0
+            while i<len(bins)-1:
+                idx = bins[i]
                 if (idx < 0):
+                    i += 1
                     continue
                 elif (len(line_set) >= 2):
                     rmse,m,b = self.fitline(line_set, idx)
                     if (abs(m) <= self.Tm and (abs(m) > self.Tm_small or abs(b)+2.13 <= self.Tb) and rmse <= self.Trmse):
                         line_set.append(idx)
+                        i += 1
                     else:
                         self.fitline_base(line_set)
                         line = Line(self.points, line_set, m, b)
                         lines.append(line)
                         line_set = []
-                        c += 1
-                        idx -= 1
                 else:
-                    dprev = 10000
-                    if (len(lines) > 0 and (c - 1) >= 0):
-                        dprev = self.distpointline(lines[c - 1], idx)
-                    if (dprev <= self.Tdprev or c == 0 or len(line_set) != 0):
+                    mprev = 0 if len(lines)==0 else abs(lines[-1].m)
+                    dprev = -1 if len(lines)==0 else self.distpointline(lines[-1],idx)
+                    if (dprev <= self.Tdprev or mprev >= self.Tm or len(line_set) != 0 or len(lines) == 0):
                         line_set.append(idx)
-                
-            
+                    i += 1
+            if (len(line_set) >= 2):
+                rmse,m,b = self.fitline_base(line_set)
+                lines.append(Line(self.points, line_set, m, b))
+                line_set = []
             # Assign points as inliers if they are within a threshold of the ground model
             for idx in segment:
                 # get line that's closest to the candidate point based on distance to endpoints
