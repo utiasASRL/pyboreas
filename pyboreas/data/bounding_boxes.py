@@ -21,7 +21,7 @@ class BoundingBoxes:
                 parts = line.split()
                 uuid = parts[0]
                 label = parts[1]
-                ext = np.array([float(parts[2]), float(parts[3]), float(parts[4])]).reshape(-3, 1) # TODO: fix
+                ext = np.array([float(parts[2]), float(parts[3]), float(parts[4])]).reshape(-3, 1)
                 pos = np.array([float(parts[5]), float(parts[6]), float(parts[7])]).reshape(-3, 1)
                 yaw = float(parts[8])
                 rot = yawPitchRollToRot(yaw, 0, 0)
@@ -29,15 +29,21 @@ class BoundingBoxes:
                     numPoints = 0
                 else:
                     numPoints = int(parts[9])
-                self.bbs.append(BoundingBox(pos, ext, rot, label, uuid, numPoints))
+                score = -1
+                if len(parts) >= 11:
+                    score = float(parts[10])
+                self.bbs.append(BoundingBox(pos, ext, rot, label, uuid, numPoints, score))
 
     def save_to_file(self, path):
         with open(path, 'w') as f:
             for bb in self.bbs:
                 yaw, _, _ = rotToYawPitchRoll(bb.rot)
-                f.write('{} {} {} {} {} {} {} {} {} {}\n'.format(bb.uuid,
+                s = '{} {} {} {} {} {} {} {} {} {}'.format(bb.uuid,
                     bb.label, bb.extent[0, 0], bb.extent[1, 0], bb.extent[2, 0],
-                    bb.pos[0, 0], bb.pos[1, 0], bb.pos[2, 0], yaw, bb.numPoints))
+                    bb.pos[0, 0], bb.pos[1, 0], bb.pos[2, 0], yaw, bb.numPoints)
+                if bb.score >= 0:
+                    s += ' {}'.format(bb.score)
+                f.write(s + '\n')
 
     def render_2d(self, ax, color='r', **kwargs):
         for bb in self.bbs:
@@ -51,12 +57,12 @@ class BoundingBoxes:
         for bb in self.bbs:
             bb.remove_motion(body_rate, tref)
 
-    def project(self, P, width=2448, height=2048, checkdims=False):
+    def project(self, P, width=2448, height=2048, checkdims=False, filterCamFront=True):
         # assumes bounding boxes have already been transformed into the camera coordinates
         # does not modify points in place, returns list of np.array points (pixel coords for box corners)
         UV = []
         for bb in self.bbs:
-            if bb.pos[2] < 0: # only keep bounding boxes in front of the camera
+            if bb.pos[2] < 0 and filterCamFront: # only keep bounding boxes in front of the camera
                 continue
             uv = bb.project(P, width, height, checkdims)
             if uv is not None:
@@ -124,7 +130,7 @@ class BoundingBoxes:
 
 class BoundingBox:
     def __init__(self, position=np.zeros((3, 1)), extent=np.zeros((3, 1)),
-        rotation=np.identity(3), label=None, uuid=None, numPoints=None):
+        rotation=np.identity(3), label=None, uuid=None, numPoints=None, score=None):
         """Checks dimensional consistency of inputs and constructs points array
 
         Args:
@@ -145,6 +151,7 @@ class BoundingBox:
         self.uuid = uuid
         self.numPoints = numPoints
         self.timestamp = None
+        self.score = score
 
         # Construct array to extract points from extent
         # self.corner_map = {'ftr':0, 'ftl':1, 'btl':2, 'btr':3,

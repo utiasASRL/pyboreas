@@ -136,4 +136,6 @@ boreas_mini_v2
 build_and_upload_to_pypi.sh
 *.pdf
 pyboreas/test/demo/pred/3d/interp/*
+pyboreas/test/demo/pred/loc/*
+pyboreas/test/demo/pred/*.txt
 *tmp_results*

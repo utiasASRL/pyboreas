@@ -201,7 +201,7 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err):
     plt.ylabel('y [m]')
     plt.axis('equal')
     plt.legend(loc="upper right")
-    plt.savefig(os.path.join(dir, seq[:-4] + '_path.pdf'), bbox_inches='tight')
+    plt.savefig(os.path.join(dir, seq[:-4] + '_path.pdf'), pad_inches=0, bbox_inches='tight')
     plt.close()
 
     # plot of translation error along path length
@@ -210,7 +210,7 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err):
     plt.plot(lengths, t_err, 'b')
     plt.xlabel('Path Length [m]')
     plt.ylabel('Translation Error [%]')
-    plt.savefig(os.path.join(dir, seq[:-4] + '_tl.pdf'), bbox_inches='tight')
+    plt.savefig(os.path.join(dir, seq[:-4] + '_tl.pdf'), pad_inches=0, bbox_inches='tight')
     plt.close()
 
     # plot of rotation error along path length
@@ -219,9 +219,78 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err):
     plt.plot(lengths, r_err, 'b')
     plt.xlabel('Path Length [m]')
     plt.ylabel('Rotation Error [deg/m]')
-    plt.savefig(os.path.join(dir, seq[:-4] + '_rl.pdf'), bbox_inches='tight')
+    plt.savefig(os.path.join(dir, seq[:-4] + '_rl.pdf'), pad_inches=0, bbox_inches='tight')
     plt.close()
 
+def plot_loc_stats(seq, plot_dir, T_loc, T_gt, errs, consist=[], Xi=[], Cov=[], has_cov=False):
+
+
+    path_loc = np.array([np.linalg.inv(T_i_vk)[:3, 3] for T_i_vk in T_loc], dtype=np.float64)
+    path_gt = np.array([np.linalg.inv(T_i_vk)[:3, 3] for T_i_vk in T_gt], dtype=np.float64)
+
+    # path_loc, path_gt = get_path_from_Tvi_list(T_loc, T_gt)
+
+    # plot of path
+    plt.figure(figsize=(6, 6))
+    plt.plot(path_loc[:, 0], path_loc[:, 1], 'b', linewidth=0.5, label='Estimate')
+    plt.plot(path_gt[:, 0], path_gt[:, 1], '--r', linewidth=0.5, label='Groundtruth')
+    plt.plot(path_gt[0, 0], path_gt[0, 1], 'ks', markerfacecolor='none', label='Sequence Start')
+    plt.xlabel('x [m]')
+    plt.ylabel('y [m]')
+    plt.axis('equal')
+    plt.legend(loc="upper right")
+    plt.savefig(os.path.join(plot_dir, seq[:-4] + '_path.pdf'), pad_inches=0, bbox_inches='tight')
+    plt.close()
+
+    # plot of errors vs. time
+    # plt.rcParams.update({"text.usetex": True})
+    fig, axs = plt.subplots(6, 1, figsize=(6, 12))
+    Sigma = 3 * np.sqrt(Cov)
+    axs[0].plot(Xi[:, 0], color='limegreen', linewidth=1)
+    axs[0].plot(Sigma[:, 0], color='k', linewidth=1)
+    axs[0].plot(-Sigma[:, 0], color='k', linewidth=1)
+    axs[0].set_ylabel('rho_1')
+
+    axs[1].plot(Xi[:, 1], color='limegreen', linewidth=1)
+    axs[1].plot(Sigma[:, 1], color='k', linewidth=1)
+    axs[1].plot(-Sigma[:, 1], color='k', linewidth=1)
+    axs[1].set_ylabel('rho_2')
+
+    axs[2].plot(Xi[:, 2], color='limegreen', linewidth=1)
+    axs[2].plot(Sigma[:, 2], color='k', linewidth=1)
+    axs[2].plot(-Sigma[:, 2], color='k', linewidth=1)
+    axs[2].set_ylabel('rho_3')
+
+    axs[3].plot(Xi[:, 3], color='limegreen', linewidth=1)
+    axs[3].plot(Sigma[:, 3], color='k', linewidth=1)
+    axs[3].plot(-Sigma[:, 3], color='k', linewidth=1)
+    axs[3].set_ylabel('psi_1')
+
+    axs[4].plot(Xi[:, 4], color='limegreen', linewidth=1)
+    axs[4].plot(Sigma[:, 4], color='k', linewidth=1)
+    axs[4].plot(-Sigma[:, 4], color='k', linewidth=1)
+    axs[4].set_ylabel('psi_2')
+
+    axs[5].plot(Xi[:, 5], color='limegreen', linewidth=1)
+    axs[5].plot(Sigma[:, 5], color='k', linewidth=1)
+    axs[5].plot(-Sigma[:, 5], color='k', linewidth=1)
+    axs[5].set_ylabel('psi_3')
+    axs[5].set_xlabel('time (s)')
+    plt.savefig(os.path.join(plot_dir, seq[:-4] + '_errs.pdf'), pad_inches=0, bbox_inches='tight')
+    plt.close()
+
+    e = np.array(errs)
+    fig, axs = plt.subplots(2, 2, figsize=(8, 7))
+    axs[0, 0].hist(e[:, 0], bins=20)
+    axs[0, 0].set_title('Lateral Error (m)')
+    axs[0, 1].hist(e[:, 1], bins=20)
+    axs[0, 1].set_title('Longitudinal Error (m)')
+    axs[1, 0].hist(e[:, 2], bins=20)
+    axs[1, 0].set_title('Vertical Error (m)')
+    axs[1, 1].hist(e[:, 3], bins=20)
+    axs[1, 1].set_title('Orientation Error (deg)')
+    plt.savefig(os.path.join(plot_dir, seq[:-4] + '_hist.pdf'), pad_inches=0, bbox_inches='tight')
+    plt.close()
 
 def get_path_from_Tvi_list(T_vi_odom, T_vi_gt):
     """Gets 3D path (xyz) from list of poses T_vk_i (transform between vehicle frame at time k and fixed frame i) and
@@ -562,6 +631,44 @@ def read_traj_file(path):
 
     return poses, times
 
+def read_traj_file2(path):
+    """Reads trajectory from a space-separated txt file
+    Args:
+        path (string): file path including file name
+    Returns:
+        (List[np.ndarray]): list of 4x4 poses
+        (List[int]): list of times in microseconds
+    """
+    with open(path, "r") as file:
+        # read each time and pose to lists
+        poses = []
+        pred_times = []
+        ref_times = []
+        cov_matrices = []
+        has_cov = True
+
+        for line in file:
+            line_split = line.strip().split()
+            values = [float(v) for v in line_split[2:]]
+            pose = np.zeros((4, 4), dtype=np.float64)
+            pose[0, 0:4] = values[0:4]
+            pose[1, 0:4] = values[4:8]
+            pose[2, 0:4] = values[8:12]
+            pose[3, 3] = 1.0
+            poses.append(enforce_orthog(pose))
+            pred_times.append(int(line_split[0]))
+            ref_times.append(int(line_split[1]))
+            if not has_cov:
+                continue
+            if len(values) == 48:
+                cov_matrix = np.array(values[12:]).reshape(6, 6)
+            else:
+                cov_matrix = np.identity(6)
+                has_cov = False
+            cov_matrices.append(cov_matrix)
+
+    return poses, pred_times, ref_times, cov_matrices, has_cov
+
 
 def read_traj_file_gt(path, T_ab, dim):
     """Reads trajectory from a comma-separated file, see Boreas documentation for format
@@ -585,7 +692,27 @@ def read_traj_file_gt(path, T_ab, dim):
         times += [int(time)]  # microseconds
     return poses, times
 
-def convert_line_to_pose(line, dim):
+def read_traj_file_gt2(path, dim=3):
+    """Reads trajectory from a comma-separated file, see Boreas documentation for format
+    Args:
+        path (string): file path including file name
+        T_ab (np.ndarray): 4x4 transformation matrix for calibration. Poses read are in frame 'b', output in frame 'a'
+        dim (int): dimension for evaluation. Set to '3' for 3D or '2' for 2D
+    Returns:
+        (List[np.ndarray]): list of 4x4 poses
+        (List[int]): list of times in microseconds
+    """
+    with open(path, 'r') as f:
+        lines = f.readlines()
+    poses = []
+    times = []
+    for line in lines[1:]:
+        pose, time = convert_line_to_pose(line, dim)
+        poses.append(pose)
+        times.append(time)  # microseconds
+    return poses, times
+
+def convert_line_to_pose(line, dim=3):
     """Reads trajectory from list of strings (single row of the comma-separeted groundtruth file). See Boreas
     documentation for format
     Args:
