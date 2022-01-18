@@ -10,6 +10,9 @@ import open3d as o3d
 import time
 from pyboreas.data.himmelsbach import Himmelsbach
 
+import plotly.graph_objects as go
+import plotly.express as px
+
 class PointCloud:
     """
     Class for working with (lidar) pointclouds.
@@ -218,20 +221,34 @@ class PointCloud:
         outliers = self.points[np.where(dists > inlier_thresh)[0], :]
 
         if show_subsample:  # Plot the subsampled points used for plane fit
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(subsample)
-            inlier_cloud = pcd.select_by_index(np.where(dists_sub < inlier_thresh)[0])
-            inlier_cloud.paint_uniform_color([0, 0, 0])
-            outlier_cloud = pcd.select_by_index(np.where(dists_sub < inlier_thresh)[0], invert=True)
-            o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud], window_name='Subsampled Pointcloud for GP Removal')
+            inliers = subsample[np.where(dists_sub < inlier_thresh)]
+            outliers = subsample[np.where(dists_sub >= inlier_thresh)]
+            fig = go.Figure()
+            fig.add_trace(
+                go.Scatter3d(x=inliers[:, 0], y=inliers[:, 1], z=inliers[:, 2],
+                             mode='markers', marker_size=1, marker_color='black', name='Inliers')
+            )
+            fig.add_trace(
+                go.Scatter3d(x=outliers[:, 0], y=outliers[:, 1], z=outliers[:, 2],
+                             mode='markers', marker_size=1, marker_color='blue', name='Outliers')
+            )
+            fig.update_layout(title="Subsampled Pointcloud for GP Removal", scene_aspectmode='data', legend={'itemsizing':'constant'})
+            fig.show()
 
         if show:  # Plot inliers/outliers result of plane fit
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(self.points[:, 0:3])
-            inlier_cloud = pcd.select_by_index(np.where(dists < inlier_thresh)[0])
-            inlier_cloud.paint_uniform_color([0, 0, 0])
-            outlier_cloud = pcd.select_by_index(np.where(dists < inlier_thresh)[0], invert=True)
-            o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud], window_name='GP Removal Results (Black = Ground)')
+            inliers = self.points[np.where(dists < inlier_thresh)]
+            outliers = self.points[np.where(dists >= inlier_thresh)]
+            fig = go.Figure()
+            fig.add_trace(
+                go.Scatter3d(x=inliers[:, 0], y=inliers[:, 1], z=inliers[:, 2],
+                             mode='markers', marker_size=1, marker_color='black', name='Detected Ground')
+            )
+            fig.add_trace(
+                go.Scatter3d(x=outliers[:, 0], y=outliers[:, 1], z=outliers[:, 2],
+                             mode='markers', marker_size=1, marker_color='blue', name='Outliers')
+            )
+            fig.update_layout(title="GP Removal Results", scene_aspectmode='data', legend={'itemsizing': 'constant'})
+            fig.show()
 
         if in_place:
             self.points = outliers
