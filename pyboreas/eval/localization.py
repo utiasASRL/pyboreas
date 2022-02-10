@@ -31,9 +31,9 @@ def check_ref_time_match(ref_times, gt_ref_times):
 	assert(np.sum(g[indices] - p) == 0)
 
 def get_T_enu_s1(query_time, gt_times, gt_poses):
-    closest = get_closest_index(query_time, gt_times)
-    assert(query_time == gt_times[closest]), 'query: {}'.format(query_time)
-    return gt_poses[closest]
+	closest = get_closest_index(query_time, gt_times)
+	assert(query_time == gt_times[closest]), 'query: {}'.format(query_time)
+	return gt_poses[closest]
 
 def compute_errors(Te):
 	return [Te[0, 3], Te[1, 3], Te[2, 3], rotation_error(Te) * 180 / np.pi]
@@ -41,14 +41,15 @@ def compute_errors(Te):
 def root_mean_square(errs):
 	return np.sqrt(np.mean(np.power(np.array(errs), 2), axis=0)).squeeze()
 
-def eval_local(predpath, gtpath, gt_seqs, gt_ref_seq, radar=False, ref='lidar', plot_dir=None):
+def eval_local(predpath, gtpath, gt_ref_seq, radar=False, ref='lidar', plot_dir=None):
 	dim = 2 if radar else 3
-	pred_files = sorted([f for f in os.listdir(predpath) if '.txt' in f])
-	assert(len(pred_files) == len(gt_seqs)), '{} {}'.format(pred_files, gt_seqs)
+	pred_files = sorted([f for f in os.listdir(predpath) if f.endswith('.txt')])
+	gt_seqs = []
 	for predfile in pred_files:
-		if Path(predfile).stem.split('.')[0] not in gt_seqs:
-			raise Exception("prediction file doesn't match ground truth sequence list")
-	
+		if Path(predfile).stem.split('.')[0] not in os.listdir(gtpath):
+			raise Exception(f"prediction file {predfile} doesn't match ground truth sequence list")
+		gt_seqs.append(Path(predfile).stem.split('.')[0])
+
 	gt_ref_poses, gt_ref_times = read_traj_file_gt2(osp.join(gtpath, gt_ref_seq, 'applanix', ref + '_poses.csv'), dim=dim)
 	seq_rmse = []
 	seq_consist = []
@@ -115,19 +116,19 @@ def eval_local(predpath, gtpath, gt_seqs, gt_ref_seq, radar=False, ref='lidar', 
 		con = np.array(seq_consist).reshape(-1, 1)
 		errs = np.concatenate((seq_rmse, con), -1)
 	else:
-	    errs = seq_rmse
+		errs = seq_rmse
+
 	return errs, gt_seqs
 
 
 if __name__ ==  '__main__':
 	parser = argparse.ArgumentParser()
-	parser.add_argument('--pred', type=str, help='path to prediction files')	
+	parser.add_argument('--pred', type=str, help='path to prediction files')
 	parser.add_argument('--gt', type=str, help='path to groundtruth sequences')
 	parser.add_argument('--radar', dest='radar', action='store_true', help='evaluate radar odometry in SE(2)')
-	parser.add_argument('--ref', default='lidar', type=str, help='Which sensor to use as a reference (camera|lidar|radar)')
+	parser.add_argument('--ref_seq', default=loc_reference, type=str, help='Which sequence to use as a reference')
+	parser.add_argument('--ref_sensor', default='lidar', type=str, help='Which sensor to use as a reference (camera|lidar|radar)')
 	parser.set_defaults(radar=False)
 	args = parser.parse_args()
-	assert(args.ref in ['camera', 'lidar', 'radar'])
-	gt_seqs = [x[0] for x in loc_test]
-	gt_ref_seq = loc_reference
-	eval_local(args.pred, args.gt, gt_seqs, gt_ref_seq, args.radar, args.ref)
+	assert(args.ref_sensor in ['camera', 'lidar', 'radar'])
+	eval_local(args.pred, args.gt, args.ref_seq, args.radar, args.ref_sensor)
