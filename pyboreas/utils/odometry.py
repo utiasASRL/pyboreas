@@ -460,7 +460,7 @@ def get_sequences(path, file_ext=''):
     Returns:
         sequences (List[string]): list of sequence file names
     """
-    sequences = [f for f in os.listdir(path) if file_ext in f]
+    sequences = [f for f in os.listdir(path) if f.endswith(file_ext)]
     sequences.sort()
     return sequences
 
@@ -688,6 +688,9 @@ def read_traj_file_gt(path, T_ab, dim):
     T_ab = enforce_orthog(T_ab)
     for line in lines[1:]:
         pose, time = convert_line_to_pose(line, dim)
+        # NOTE: temporary hack since radar poses are flipped w.r.t y-axis
+        if dim == 2:
+            pose[1, 3] = -pose[1, 3]
         poses += [enforce_orthog(T_ab @ get_inverse_tf(pose))]  # convert T_iv to T_vi and apply calibration
         times += [int(time)]  # microseconds
     return poses, times
