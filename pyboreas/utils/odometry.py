@@ -711,6 +711,9 @@ def read_traj_file_gt2(path, dim=3):
     times = []
     for line in lines[1:]:
         pose, time = convert_line_to_pose(line, dim)
+        # NOTE: temporary hack since radar poses are flipped w.r.t y-axis
+        if dim == 2:
+            pose[1, 3] = -pose[1, 3]
         poses.append(pose)
         times.append(time)  # microseconds
     return poses, times
