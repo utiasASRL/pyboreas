@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 from pyboreas.data.pointcloud import PointCloud
-from pyboreas.utils.utils import get_transform, yawPitchRollToRot, get_time_from_filename, load_lidar
+from pyboreas.utils.utils import get_transform, yawPitchRollToRot, get_time_from_filename, get_time_from_filename_microseconds, load_lidar
 from pyboreas.utils.utils import get_gt_data_for_frame, get_closest_index, get_inverse_tf
 from pyboreas.utils.radar import load_radar, radar_polar_to_cartesian
 from pyboreas.vis.vis_utils import vis_lidar, vis_camera, vis_radar
@@ -24,9 +24,10 @@ class Sensor:
         self.seq_root = str(Path(*p.parts[:-2]))
         self.sensor_root = osp.join(self.seq_root, self.sensType)
         self.pose = np.identity(4, dtype=np.float64)  # T_enu_sensor
-        self.velocity = np.zeros((6, 1))   # 6 x 1 velocity in ENU frame [v_se_in_e; w_se_in_e] 
+        self.velocity = np.zeros((6, 1))   # 6 x 1 velocity in ENU frame [v_se_in_e; w_se_in_e]
         self.body_rate = np.zeros((6, 1))  # 6 x 1 velocity in sensor frame [v_se_in_s; w_se_in_s]
         self.timestamp = get_time_from_filename(self.frame)
+        self.timestamp_micro = get_time_from_filename_microseconds(self.frame)
 
     def init_pose(self, data=None):
         """Initializes pose variables with ground truth applanix data

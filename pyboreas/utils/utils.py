@@ -251,6 +251,11 @@ def get_time_from_filename(file):
         timeconvert = 10**(-1 * (len(tstr) - 10))
     return gpstime * timeconvert
 
+def get_time_from_filename_microseconds(file):
+    tstr = str(Path(file).stem)
+    gpstime = int(tstr)
+    return gpstime
+
 def get_gt_data_for_frame(root, sensType, frame):
     """Retrieves ground truth applanix data for a given sensor frame
     Args:
