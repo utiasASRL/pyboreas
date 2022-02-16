@@ -688,9 +688,10 @@ def read_traj_file_gt(path, T_ab, dim):
     T_ab = enforce_orthog(T_ab)
     for line in lines[1:]:
         pose, time = convert_line_to_pose(line, dim)
-        # NOTE: temporary hack since radar poses are flipped w.r.t y-axis
-        if dim == 2:
-            pose[1, 3] = -pose[1, 3]
+        # NOTE: temporary hack since radar poses are rotated to z-up
+        if Path(path).stem.split('.')[0] == "radar_poses":
+            T_zdown_zup = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]], dtype=np.float64)
+            pose[:3, :3] = T_zdown_zup @ pose[:3, :3]
         poses += [enforce_orthog(T_ab @ get_inverse_tf(pose))]  # convert T_iv to T_vi and apply calibration
         times += [int(time)]  # microseconds
     return poses, times
@@ -711,9 +712,11 @@ def read_traj_file_gt2(path, dim=3):
     times = []
     for line in lines[1:]:
         pose, time = convert_line_to_pose(line, dim)
-        # NOTE: temporary hack since radar poses are flipped w.r.t y-axis
-        if dim == 2:
-            pose[1, 3] = -pose[1, 3]
+        # NOTE: temporary hack since radar poses are rotated to z-up
+        if Path(path).stem.split('.')[0] == "radar_poses":
+            # pose[1, 3] = -pose[1, 3]
+            T_zdown_zup = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]], dtype=np.float64)
+            pose[:3, :3] = T_zdown_zup @ pose[:3, :3]
         poses.append(pose)
         times.append(time)  # microseconds
     return poses, times
