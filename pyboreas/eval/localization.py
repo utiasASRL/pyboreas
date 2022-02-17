@@ -19,7 +19,7 @@ def get_Tas(gtpath, seq, sensor='lidar'):
 	return T_applanix_lidar
 
 def check_time_match(pred_times, gt_times):
-	assert(len(pred_times) == len(gt_times))
+	assert(len(pred_times) == len(gt_times)), f"pred time {len(pred_times)} is not equal to gt time {len(gt_times)}"
 	p = np.array(pred_times)
 	g = np.array(gt_times)
 	assert(np.sum(p - g) == 0)
@@ -28,7 +28,7 @@ def check_ref_time_match(ref_times, gt_ref_times):
 	indices = np.searchsorted(gt_ref_times, ref_times)
 	p = np.array(ref_times)
 	g = np.array(gt_ref_times)
-	assert(np.sum(g[indices] - p) == 0)
+	assert(np.sum(g[indices] - p) == 0), f"{g[indices].shape} and {p.shape}"
 
 def get_T_enu_s1(query_time, gt_times, gt_poses):
 	closest = get_closest_index(query_time, gt_times)
@@ -41,8 +41,7 @@ def compute_errors(Te):
 def root_mean_square(errs):
 	return np.sqrt(np.mean(np.power(np.array(errs), 2), axis=0)).squeeze()
 
-def eval_local(predpath, gtpath, gt_ref_seq, radar=False, ref='lidar', plot_dir=None):
-	dim = 2 if radar else 3
+def eval_local(predpath, gtpath, gt_ref_seq, ref_sensor='lidar', test_sensor='lidar', dim=3, plot_dir=None):
 	pred_files = sorted([f for f in os.listdir(predpath) if f.endswith('.txt')])
 	gt_seqs = []
 	for predfile in pred_files:
@@ -50,17 +49,17 @@ def eval_local(predpath, gtpath, gt_ref_seq, radar=False, ref='lidar', plot_dir=
 			raise Exception(f"prediction file {predfile} doesn't match ground truth sequence list")
 		gt_seqs.append(Path(predfile).stem.split('.')[0])
 
-	gt_ref_poses, gt_ref_times = read_traj_file_gt2(osp.join(gtpath, gt_ref_seq, 'applanix', ref + '_poses.csv'), dim=dim)
+	gt_ref_poses, gt_ref_times = read_traj_file_gt2(osp.join(gtpath, gt_ref_seq, 'applanix', ref_sensor + '_poses.csv'), dim=dim)
 	seq_rmse = []
 	seq_consist = []
 	seqs_have_cov = True
 	for predfile, seq in zip(pred_files, gt_seqs):
 		print('Processing {}...'.format(seq))
-		T_as = get_Tas(gtpath, seq, ref)
+		T_as = get_Tas(gtpath, seq, ref_sensor)
 		T_sa = get_inverse_tf(T_as)
 		pred_poses, pred_times, ref_times, cov_matrices, has_cov = read_traj_file2(osp.join(predpath, predfile))
 		seqs_have_cov *= has_cov
-		gt_poses, gt_times = read_traj_file_gt2(osp.join(gtpath, seq, 'applanix', ref + '_poses.csv'), dim=dim)
+		gt_poses, gt_times = read_traj_file_gt2(osp.join(gtpath, seq, 'applanix', test_sensor + '_poses.csv'), dim=dim)
 		# check that pred_times is a 1-to-1 match with gt_times
 		check_time_match(pred_times, gt_times)
 		# check that each ref time matches to one gps_ref_time
@@ -125,10 +124,14 @@ if __name__ ==  '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--pred', type=str, help='path to prediction files')
 	parser.add_argument('--gt', type=str, help='path to groundtruth sequences')
-	parser.add_argument('--radar', dest='radar', action='store_true', help='evaluate radar odometry in SE(2)')
 	parser.add_argument('--ref_seq', default=loc_reference, type=str, help='Which sequence to use as a reference')
 	parser.add_argument('--ref_sensor', default='lidar', type=str, help='Which sensor to use as a reference (camera|lidar|radar)')
-	parser.set_defaults(radar=False)
+	parser.add_argument('--test_sensor', default='lidar', type=str, help='Which sensor to use as a reference (camera|lidar|radar)')
+	parser.add_argument('--dim', default=3, type=int, help='SE(3) or SE(2)')
 	args = parser.parse_args()
 	assert(args.ref_sensor in ['camera', 'lidar', 'radar'])
-	eval_local(args.pred, args.gt, args.ref_seq, args.radar, args.ref_sensor)
+	assert(args.test_sensor in ['camera', 'lidar', 'radar'])
+	assert(args.dim in [2, 3])
+	if args.ref_sensor == 'radar' or args.test_sensor == 'radar':
+		assert(args.dim == 2)
+	eval_local(args.pred, args.gt, args.ref_seq, args.ref_sensor, args.test_sensor, args.dim)

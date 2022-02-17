@@ -688,10 +688,6 @@ def read_traj_file_gt(path, T_ab, dim):
     T_ab = enforce_orthog(T_ab)
     for line in lines[1:]:
         pose, time = convert_line_to_pose(line, dim)
-        # NOTE: temporary hack since radar poses are rotated to z-up
-        if Path(path).stem.split('.')[0] == "radar_poses":
-            T_zdown_zup = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]], dtype=np.float64)
-            pose[:3, :3] = T_zdown_zup @ pose[:3, :3]
         poses += [enforce_orthog(T_ab @ get_inverse_tf(pose))]  # convert T_iv to T_vi and apply calibration
         times += [int(time)]  # microseconds
     return poses, times
@@ -712,11 +708,6 @@ def read_traj_file_gt2(path, dim=3):
     times = []
     for line in lines[1:]:
         pose, time = convert_line_to_pose(line, dim)
-        # NOTE: temporary hack since radar poses are rotated to z-up
-        if Path(path).stem.split('.')[0] == "radar_poses":
-            # pose[1, 3] = -pose[1, 3]
-            T_zdown_zup = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]], dtype=np.float64)
-            pose[:3, :3] = T_zdown_zup @ pose[:3, :3]
         poses.append(pose)
         times.append(time)  # microseconds
     return poses, times
@@ -743,7 +734,7 @@ def convert_line_to_pose(line, dim=3):
         T[2, 3] = line[3]  # z
         T[:3, :3] = yawPitchRollToRot(line[9], line[8], line[7])
     elif dim == 2:
-        T[:3, :3] = yawPitchRollToRot(line[9], 0, 0)
+        T[:3, :3] = yawPitchRollToRot(line[9], np.round(line[8] / np.pi) * np.pi, np.round(line[7] / np.pi) * np.pi)
     else:
         raise ValueError('Invalid dim value in convert_line_to_pose. Use either 2 or 3.')
     time = int(line[0])
