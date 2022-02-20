@@ -138,4 +138,5 @@ if __name__ ==  '__main__':
 	assert(args.dim in [2, 3])
 	if args.ref_sensor == 'radar' or args.test_sensor == 'radar':
 		assert(args.dim == 2)
+	os.makedirs(args.plot, exist_ok=True)
 	eval_local(args.pred, args.gt, args.ref_seq, args.ref_sensor, args.test_sensor, args.dim, args.plot)
