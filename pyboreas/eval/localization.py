@@ -93,6 +93,9 @@ def eval_local(predpath, gtpath, gt_ref_seq, ref_sensor='lidar', test_sensor='li
 		Xi = np.array(Xi)
 		Cov = np.array(Cov)
 		if plot_dir is not None:
+			plot_err_file = osp.join(plot_dir, seq + '-err.txt')
+			print('Saving errs to {}...'.format(plot_err_file))
+			np.savetxt(plot_err_file, np.array(errs))
 			plot_loc_stats(seq, plot_dir, T_pred_seq, T_gt_seq, errs, consist, Xi, Cov, has_cov)
 		rmse = root_mean_square(errs)
 		seq_rmse.append(rmse)
@@ -128,10 +131,11 @@ if __name__ ==  '__main__':
 	parser.add_argument('--ref_sensor', default='lidar', type=str, help='Which sensor to use as a reference (camera|lidar|radar)')
 	parser.add_argument('--test_sensor', default='lidar', type=str, help='Which sensor to use as a reference (camera|lidar|radar)')
 	parser.add_argument('--dim', default=3, type=int, help='SE(3) or SE(2)')
+	parser.add_argument('--plot', type=str, help='path to save plots')
 	args = parser.parse_args()
 	assert(args.ref_sensor in ['camera', 'lidar', 'radar'])
 	assert(args.test_sensor in ['camera', 'lidar', 'radar'])
 	assert(args.dim in [2, 3])
 	if args.ref_sensor == 'radar' or args.test_sensor == 'radar':
 		assert(args.dim == 2)
-	eval_local(args.pred, args.gt, args.ref_seq, args.ref_sensor, args.test_sensor, args.dim)
+	eval_local(args.pred, args.gt, args.ref_seq, args.ref_sensor, args.test_sensor, args.dim, args.plot)
