@@ -3,9 +3,10 @@ import os.path as osp
 from pathlib import Path
 import argparse
 import numpy as np
+from pylgmath import se3op
 from pyboreas.data.splits import loc_test, loc_reference
 from pyboreas.utils.utils import get_inverse_tf, get_closest_index, \
-	rotation_error, SE3Tose3
+	rotation_error, SE3Tose3, rotToRollPitchYaw
 from pyboreas.utils.odometry import read_traj_file2, read_traj_file_gt2, plot_loc_stats
 
 def get_Tas(gtpath, seq, sensor='lidar'):
@@ -35,8 +36,12 @@ def get_T_enu_s1(query_time, gt_times, gt_poses):
 	assert(query_time == gt_times[closest]), 'query: {}'.format(query_time)
 	return gt_poses[closest]
 
+# def compute_errors(Te):
+# 	return [Te[0, 3], Te[1, 3], Te[2, 3], rotation_error(Te) * 180 / np.pi]
+
 def compute_errors(Te):
-	return [Te[0, 3], Te[1, 3], Te[2, 3], rotation_error(Te) * 180 / np.pi]
+	r, p, y = rotToRollPitchYaw(Te[:3, :3])
+	return [Te[0, 3], Te[1, 3], Te[2, 3], r * 180 / np.pi, p* 180 / np.pi, y* 180 / np.pi]
 
 def root_mean_square(errs):
 	return np.sqrt(np.mean(np.power(np.array(errs), 2), axis=0)).squeeze()
@@ -99,7 +104,7 @@ def eval_local(predpath, gtpath, gt_ref_seq, ref_sensor='lidar', test_sensor='li
 			plot_loc_stats(seq, plot_dir, T_pred_seq, T_gt_seq, errs, consist, Xi, Cov, has_cov)
 		rmse = root_mean_square(errs)
 		seq_rmse.append(rmse)
-		print('RMSE: x: {} m y: {} m z: {} m phi: {} deg'.format(rmse[0], rmse[1], rmse[2], rmse[3]))
+		print('RMSE: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg'.format(rmse[0], rmse[1], rmse[2], rmse[3], rmse[4], rmse[5]))
 		c = -1
 		if has_cov:
 			c = np.sqrt(max(0, np.mean(consist) / 6.0))
@@ -110,7 +115,7 @@ def eval_local(predpath, gtpath, gt_ref_seq, ref_sensor='lidar', test_sensor='li
 
 	seq_rmse = np.array(seq_rmse)
 	rmse = np.mean(seq_rmse, axis=0).squeeze()
-	print('Overall RMSE: x: {} m y: {} m z: {} m phi: {} deg'.format(rmse[0], rmse[1], rmse[2], rmse[3]))
+	print('Overall RMSE: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg'.format(rmse[0], rmse[1], rmse[2], rmse[3], rmse[4], rmse[5]))
 	c = -1
 	if seqs_have_cov:
 		c = np.mean(seq_consist)

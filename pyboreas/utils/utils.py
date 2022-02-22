@@ -46,6 +46,21 @@ def rotToYawPitchRoll(C):
         y = np.arctan2(-C[j, k], C[j, j])
     return y, p, r
 
+def rotToRollPitchYaw(C):
+    i = 2
+    j = 1
+    k = 0
+    c_y = np.sqrt(C[i, i]**2 + C[j, i]**2)
+    if c_y > 1e-14:
+        r = np.arctan2(C[j, i], C[i, i])
+        p = np.arctan2(-C[k, i], c_y)
+        y = np.arctan2(C[k, j], C[k, k])
+    else:
+        r = 0
+        p = np.arctan2(-C[k, i], c_y)
+        y = np.arctan2(-C[j, k], C[j, j])
+    return r, p, y
+
 
 def get_transform(gt):
     """Retrieve 4x4 homogeneous transform for a given parsed line of the ground truth pose csv
