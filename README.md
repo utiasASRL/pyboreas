@@ -1,9 +1,22 @@
 # pyboreas
 ![Boreas](https://github.com/utiasASRL/pyboreas/blob/master/pyboreas/figs/pyboreas.png)
 
-This devkit provides tools for working with the Boreas Dataset, an all-weather autonomous driving dataset which includes a 128-beam Velodyne Alpha-Prime lidar, a 5MP Blackfly camera, a 360 degree Navtech radar, and post-processed Applanix POS LV GNSS data. Our dataset currently suports benchmarking odometry. We are working towards providing an online benchmark for odometry, localization, and more. We plan to provide an HD map of each driven route. We are also in the process of acquiring 3D labels and hope to be able to provide a challenging object detection benchmark in the future.
+This devkit provides tools for working with the Boreas Dataset, an all-weather autonomous driving dataset which includes a 128-beam Velodyne Alpha-Prime lidar, a 5MP Blackfly camera, a 360 degree Navtech radar, and post-processed Applanix POS LV GNSS data. Our dataset currently suports benchmarking odometry, localization, and 3D object detection.
 
-Please note that our website is currently under construction. A live benchmark and a browser for downloading sequences will be available via the website soon.
+Our leaderboard is now live! Baseline implementations for each leaderboard are coming soon.
+
+If you find our dataset useful in your research, please cite our dataset paper:
+
+[Boreas: A Multi-Season Autonomous Driving Dataset](https://arxiv.org/abs/2203.10168) 
+
+```
+@article{burnett_boreas22,
+    title={Boreas: A Multi-Season Autonomous Driving Dataset},
+    author={Burnett, Keenan and Yoon, David J and Wu, Yuchen and Li, Andrew Zou and Zhang, Haowei and Lu, Shichen and Qian, Jingxing and Tseng, Wei-Kang and Lambert, Andrew and Leung, Keith YK and Schoellig, Angela P and Barfoot, Timothy D},
+  journal={arXiv preprint arXiv:2203.10168},
+  year={2022}
+}
+```
 
 ## Installation
 
