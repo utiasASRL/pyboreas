@@ -460,7 +460,7 @@ def get_sequences(path, file_ext=''):
     Returns:
         sequences (List[string]): list of sequence file names
     """
-    sequences = [f for f in os.listdir(path) if file_ext in f]
+    sequences = [f for f in os.listdir(path) if f.endswith(file_ext)]
     sequences.sort()
     return sequences
 
@@ -734,7 +734,7 @@ def convert_line_to_pose(line, dim=3):
         T[2, 3] = line[3]  # z
         T[:3, :3] = yawPitchRollToRot(line[9], line[8], line[7])
     elif dim == 2:
-        T[:3, :3] = yawPitchRollToRot(line[9], 0, 0)
+        T[:3, :3] = yawPitchRollToRot(line[9], np.round(line[8] / np.pi) * np.pi, np.round(line[7] / np.pi) * np.pi)
     else:
         raise ValueError('Invalid dim value in convert_line_to_pose. Use either 2 or 3.')
     time = int(line[0])
