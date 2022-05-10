@@ -14,6 +14,7 @@ class BoreasDataset:
     def __init__(self, root='/data/boreas/', split=None, verbose=False, labelFolder='labels'):
         self.root = root
         self.split = split
+        self.aeva_frames = []
         self.camera_frames = []
         self.lidar_frames = []
         self.radar_frames = []
