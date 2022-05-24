@@ -3,7 +3,7 @@ import numpy as np
 import argparse
 from itertools import accumulate, repeat
 from time import time
-from pyboreas.utils.odometry import get_sequences, get_sequence_poses, read_traj_file_gt, calc_sequence_errors, get_stats
+from pyboreas.utils.odometry import get_sequences, get_sequence_poses, read_traj_file_gt, calc_sequence_errors, get_stats, plot_stats
 
 
 def get_sequence_poses_gt(path, seq):
@@ -89,6 +89,9 @@ def compute_kitti_metrics(T_gt, T_pred, seq_lens_gt, seq_lens_pred, seq, plot_di
 
         print(seq[i], 'took', str(time() - ts), ' seconds')
         print('Error: ', t_err, ' %, ', r_err, ' deg/m \n')
+
+        if plot_dir:
+            plot_stats(seq[i], plot_dir, T_pred_seq, T_gt_seq, path_lengths, t_err_len, r_err_len)        
 
     err_list = np.asarray(err_list)
     avg = np.mean(err_list, axis=0)
