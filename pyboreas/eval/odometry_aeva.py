@@ -83,15 +83,22 @@ def compute_kitti_metrics(T_gt, T_pred, seq_lens_gt, seq_lens_pred, seq, plot_di
 
         print('processing sequence', seq[i], '...')
 
+        # 2d
+        err, path_lengths = calc_sequence_errors(T_gt_seq, T_pred_seq, step_size, 2)
+        t_err_2d, r_err_2d, _, _ = get_stats(err, path_lengths)
+
+        # 3d
         err, path_lengths = calc_sequence_errors(T_gt_seq, T_pred_seq, step_size)
         t_err, r_err, t_err_len, r_err_len = get_stats(err, path_lengths)
-        err_list.append([t_err, r_err])
 
         print(seq[i], 'took', str(time() - ts), ' seconds')
-        print('Error: ', t_err, ' %, ', r_err, ' deg/m \n')
+        # print('Error: ', t_err, ' %, ', r_err, ' deg/m \n')
+        print(f"& {t_err_2d:.2f} & {r_err_2d:.4f} & {t_err:.2f} & {r_err:.4f} \\\\")
+
+        err_list.append([t_err, r_err])
 
         if plot_dir:
-            plot_stats(seq[i], plot_dir, T_pred_seq, T_gt_seq, path_lengths, t_err_len, r_err_len)        
+            plot_stats(seq[i], plot_dir, T_pred_seq, T_gt_seq, path_lengths, t_err_len, r_err_len)
 
     err_list = np.asarray(err_list)
     avg = np.mean(err_list, axis=0)

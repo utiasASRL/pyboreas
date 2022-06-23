@@ -7,26 +7,31 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pyboreas.utils.utils import get_inverse_tf, rotation_error, translation_error, enforce_orthog, yawPitchRollToRot, \
     get_time_from_filename
-from pylgmath import Transformation
-from pysteam.trajectory import Time, TrajectoryInterface
-from pysteam.state import TransformStateVar, VectorSpaceStateVar
-from pysteam.problem import OptimizationProblem
-from pysteam.solver import GaussNewtonSolver
-from pysteam.evaluator import TransformStateEvaluator
+from pylgmath import se3op, Transformation
+# from pysteam.trajectory import Time, TrajectoryInterface
+# from pysteam.state import TransformStateVar, VectorSpaceStateVar
+# from pysteam.problem import OptimizationProblem
+# from pysteam.solver import GaussNewtonSolver
+# from pysteam.evaluator import TransformStateEvaluator
 
 
-class TrajStateVar:
-    """This class defines a trajectory state variable for steam."""
-    def __init__(
-          self,
-          time: Time,
-          pose: TransformStateVar,
-          velocity: VectorSpaceStateVar,
-    ) -> None:
-        self.time: Time = time
-        self.pose: TransformStateVar = pose
-        self.velocity: VectorSpaceStateVar = velocity
+# class TrajStateVar:
+#     """This class defines a trajectory state variable for steam."""
+#     def __init__(
+#           self,
+#           time: Time,
+#           pose: TransformStateVar,
+#           velocity: VectorSpaceStateVar,
+#     ) -> None:
+#         self.time: Time = time
+#         self.pose: TransformStateVar = pose
+#         self.velocity: VectorSpaceStateVar = velocity
 
+plt.rcParams.update({
+    "text.usetex": True,
+    "font.family": "serif",
+    "font.serif": ["Times"],
+})
 
 def interpolate_poses(poses, times, query_times, solver=True, verbose=False):
     """Runs a steam optimization with locked poses and outputs poses queried at query_times
@@ -119,7 +124,7 @@ def last_frame_from_segment_length(dist, first_frame, length):
     return -1
 
 
-def calc_sequence_errors(poses_gt, poses_pred, step_size):
+def calc_sequence_errors(poses_gt, poses_pred, step_size, dim=3):
     """Calculate the translation and rotation error for each subsequence across several different lengths.
     Args:
         T_gt (List[np.ndarray]): each entry in list is 4x4 transformation matrix, ground truth transforms
@@ -143,6 +148,10 @@ def calc_sequence_errors(poses_gt, poses_pred, step_size):
             pose_delta_gt = np.matmul(poses_gt[last_frame], get_inverse_tf(poses_gt[first_frame]))
             pose_delta_res = np.matmul(poses_pred[last_frame], get_inverse_tf(poses_pred[first_frame]))
             pose_error = np.matmul(pose_delta_gt, get_inverse_tf(pose_delta_res))
+            if dim == 2:
+                pose_error_vec = se3op.tran2vec(pose_error)  # T_gt_pred
+                pose_error_vec[2:5] = 0  # z and roll, pitch to 0
+                pose_error = se3op.vec2tran(pose_error_vec)
             r_err = rotation_error(pose_error)
             t_err = translation_error(pose_error)
             # Approx speed
@@ -528,15 +537,18 @@ def get_sequence_poses_gt(path, seq, dim):
             poses, times = read_traj_file_gt(filepath, T_calib, dim)
             times_np = np.stack(times)
 
-            filepath = os.path.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
-            _, ctimes = read_traj_file_gt(filepath, np.identity(4), dim)
-            istart = np.searchsorted(times_np, ctimes[0])
-            iend = np.searchsorted(times_np, ctimes[-1])
+            ## TODO: this is temporary. revert the following changes
+            # filepath = os.path.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
+            # _, ctimes = read_traj_file_gt(filepath, np.identity(4), dim)
+            # istart = np.searchsorted(times_np, ctimes[0])
+            # iend = np.searchsorted(times_np, ctimes[-1])
+            istart = 0
+            iend = len(times_np)
             poses = poses[istart:iend]
             times = times[istart:iend]
             crop += [(istart, iend)]
-            if times[0] < ctimes[0] or times[-1] > ctimes[-1]:
-                raise ValueError('Invalid start and end indices for groundtruth.')
+            # if times[0] < ctimes[0] or times[-1] > ctimes[-1]:
+            #     raise ValueError('Invalid start and end indices for groundtruth.')
 
         elif dim == 2:
             filepath = os.path.join(path, dir, 'applanix/radar_poses.csv')  # use 'radar_poses.csv' for groundtruth
