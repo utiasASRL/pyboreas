@@ -32,10 +32,14 @@ pip install -e pyboreas
 ```
 
 ## Download Instructions
-1. [Create an AWS account (optional)](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/)
+1. [Create an AWS account (OPTIONAL)](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/)
 2. [Install the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html)
 3. Create a `root` folder to store the dataset, example: `/path/to/data/boreas/` Each sequence will then be a folder under `root`.
-4. Use the AWS CLI to download either the entire dataset or only the desired sequences and sensors. Add `--no-sign-request` after each of the following commands if you're not going to use an AWS account. For example, the following command will download the entire Boreas dataset:
+4. Use the AWS CLI to download either the entire dataset or only the desired sequences and sensors.
+
+**Don't have an AWS Account?** Add `--no-sign-request` after each AWS CLI command.
+
+The following command will download the entire Boreas dataset:
 
 ```bash
 root=/path/to/data/boreas/
@@ -55,8 +59,8 @@ Alternatively, [boreas.utias.utoronto.ca (Work In Progress)](https://www.boreas.
 root=/path/to/data/boreas/
 cd $root
 aws s3 sync s3://boreas/boreas-2020-11-26-13-58 boreas-2020-11-26-13-58 --exclude "*" \
-    --include "lidar/" --include "radar/" \
-    --include "applanix/" --include "calib/"
+    --include "lidar/*" --include "radar/*" \
+    --include "applanix/*" --include "calib/*"
 ```
 
 ## Example Usage
