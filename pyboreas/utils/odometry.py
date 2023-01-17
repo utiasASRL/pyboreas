@@ -27,11 +27,11 @@ from pylgmath import se3op, Transformation
 #         self.pose: TransformStateVar = pose
 #         self.velocity: VectorSpaceStateVar = velocity
 
-plt.rcParams.update({
-    "text.usetex": True,
-    "font.family": "serif",
-    "font.serif": ["Times"],
-})
+#plt.rcParams.update({
+#    "text.usetex": True,
+#    "font.family": "serif",
+#    "font.serif": ["Times"],
+#})
 
 def interpolate_poses(poses, times, query_times, solver=True, verbose=False):
     """Runs a steam optimization with locked poses and outputs poses queried at query_times
