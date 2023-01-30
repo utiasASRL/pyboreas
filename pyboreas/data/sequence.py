@@ -147,7 +147,9 @@ class Sequence:
             for framename in framenames:
                 ts = framename.split(',')[0]
                 if self.start_ts <= ts and ts <= self.end_ts:
-                    frames.append(SensorType(osp.join(root, framename)))
+                    frame = SensorType(osp.join(root, framename))
+                    frame.labelFolder = self.labelFolder
+                    frames.append(frame)
         return frames
 
     def get_all_frames(self):
