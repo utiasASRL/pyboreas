@@ -232,8 +232,6 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err):
     plt.close()
 
 def plot_loc_stats(seq, plot_dir, T_loc, T_gt, errs, consist=[], Xi=[], Cov=[], has_cov=False):
-
-
     path_loc = np.array([np.linalg.inv(T_i_vk)[:3, 3] for T_i_vk in T_loc], dtype=np.float64)
     path_gt = np.array([np.linalg.inv(T_i_vk)[:3, 3] for T_i_vk in T_gt], dtype=np.float64)
 
@@ -300,15 +298,14 @@ def plot_loc_stats(seq, plot_dir, T_loc, T_gt, errs, consist=[], Xi=[], Cov=[], 
     # axs[1, 1].set_title('Orientation Error (deg)')
     # plt.savefig(os.path.join(plot_dir, seq[:-4] + '_hist.pdf'), pad_inches=0, bbox_inches='tight')
     # plt.close()
-
     e = np.array(errs)
     fig, axs = plt.subplots(1, 3, figsize=(12, 4))
     axs[0].hist(e[:, 0], bins=20)
     axs[0].set_title('Lateral Error (m)')
     axs[1].hist(e[:, 1], bins=20)
     axs[1].set_title('Longitudinal Error (m)')
-    axs[2].hist(e[:, 3], bins=20)
-    axs[2].set_title('Orientation Error (deg)')
+    axs[2].hist(e[:, 5], bins=20)
+    axs[2].set_title('Yaw Error (deg)')
     plt.savefig(os.path.join(plot_dir, seq[:-4] + '_hist.pdf'), pad_inches=0, bbox_inches='tight')
     plt.close()
 
@@ -322,6 +319,7 @@ def get_path_from_Tvi_list(T_vi_odom, T_vi_gt):
         path_odom (np.ndarray): K x 3 numpy array of estimated xyz coordinates
         path_gt (np.ndarray): K x 3 numpy array of groundtruth xyz coordinates
     """
+
     assert len(T_vi_odom) == len(T_vi_gt)  # assume 1:1 correspondence
     T_iv_odom = [np.linalg.inv(T_vk_i_odom) for T_vk_i_odom in T_vi_odom]
 
@@ -618,7 +616,6 @@ def get_sequence_times_gt(path, seq):
 
     return all_times, seq_lens, crop
 
-
 def write_traj_file(path, poses, times):
     """Writes trajectory into a space-separated txt file
     Args:
@@ -760,11 +757,13 @@ def convert_line_to_pose(line, dim=3):
     T = np.eye(4, dtype=np.float64)
     T[0, 3] = line[1]  # x
     T[1, 3] = line[2]  # y
+    # Note, yawPitchRollToRot returns C_v_i, where v is vehicle/sensor frame and i is stationary frame
+    # For SE(3) state, we want C_i_v (to match r_i loaded above), and so we take transpose
     if dim == 3:
         T[2, 3] = line[3]  # z
-        T[:3, :3] = yawPitchRollToRot(line[9], line[8], line[7])
+        T[:3, :3] = yawPitchRollToRot(line[9], line[8], line[7]).transpose()
     elif dim == 2:
-        T[:3, :3] = yawPitchRollToRot(line[9], np.round(line[8] / np.pi) * np.pi, np.round(line[7] / np.pi) * np.pi)
+        T[:3, :3] = yawPitchRollToRot(line[9], np.round(line[8] / np.pi) * np.pi, np.round(line[7] / np.pi) * np.pi).transpose()
     else:
         raise ValueError('Invalid dim value in convert_line_to_pose. Use either 2 or 3.')
     time = int(line[0])
