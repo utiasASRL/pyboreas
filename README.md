@@ -1,9 +1,22 @@
 # pyboreas
 ![Boreas](https://github.com/utiasASRL/pyboreas/blob/master/pyboreas/figs/pyboreas.png)
 
-This devkit provides tools for working with the Boreas Dataset, an all-weather autonomous driving dataset which includes a 128-beam Velodyne Alpha-Prime lidar, a 5MP Blackfly camera, a 360 degree Navtech radar, and post-processed Applanix POS LV GNSS data. Our dataset currently suports benchmarking odometry. We are working towards providing an online benchmark for odometry, localization, and more. We plan to provide an HD map of each driven route. We are also in the process of acquiring 3D labels and hope to be able to provide a challenging object detection benchmark in the future.
+This devkit provides tools for working with the Boreas Dataset, an all-weather autonomous driving dataset which includes a 128-beam Velodyne Alpha-Prime lidar, a 5MP Blackfly camera, a 360 degree Navtech radar, and post-processed Applanix POS LV GNSS data. Our dataset currently suports benchmarking odometry, localization, and 3D object detection.
 
-Please note that our website is currently under construction. A live benchmark and a browser for downloading sequences will be available via the website soon.
+Our leaderboard is now live! Baseline implementations for each leaderboard are coming soon.
+
+If you find our dataset useful in your research, please cite our dataset paper:
+
+[Boreas: A Multi-Season Autonomous Driving Dataset](https://arxiv.org/abs/2203.10168) 
+
+```
+@article{burnett_boreas22,
+    title={Boreas: A Multi-Season Autonomous Driving Dataset},
+    author={Burnett, Keenan and Yoon, David J and Wu, Yuchen and Li, Andrew Zou and Zhang, Haowei and Lu, Shichen and Qian, Jingxing and Tseng, Wei-Kang and Lambert, Andrew and Leung, Keith YK and Schoellig, Angela P and Barfoot, Timothy D},
+  journal={arXiv preprint arXiv:2203.10168},
+  year={2022}
+}
+```
 
 ## Installation
 
@@ -19,10 +32,14 @@ pip install -e pyboreas
 ```
 
 ## Download Instructions
-1. [Create an AWS account (optional)](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/)
+1. [Create an AWS account (OPTIONAL)](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/)
 2. [Install the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html)
 3. Create a `root` folder to store the dataset, example: `/path/to/data/boreas/` Each sequence will then be a folder under `root`.
-4. Use the AWS CLI to download either the entire dataset or only the desired sequences and sensors. Add `--no-sign-request` after each of the following commands if you're not going to use an AWS account. For example, the following command will download the entire Boreas dataset:
+4. Use the AWS CLI to download either the entire dataset or only the desired sequences and sensors.
+
+**Don't have an AWS Account?** Add `--no-sign-request` after each AWS CLI command.
+
+The following command will download the entire Boreas dataset:
 
 ```bash
 root=/path/to/data/boreas/
@@ -42,8 +59,8 @@ Alternatively, [boreas.utias.utoronto.ca (Work In Progress)](https://www.boreas.
 root=/path/to/data/boreas/
 cd $root
 aws s3 sync s3://boreas/boreas-2020-11-26-13-58 boreas-2020-11-26-13-58 --exclude "*" \
-    --include "lidar/" --include "radar/" \
-    --include "applanix/" --include "calib/"
+    --include "lidar/*" --include "radar/*" \
+    --include "applanix/*" --include "calib/*"
 ```
 
 ## Example Usage
