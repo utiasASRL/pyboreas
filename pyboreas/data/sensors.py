@@ -16,7 +16,7 @@ from pyboreas.data.bounding_boxes import BoundingBoxes
 class Sensor:
     def __init__(self, path):
         self.path = path
-        self.labelFolder = None
+        self.labelFolder = "labels"
         p = Path(path)
         self.frame = p.stem
         self.sensType = p.parts[-2]
