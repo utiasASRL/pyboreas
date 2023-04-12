@@ -43,7 +43,7 @@ def root_mean_square(errs):
 
 def eval_local(predpath, gtpath, gt_seqs, gt_ref_seq, radar=False, ref='lidar', plot_dir=None):
 	dim = 2 if radar else 3
-	pred_files = sorted([f for f in os.listdir(predpath) if '.txt' in f])
+	pred_files = sorted([f for f in os.listdir(predpath) if f.startswith('boreas-20') and f.endswith('.txt')])
 	assert(len(pred_files) == len(gt_seqs)), '{} {}'.format(pred_files, gt_seqs)
 	for predfile in pred_files:
 		if Path(predfile).stem.split('.')[0] not in gt_seqs:

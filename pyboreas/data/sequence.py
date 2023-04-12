@@ -109,14 +109,14 @@ class Sequence:
     def _check_download(self):
         """Checks if all sensor data has been downloaded, prints a warning otherwise"""
         if len(os.listdir(self.camera_root)) < len(self.camera_frames):
-            print('WARNING: camera images are not all downloaded')
+            print('WARNING: camera images are not all downloaded: {}'.format(self.ID))
         if len(os.listdir(self.lidar_root)) < len(self.lidar_frames):
-            print('WARNING: lidar frames are not all downloaded')
+            print('WARNING: lidar frames are not all downloaded: {}'.format(self.ID))
         if len(os.listdir(self.radar_root)) < len(self.radar_frames):
-            print('WARNING: radar scans are not all downloaded')
+            print('WARNING: radar scans are not all downloaded: {}'.format(self.ID))
         gtfile = osp.join(self.applanix_root, 'gps_post_process.csv')
         if not osp.exists(gtfile):
-            print('WARNING: this may be a test sequence, or the groundtruth is not yet available')
+            print('WARNING: this may be a test sequence, or the groundtruth is not yet available: {}'.format(self.ID))
 
     def _get_frames(self, posefile, root, ext, SensorType):
         """Initializes sensor frame objects with their ground truth pose information
@@ -147,7 +147,9 @@ class Sequence:
             for framename in framenames:
                 ts = framename.split(',')[0]
                 if self.start_ts <= ts and ts <= self.end_ts:
-                    frames.append(SensorType(osp.join(root, framename)))
+                    frame = SensorType(osp.join(root, framename))
+                    frame.labelFolder = self.labelFolder
+                    frames.append(frame)
         return frames
 
     def get_all_frames(self):
