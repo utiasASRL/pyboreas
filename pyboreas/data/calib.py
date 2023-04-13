@@ -10,7 +10,9 @@ class Calib:
 
     def __init__(self, calib_root):
         self.P0 = np.loadtxt(osp.join(calib_root, "P_camera.txt"))
-        self.T_applanix_aeva = np.loadtxt(osp.join(calib_root, "T_applanix_aeva.txt"))
+        self.T_applanix_aeva = np.eye(4)
+        if osp.exists(osp.join(calib_root, "T_applanix_aeva.txt")):
+            self.T_applanix_aeva = np.loadtxt(osp.join(calib_root, "T_applanix_aeva.txt"))
         self.T_applanix_lidar = np.loadtxt(osp.join(calib_root, "T_applanix_lidar.txt"))
         self.T_camera_lidar = np.loadtxt(osp.join(calib_root, "T_camera_lidar.txt"))
         self.T_radar_lidar = np.loadtxt(osp.join(calib_root, "T_radar_lidar.txt"))
