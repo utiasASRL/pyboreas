@@ -22,9 +22,6 @@ setuptools.setup(
 		"numpy>=1.21.0",
 		"opencv-python>=4.5.3.56",
 		"matplotlib>=3.4.2",
-		"pyproj>=3.1.0",
 		"asrl-pysteam>=1.1.0",
-		"dash>=2.0.0",
-		"pandas",
 	]
 )

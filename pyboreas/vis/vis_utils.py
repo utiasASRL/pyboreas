@@ -4,8 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 
-from pyboreas.utils.utils import rotToYawPitchRoll, yaw, get_transform2
-
 
 def convert_plt_to_img(dpi=128):
     buf = io.BytesIO()
