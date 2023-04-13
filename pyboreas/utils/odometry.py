@@ -562,7 +562,9 @@ def compute_kitti_metrics(
 
         print(seq[i], "took", str(time() - ts), " seconds")
         # print('Error: ', t_err, ' %, ', r_err, ' deg/m \n')
-        print(f"& {t_err_2d:.2f} & {r_err_2d:.4f} & {t_err:.2f} & {r_err:.4f} \\\\")
+        print(
+            f"Terr(2D) {t_err_2d:.2f}%  Rerr(2D) {r_err_2d:.4f}deg/m  Terr(3D) {t_err:.2f}% Rerr(2D) {r_err:.4f}deg/m \\\\"
+        )
 
         err_list.append([t_err, r_err])
 
