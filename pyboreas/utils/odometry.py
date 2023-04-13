@@ -759,9 +759,9 @@ def convert_line_to_pose(line, dim=3):
     # For SE(3) state, we want C_i_v (to match r_i loaded above), and so we take transpose
     if dim == 3:
         T[2, 3] = line[3]  # z
-        T[:3, :3] = yawPitchRollToRot(line[9], line[8], line[7]).transpose()
+        T[:3, :3] = yawPitchRollToRot(line[9], line[8], line[7])
     elif dim == 2:
-        T[:3, :3] = yawPitchRollToRot(line[9], np.round(line[8] / np.pi) * np.pi, np.round(line[7] / np.pi) * np.pi).transpose()
+        T[:3, :3] = yawPitchRollToRot(line[9], np.round(line[8] / np.pi) * np.pi, np.round(line[7] / np.pi) * np.pi)
     else:
         raise ValueError('Invalid dim value in convert_line_to_pose. Use either 2 or 3.')
     time = int(line[0])
