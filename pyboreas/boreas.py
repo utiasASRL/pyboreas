@@ -24,7 +24,7 @@ class BoreasDataset:
         self.labelFolder = labelFolder
 
         if split is None:
-            split = sorted([[f] for f in os.listdir(root) if 'boreas' in f])
+            split = sorted([[f] for f in os.listdir(root) if f.startswith('boreas-')])
 
         # It takes a few seconds to construct each sequence, so we parallelize this
         global _load_seq

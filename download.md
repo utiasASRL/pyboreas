@@ -1,9 +1,11 @@
 # Download Instructions
 
-1. [Create an AWS account](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/)
+1. [Create an AWS account (OPTIONAL)](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/)
 2. [Install the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html)
 3. Create a `root` folder to store the dataset, example: `/path/to/data/boreas/` Each sequence will then be a folder under `root`.
 4. Use the AWS CLI to download a sequence:
+
+**Don't have an AWS Account?** Add `--no-sign-request` after each AWS CLI command.
 
 ```Bash
 root=/path/to/data/boreas/

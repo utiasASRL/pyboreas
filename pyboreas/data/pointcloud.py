@@ -133,7 +133,7 @@ class PointCloud:
                             (x[:, 1] >= 0) &
                             (x[:, 1] <= height - 1))
         else:
-            mask = np.ones(x.shape[0], dtype=np.bool)
+            mask = np.ones(x.shape[0], dtype=bool)
         x = x[mask]
         if color == 'depth':
             colors = self.points[mask][:, 2]

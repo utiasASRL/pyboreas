@@ -18,10 +18,13 @@ setuptools.setup(
 	license='BSD',
 	packages=setuptools.find_packages(),
 	python_requires='>=3.8',
-	install_requires=["numpy>=1.21.0",
-					  "opencv-python>=4.5.3.56",
-					  "matplotlib>=3.4.2",
-					  "pyproj>=3.1.0",
-					  "asrl-pysteam>=1.0.4",
-					  "dash>=2.0.0"]
+	install_requires=[
+		"numpy>=1.21.0",
+		"opencv-python>=4.5.3.56",
+		"matplotlib>=3.4.2",
+		"pyproj>=3.1.0",
+		"asrl-pysteam>=1.1.0",
+		"dash>=2.0.0",
+		"pandas",
+	]
 )

@@ -46,8 +46,9 @@ def compute_errors(Te):
 def root_mean_square(errs):
 	return np.sqrt(np.mean(np.power(np.array(errs), 2), axis=0)).squeeze()
 
+
 def eval_local(predpath, gtpath, gt_ref_seq, ref_sensor='lidar', test_sensor='lidar', dim=3, plot_dir=None):
-	pred_files = sorted([f for f in os.listdir(predpath) if f.endswith('.txt')])
+    pred_files = sorted([f for f in os.listdir(predpath) if f.startswith('boreas-20') and f.endswith('.txt')])
 	gt_seqs = []
 	for predfile in pred_files:
 		if Path(predfile).stem.split('.')[0] not in os.listdir(gtpath):

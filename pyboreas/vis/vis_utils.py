@@ -43,6 +43,8 @@ def vis_lidar(lid, figsize=(10, 10), cmap='winter',
         c = p[:, 4]
     elif color == 'time':
         c = p[:, 5]
+    elif color == 'distance':
+        c = np.sqrt(p[:, 0]**2 + p[:, 1]**2)
     else:
         print('warning: color: {} is not valid'.format(color))
         c = p[:, 2]

@@ -8,30 +8,27 @@ import matplotlib.pyplot as plt
 from pyboreas.utils.utils import get_inverse_tf, rotation_error, translation_error, enforce_orthog, yawPitchRollToRot, \
     get_time_from_filename
 from pylgmath import se3op, Transformation
-# from pysteam.trajectory import Time, TrajectoryInterface
-# from pysteam.state import TransformStateVar, VectorSpaceStateVar
-# from pysteam.problem import OptimizationProblem
-# from pysteam.solver import GaussNewtonSolver
-# from pysteam.evaluator import TransformStateEvaluator
+from pylgmath import Transformation
+from pysteam.trajectory import Time
+from pysteam.trajectory.const_vel import Interface as TrajectoryInterface
+from pysteam.evaluable.se3 import SE3StateVar
+from pysteam.evaluable.vspace import VSpaceStateVar
+from pysteam.problem import OptimizationProblem
+from pysteam.solver import GaussNewtonSolver
 
 
-# class TrajStateVar:
-#     """This class defines a trajectory state variable for steam."""
-#     def __init__(
-#           self,
-#           time: Time,
-#           pose: TransformStateVar,
-#           velocity: VectorSpaceStateVar,
-#     ) -> None:
-#         self.time: Time = time
-#         self.pose: TransformStateVar = pose
-#         self.velocity: VectorSpaceStateVar = velocity
+class TrajStateVar:
+    """This class defines a trajectory state variable for steam."""
+    def __init__(
+          self,
+          time: Time,
+          pose: SE3StateVar,
+          velocity: VSpaceStateVar,
+    ) -> None:
+        self.time: Time = time
+        self.pose: SE3StateVar = pose
+        self.velocity: VSpaceStateVar = velocity
 
-#plt.rcParams.update({
-#    "text.usetex": True,
-#    "font.family": "serif",
-#    "font.serif": ["Times"],
-#})
 
 def interpolate_poses(poses, times, query_times, solver=True, verbose=False):
     """Runs a steam optimization with locked poses and outputs poses queried at query_times
@@ -47,7 +44,7 @@ def interpolate_poses(poses, times, query_times, solver=True, verbose=False):
 
     # WNOA Qc diagonal
     # Note: applanix frame is x-right, y-forward, z-up
-    Qc_inv = np.diag(1 / np.array([0.1, 1.0, 0.1, 0.01, 0.01, 0.1]))
+    qcd = np.array([0.1, 1.0, 0.1, 0.01, 0.01, 0.1])
 
     # steam state variables
     states = []
@@ -61,14 +58,13 @@ def interpolate_poses(poses, times, query_times, solver=True, verbose=False):
         velocity = dT.vec() / dt    # initializing with finite difference
         states += [TrajStateVar(
                         Time(nsecs=int(times[i]*1e3)),  # microseconds to nano
-                        TransformStateVar(Transformation(T_ba=poses[i])),
-                        VectorSpaceStateVar(velocity))]
+                        SE3StateVar(Transformation(T_ba=poses[i]), locked=True),
+                        VSpaceStateVar(velocity))]
 
     # setup trajectory
-    traj = TrajectoryInterface(Qc_inv=Qc_inv, allow_extrapolation=True)
+    traj = TrajectoryInterface(qcd)
     for state in states:
-        traj.add_knot(time=state.time, T_k0=TransformStateEvaluator(state.pose), w_0k_ink=state.velocity)
-        state.pose.set_lock(True)   # lock all pose variables
+        traj.add_knot(time=state.time, T_k0=state.pose, w_0k_ink=state.velocity)
 
     if solver:
         # construct the optimization problem
@@ -84,7 +80,7 @@ def interpolate_poses(poses, times, query_times, solver=True, verbose=False):
 
     query_poses = []
     for time in query_times:
-        interp_eval = traj.get_interp_pose_eval(Time(nsecs=int(time*1e3)))
+        interp_eval = traj.get_pose_interpolator(Time(nsecs=int(time*1e3)))
         query_poses += [enforce_orthog(interp_eval.evaluate().matrix())]
 
     return query_poses
@@ -249,55 +245,57 @@ def plot_loc_stats(seq, plot_dir, T_loc, T_gt, errs, consist=[], Xi=[], Cov=[], 
     plt.savefig(os.path.join(plot_dir, seq[:-4] + '_path.pdf'), pad_inches=0, bbox_inches='tight')
     plt.close()
 
-    # # plot of errors vs. time
-    # # plt.rcParams.update({"text.usetex": True})
-    # fig, axs = plt.subplots(6, 1, figsize=(6, 12))
-    # Sigma = 3 * np.sqrt(Cov)
-    # axs[0].plot(Xi[:, 0], color='limegreen', linewidth=1)
-    # axs[0].plot(Sigma[:, 0], color='k', linewidth=1)
-    # axs[0].plot(-Sigma[:, 0], color='k', linewidth=1)
-    # axs[0].set_ylabel('rho_1')
+    # plot of errors vs. time
+    if len(Xi) > 0 and len(Cov) > 0:
+        # plt.rcParams.update({"text.usetex": True})
+        fig, axs = plt.subplots(6, 1, figsize=(6, 12))
+        Sigma = 3 * np.sqrt(Cov)
+        axs[0].plot(Xi[:, 0], color='limegreen', linewidth=1)
+        axs[0].plot(Sigma[:, 0], color='k', linewidth=1)
+        axs[0].plot(-Sigma[:, 0], color='k', linewidth=1)
+        axs[0].set_ylabel('rho_1')
 
-    # axs[1].plot(Xi[:, 1], color='limegreen', linewidth=1)
-    # axs[1].plot(Sigma[:, 1], color='k', linewidth=1)
-    # axs[1].plot(-Sigma[:, 1], color='k', linewidth=1)
-    # axs[1].set_ylabel('rho_2')
+        axs[1].plot(Xi[:, 1], color='limegreen', linewidth=1)
+        axs[1].plot(Sigma[:, 1], color='k', linewidth=1)
+        axs[1].plot(-Sigma[:, 1], color='k', linewidth=1)
+        axs[1].set_ylabel('rho_2')
 
-    # axs[2].plot(Xi[:, 2], color='limegreen', linewidth=1)
-    # axs[2].plot(Sigma[:, 2], color='k', linewidth=1)
-    # axs[2].plot(-Sigma[:, 2], color='k', linewidth=1)
-    # axs[2].set_ylabel('rho_3')
+        axs[2].plot(Xi[:, 2], color='limegreen', linewidth=1)
+        axs[2].plot(Sigma[:, 2], color='k', linewidth=1)
+        axs[2].plot(-Sigma[:, 2], color='k', linewidth=1)
+        axs[2].set_ylabel('rho_3')
 
-    # axs[3].plot(Xi[:, 3], color='limegreen', linewidth=1)
-    # axs[3].plot(Sigma[:, 3], color='k', linewidth=1)
-    # axs[3].plot(-Sigma[:, 3], color='k', linewidth=1)
-    # axs[3].set_ylabel('psi_1')
+        axs[3].plot(Xi[:, 3], color='limegreen', linewidth=1)
+        axs[3].plot(Sigma[:, 3], color='k', linewidth=1)
+        axs[3].plot(-Sigma[:, 3], color='k', linewidth=1)
+        axs[3].set_ylabel('psi_1')
 
-    # axs[4].plot(Xi[:, 4], color='limegreen', linewidth=1)
-    # axs[4].plot(Sigma[:, 4], color='k', linewidth=1)
-    # axs[4].plot(-Sigma[:, 4], color='k', linewidth=1)
-    # axs[4].set_ylabel('psi_2')
+        axs[4].plot(Xi[:, 4], color='limegreen', linewidth=1)
+        axs[4].plot(Sigma[:, 4], color='k', linewidth=1)
+        axs[4].plot(-Sigma[:, 4], color='k', linewidth=1)
+        axs[4].set_ylabel('psi_2')
 
-    # axs[5].plot(Xi[:, 5], color='limegreen', linewidth=1)
-    # axs[5].plot(Sigma[:, 5], color='k', linewidth=1)
-    # axs[5].plot(-Sigma[:, 5], color='k', linewidth=1)
-    # axs[5].set_ylabel('psi_3')
-    # axs[5].set_xlabel('time (s)')
-    # plt.savefig(os.path.join(plot_dir, seq[:-4] + '_errs.pdf'), pad_inches=0, bbox_inches='tight')
-    # plt.close()
+        axs[5].plot(Xi[:, 5], color='limegreen', linewidth=1)
+        axs[5].plot(Sigma[:, 5], color='k', linewidth=1)
+        axs[5].plot(-Sigma[:, 5], color='k', linewidth=1)
+        axs[5].set_ylabel('psi_3')
+        axs[5].set_xlabel('time (s)')
+        plt.savefig(os.path.join(plot_dir, seq[:-4] + '_errs.pdf'), pad_inches=0, bbox_inches='tight')
+        plt.close()
 
-    # e = np.array(errs)
-    # fig, axs = plt.subplots(2, 2, figsize=(8, 7))
-    # axs[0, 0].hist(e[:, 0], bins=20)
-    # axs[0, 0].set_title('Lateral Error (m)')
-    # axs[0, 1].hist(e[:, 1], bins=20)
-    # axs[0, 1].set_title('Longitudinal Error (m)')
-    # axs[1, 0].hist(e[:, 2], bins=20)
-    # axs[1, 0].set_title('Vertical Error (m)')
-    # axs[1, 1].hist(e[:, 3], bins=20)
-    # axs[1, 1].set_title('Orientation Error (deg)')
-    # plt.savefig(os.path.join(plot_dir, seq[:-4] + '_hist.pdf'), pad_inches=0, bbox_inches='tight')
-    # plt.close()
+        e = np.array(errs)
+        fig, axs = plt.subplots(2, 2, figsize=(8, 7))
+        axs[0, 0].hist(e[:, 0], bins=20)
+        axs[0, 0].set_title('Lateral Error (m)')
+        axs[0, 1].hist(e[:, 1], bins=20)
+        axs[0, 1].set_title('Longitudinal Error (m)')
+        axs[1, 0].hist(e[:, 2], bins=20)
+        axs[1, 0].set_title('Vertical Error (m)')
+        axs[1, 1].hist(e[:, 3], bins=20)
+        axs[1, 1].set_title('Orientation Error (deg)')
+        plt.savefig(os.path.join(plot_dir, seq[:-4] + '_hist.pdf'), pad_inches=0, bbox_inches='tight')
+        plt.close()
+
     e = np.array(errs)
     fig, axs = plt.subplots(1, 3, figsize=(12, 4))
     axs[0].hist(e[:, 0], bins=20)
@@ -704,7 +702,7 @@ def read_traj_file_gt(path, T_ab, dim):
         T_ab (np.ndarray): 4x4 transformation matrix for calibration. Poses read are in frame 'b', output in frame 'a'
         dim (int): dimension for evaluation. Set to '3' for 3D or '2' for 2D
     Returns:
-        (List[np.ndarray]): list of 4x4 poses
+        (List[np.ndarray]): list of 4x4 poses (from world to sensor frame)
         (List[int]): list of times in microseconds
     """
     with open(path, 'r') as f:
