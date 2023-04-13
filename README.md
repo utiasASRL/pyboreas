@@ -10,12 +10,17 @@ If you find our dataset useful in your research, please cite our dataset paper:
 [Boreas: A Multi-Season Autonomous Driving Dataset](https://arxiv.org/abs/2203.10168) 
 
 ```
-@article{burnett_boreas22,
-    title={Boreas: A Multi-Season Autonomous Driving Dataset},
-    author={Burnett, Keenan and Yoon, David J and Wu, Yuchen and Li, Andrew Zou and Zhang, Haowei and Lu, Shichen and Qian, Jingxing and Tseng, Wei-Kang and Lambert, Andrew and Leung, Keith YK and Schoellig, Angela P and Barfoot, Timothy D},
-  journal={arXiv preprint arXiv:2203.10168},
-  year={2022}
+@article{burnett_ijrr23,
+author = {Keenan Burnett and David J Yoon and Yuchen Wu and Andrew Z Li and Haowei Zhang and Shichen Lu and Jingxing Qian and Wei-Kang Tseng and Andrew Lambert and Keith YK Leung and Angela P Schoellig and Timothy D Barfoot},
+title ={Boreas: A multi-season autonomous driving dataset},
+journal = {The International Journal of Robotics Research},
+volume = {42},
+number = {1-2},
+pages = {33-42},
+year = {2023},
+doi = {10.1177/02783649231160195},
 }
+
 ```
 
 ## Installation
