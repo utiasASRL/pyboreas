@@ -11,6 +11,7 @@ class BoreasDataset:
     ):
         self.root = root
         self.split = split
+        self.aeva_frames = []
         self.camera_frames = []
         self.lidar_frames = []
         self.radar_frames = []

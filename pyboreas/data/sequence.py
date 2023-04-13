@@ -31,6 +31,7 @@ class Sequence:
         self.seq_root = osp.join(boreas_root, self.ID)
         self.applanix_root = osp.join(self.seq_root, "applanix")
         self.calib_root = osp.join(self.seq_root, "calib")
+        self.aeva_root = osp.join(self.seq_root, "aeva")
         self.camera_root = osp.join(self.seq_root, "camera")
         self.lidar_root = osp.join(self.seq_root, "lidar")
         self.radar_root = osp.join(self.seq_root, "radar")
@@ -102,6 +103,8 @@ class Sequence:
             raise ValueError("ERROR: applanix dir missing from dataroot")
         if not osp.isdir(self.calib_root):
             raise ValueError("ERROR: calib dir missing from dataroot")
+        if not osp.isdir(self.aeva_root):
+            os.mkdir(self.aeva_root)
         if not osp.isdir(self.camera_root):
             os.mkdir(self.camera_root)
         if not osp.isdir(self.lidar_root):
@@ -111,6 +114,8 @@ class Sequence:
 
     def _check_download(self):
         """Checks if all sensor data has been downloaded, prints a warning otherwise"""
+        if len(os.listdir(self.aeva_root)) < len(self.aeva_frames):
+            print("WARNING: aeva frames are not all downloaded")
         if len(os.listdir(self.camera_root)) < len(self.camera_frames):
             print("WARNING: camera images are not all downloaded: {}".format(self.ID))
         if len(os.listdir(self.lidar_root)) < len(self.lidar_frames):
@@ -161,9 +166,11 @@ class Sequence:
 
     def get_all_frames(self):
         """Convenience method for retrieving sensor frames of all types"""
+        afile = osp.join(self.applanix_root, "aeva_poses.csv")
         cfile = osp.join(self.applanix_root, "camera_poses.csv")
         lfile = osp.join(self.applanix_root, "lidar_poses.csv")
         rfile = osp.join(self.applanix_root, "radar_poses.csv")
+        self.aeva_frames = self._get_frames(afile, self.aeva_root, ".bin", Lidar)
         self.camera_frames = self._get_frames(cfile, self.camera_root, ".png", Camera)
         self.lidar_frames = self._get_frames(lfile, self.lidar_root, ".bin", Lidar)
         self.radar_frames = self._get_frames(rfile, self.radar_root, ".png", Radar)

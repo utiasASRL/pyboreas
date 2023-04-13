@@ -6,7 +6,7 @@ from pylgmath import so3op
 
 from pyboreas.eval.localization import eval_local
 from pyboreas.utils.odometry import read_traj_file_gt2
-from pyboreas.utils.utils import get_inverse_tf, rotation_error, se3ToSE3
+from pyboreas.utils.utils import get_inverse_tf, rotToYawPitchRoll, se3ToSE3
 
 
 # gt: 4 x 4 x N
@@ -64,25 +64,44 @@ class LocalizationTestCase(unittest.TestCase):
         ref_seq = "boreas-2021-08-05-13-34"
         ref = "lidar"
         seqs = ["boreas-2021-09-02-11-42"]
-        dim = 3
-        radar = True if dim == 2 else False
         np.random.seed(42)
         for seq in seqs:
-            # if not osp.exists(osp.join(pred, seq + '.txt')):
-            gen_fake_submission(gt, ref_seq, ref, seq, pred, dim=dim)
-        results = eval_local(pred, gt, seqs, ref_seq, radar=radar, plot_dir=pred)
+            gen_fake_submission(gt, ref_seq, ref, seq, pred, dim=3)
+        results = eval_local(
+            pred,
+            gt,
+            ref_seq,
+            ref_sensor="lidar",
+            test_sensor="lidar",
+            dim=3,
+            plot_dir=pred,
+        )
         errs = results[0][0]
         trans_rmse_expected_m = np.sqrt(0.1)
-        C = so3op.vec2rot(
-            np.array([np.sqrt(0.01), np.sqrt(0.01), np.sqrt(0.01)]).reshape(3, 1)
-        )
-        phi_rmse_expected_deg = rotation_error(C) * 180 / np.pi
+
+        # Monte Carlo simulation to get expected RMSE in r-p-y:
+        size = 10000
+        sigma = np.sqrt(0.01)
+        C_arr = so3op.vec2rot(np.random.normal(0, sigma, 3 * size).reshape(size, 3, 1))
+        r_list = []
+        p_list = []
+        y_list = []
+        for C in C_arr:
+            y, p, r = rotToYawPitchRoll(C)
+            r_list.append(r)
+            p_list.append(p)
+            y_list.append(y)
+        roll_rmse_expected_deg = np.sqrt(np.var(r_list)) * 180 / np.pi
+        pitch_rmse_expected_deg = np.sqrt(np.var(p_list)) * 180 / np.pi
+        yaw_rmse_expected_deg = np.sqrt(np.var(y_list)) * 180 / np.pi
         consistency_expected = 1.0
         self.assertTrue(np.abs(errs[0] - trans_rmse_expected_m) < 1e-2)
         self.assertTrue(np.abs(errs[1] - trans_rmse_expected_m) < 1e-2)
         self.assertTrue(np.abs(errs[2] - trans_rmse_expected_m) < 1e-2)
-        self.assertTrue(np.abs(errs[3] - phi_rmse_expected_deg) < 3e-2)
-        self.assertTrue(np.abs(errs[4] - consistency_expected) < 1e-2)
+        self.assertTrue(np.abs(errs[3] - roll_rmse_expected_deg) < 5e-2)
+        self.assertTrue(np.abs(errs[4] - pitch_rmse_expected_deg) < 5e-2)
+        self.assertTrue(np.abs(errs[5] - yaw_rmse_expected_deg) < 5e-2)
+        self.assertTrue(np.abs(errs[6] - consistency_expected) < 1e-2)
 
 
 if __name__ == "__main__":
