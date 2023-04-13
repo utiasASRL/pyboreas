@@ -1,9 +1,10 @@
-from bisect import bisect_left
 import os.path as osp
+from bisect import bisect_left
 from pathlib import Path
+
 import numpy as np
-from pyboreas.utils.lgmath import _vec2tran, _tran2vec, carrot
-import cv2
+
+from pyboreas.utils.lgmath import _tran2vec, _vec2tran, carrot
 
 
 def load_lidar(path):
@@ -16,15 +17,24 @@ def load_lidar(path):
 
 
 def roll(r):
-    return np.array([[1, 0, 0], [0, np.cos(r), np.sin(r)], [0, -np.sin(r), np.cos(r)]], dtype=np.float64)
+    return np.array(
+        [[1, 0, 0], [0, np.cos(r), np.sin(r)], [0, -np.sin(r), np.cos(r)]],
+        dtype=np.float64,
+    )
 
 
 def pitch(p):
-    return np.array([[np.cos(p), 0, -np.sin(p)], [0, 1, 0], [np.sin(p), 0, np.cos(p)]], dtype=np.float64)
+    return np.array(
+        [[np.cos(p), 0, -np.sin(p)], [0, 1, 0], [np.sin(p), 0, np.cos(p)]],
+        dtype=np.float64,
+    )
 
 
 def yaw(y):
-    return np.array([[np.cos(y), np.sin(y), 0], [-np.sin(y), np.cos(y), 0], [0, 0, 1]], dtype=np.float64)
+    return np.array(
+        [[np.cos(y), np.sin(y), 0], [-np.sin(y), np.cos(y), 0], [0, 0, 1]],
+        dtype=np.float64,
+    )
 
 
 def yawPitchRollToRot(y, p, r):
@@ -35,7 +45,7 @@ def rotToYawPitchRoll(C):
     i = 2
     j = 1
     k = 0
-    c_y = np.sqrt(C[i, i]**2 + C[j, i]**2)
+    c_y = np.sqrt(C[i, i] ** 2 + C[j, i] ** 2)
     if c_y > 1e-14:
         r = np.arctan2(C[j, i], C[i, i])
         p = np.arctan2(-C[k, i], c_y)
@@ -87,7 +97,9 @@ def get_transform3(x, y, theta, dtype=np.float64):
         np.ndarray: 4x4 transformation matrix
     """
     T = np.identity(4, dtype=dtype)
-    T[0:2, 0:2] = np.array([[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]])
+    T[0:2, 0:2] = np.array(
+        [[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]]
+    )
     T[0, 3] = x
     T[1, 3] = y
     return T
@@ -105,8 +117,11 @@ def quaternionToRot(qin):
         return np.identity(3)
     xi = q[:3].reshape(3, 1)
     eta = q[3, 0]
-    C = (eta**2 - np.matmul(xi.transpose(), xi)) * np.identity(3) + \
-        2 * np.matmul(xi, xi.transpose()) - 2 * eta * carrot(xi)
+    C = (
+        (eta**2 - np.matmul(xi.transpose(), xi)) * np.identity(3)
+        + 2 * np.matmul(xi, xi.transpose())
+        - 2 * eta * carrot(xi)
+    )
     return C
 
 
@@ -128,7 +143,9 @@ def rotToQuaternion(C):
         phi = wrapto2pi(2 * np.arccos(max(min(eta, 1.0), -1.0)))
         eta = np.cos(phi / 2)
         xi_cross = (C.T - C) / (4 * eta)
-        q = np.array([xi_cross[2, 1], xi_cross[0, 2], xi_cross[1, 0], eta]).reshape(4, 1)
+        q = np.array([xi_cross[2, 1], xi_cross[0, 2], xi_cross[1, 0], eta]).reshape(
+            4, 1
+        )
     return q
 
 
@@ -229,8 +246,8 @@ def translation_error(T, dim=3):
         float: translation distance
     """
     if dim == 2:
-        return np.sqrt(T[0, 3]**2 + T[1, 3]**2)
-    return np.sqrt(T[0, 3]**2 + T[1, 3]**2 + T[2, 3]**2)
+        return np.sqrt(T[0, 3] ** 2 + T[1, 3] ** 2)
+    return np.sqrt(T[0, 3] ** 2 + T[1, 3] ** 2 + T[2, 3] ** 2)
 
 
 def wrapto2pi(phi):
@@ -248,8 +265,9 @@ def get_time_from_filename(file):
     gpstime = float(tstr)
     timeconvert = 1e-6
     if len(tstr) != 16 and len(tstr) > 10:
-        timeconvert = 10**(-1 * (len(tstr) - 10))
+        timeconvert = 10 ** (-1 * (len(tstr) - 10))
     return gpstime * timeconvert
+
 
 def get_gt_data_for_frame(root, sensType, frame):
     """Retrieves ground truth applanix data for a given sensor frame
@@ -260,13 +278,15 @@ def get_gt_data_for_frame(root, sensType, frame):
     Returns:
         gt (list): A list of ground truth values from the applanix sensor_poses.scv
     """
-    posepath = osp.join(root, 'applanix', sensType + '_poses.csv')
-    with open(posepath, 'r') as f:
+    posepath = osp.join(root, "applanix", sensType + "_poses.csv")
+    with open(posepath, "r") as f:
         f.readline()  # header
         for line in f:
-            if line.split(',')[0] == frame:
-                return [float(x) for x in line.split(',')]
-    assert(0), 'gt not found for root: {} sensType: {} frame: {}'.format(root, sensType, frame)
+            if line.split(",")[0] == frame:
+                return [float(x) for x in line.split(",")]
+    assert 0, "gt not found for root: {} sensType: {} frame: {}".format(
+        root, sensType, frame
+    )
     return None
 
 
@@ -303,7 +323,7 @@ def get_closest_frame(query_time, frame_times, frames):
         closest_frame (SensorType)
     """
     closest = get_closest_index(query_time, frame_times)
-    assert(abs(query_time - frame_times[closest]) < 3.0), 'query: {}'.format(query_time)
+    assert abs(query_time - frame_times[closest]) < 3.0, "query: {}".format(query_time)
     return frames[closest]
 
 
@@ -315,10 +335,14 @@ def is_sorted(x):
 def get_T_bev_metric(resolution, width):
     alpha = 1 / resolution
     if (width % 2) == 0:
-        min_range = (width / 2 - 0.5)
+        min_range = width / 2 - 0.5
     else:
         min_range = width // 2
-    return np.array([[0, alpha, 0, min_range],
-                   [-alpha, 0, 0, min_range],
-                   [0, 0, 1, 0],
-                   [0, 0, 0, 1]])
+    return np.array(
+        [
+            [0, alpha, 0, min_range],
+            [-alpha, 0, 0, min_range],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1],
+        ]
+    )

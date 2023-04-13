@@ -1,13 +1,16 @@
-import numpy as np
 import multiprocessing
 from multiprocessing import Pool
-from pyboreas.utils.utils import se3ToSE3, is_sorted
+
+import numpy as np
+
+from pyboreas.utils.utils import is_sorted, se3ToSE3
 
 
 class PointCloud:
     """
     Class for working with (lidar) pointclouds.
     """
+
     def __init__(self, points):
         # points (np.ndarray): (N, 6) [x, y, z, intensity, laser_number, time]
         self.points = points
@@ -20,7 +23,7 @@ class PointCloud:
         Returns:
             points (np.ndarray): The transformed points
         """
-        assert (T.shape[0] == 4 and T.shape[1] == 4)
+        assert T.shape[0] == 4 and T.shape[1] == 4
         if in_place:
             points = self.points
         else:
@@ -38,7 +41,7 @@ class PointCloud:
         Returns:
             points (np.ndarray): points with motion distortion removed
         """
-        assert(body_rate.shape[0] == 6 and body_rate.shape[1] == 1)
+        assert body_rate.shape[0] == 6 and body_rate.shape[1] == 1
         tmin = np.min(self.points[:, 5])
         tmax = np.max(self.points[:, 5])
         if tref is None:
@@ -68,10 +71,11 @@ class PointCloud:
             points[i, :3] = pbar[:3, 0]
 
         # This function is ~10x faster if the pointcloud is sorted by timestamp (default)
-        sections = []
         if is_sorted(points[:, 5]):
             for i in range(len(tbins) - 1):
-                locs = np.where((points[:, 5] >= tbins[i]) & (points[:, 5] < tbins[i+1]))
+                locs = np.where(
+                    (points[:, 5] >= tbins[i]) & (points[:, 5] < tbins[i + 1])
+                )
                 p = points[locs]
                 p = np.hstack((p[:, :3], np.ones((p.shape[0], 1))))
                 p = np.matmul(p, T_undistorts[i].transpose())
@@ -95,14 +99,18 @@ class PointCloud:
             points (np.ndarray): the remaining points after the filter is applied
         """
         if len(bounds) < 6:
-            print('Warning: len(bounds) = {} < 6 is incorrect!'.format(len(bounds)))
+            print("Warning: len(bounds) = {} < 6 is incorrect!".format(len(bounds)))
             return self.points
-        p = self.points[np.where((self.points[:, 0] >= bounds[0]) &
-                                 (self.points[:, 0] <= bounds[1]) &
-                                 (self.points[:, 1] >= bounds[2]) &
-                                 (self.points[:, 1] <= bounds[3]) &
-                                 (self.points[:, 2] >= bounds[4]) &
-                                 (self.points[:, 2] <= bounds[5]))]
+        p = self.points[
+            np.where(
+                (self.points[:, 0] >= bounds[0])
+                & (self.points[:, 0] <= bounds[1])
+                & (self.points[:, 1] >= bounds[2])
+                & (self.points[:, 1] <= bounds[3])
+                & (self.points[:, 2] >= bounds[4])
+                & (self.points[:, 2] <= bounds[5])
+            )
+        ]
         if in_place:
             self.points = p
         return p
@@ -110,7 +118,9 @@ class PointCloud:
     # Assumes pointcloud has already been transformed into the camera frame
     # color options: depth, intensity
     # returns pixel locations for lidar point projections onto an image plane
-    def project_onto_image(self, P, width=2448, height=2048, color='depth', checkdims=True):
+    def project_onto_image(
+        self, P, width=2448, height=2048, color="depth", checkdims=True
+    ):
         """Projects 3D points onto a 2D image plane
         Args:
             P (np.ndarray): [fx 0 cx 0; 0 fy cy 0; 0 0 1 0; 0 0 0 1] cam projection
@@ -128,30 +138,35 @@ class PointCloud:
         x[:, 3] = 1
         x = np.matmul(x, P.transpose())
         if checkdims:
-            mask = np.where((x[:, 0] >= 0) &
-                            (x[:, 0] <= width - 1) &
-                            (x[:, 1] >= 0) &
-                            (x[:, 1] <= height - 1))
+            mask = np.where(
+                (x[:, 0] >= 0)
+                & (x[:, 0] <= width - 1)
+                & (x[:, 1] >= 0)
+                & (x[:, 1] <= height - 1)
+            )
         else:
             mask = np.ones(x.shape[0], dtype=bool)
         x = x[mask]
-        if color == 'depth':
+        if color == "depth":
             colors = self.points[mask][:, 2]
-        elif color == 'intensity':
+        elif color == "intensity":
             colors = self.points[mask][:, 3]
         else:
-            print('Warning: {} is not a valid color'.format(color))
+            print("Warning: {} is not a valid color".format(color))
             colors = self.points[mask][:, 2]
         return x[:, :2], colors, mask
 
     def random_downsample(self, downsample_rate, in_place=True):
-        rand_idx = np.random.choice(self.points.shape[0],
-                                    size=int(self.points.shape[0] * downsample_rate),
-                                    replace=False)
+        rand_idx = np.random.choice(
+            self.points.shape[0],
+            size=int(self.points.shape[0] * downsample_rate),
+            replace=False,
+        )
         p = self.points[rand_idx, :]
         if in_place:
             self.points = p
         return p
+
 
 # TODO: remove_ground(self, bool: in_place)
 # TODO: voxelize(self)

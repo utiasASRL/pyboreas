@@ -1,17 +1,14 @@
-import os
-import os.path as osp
 import multiprocessing
+import os
 from multiprocessing import Pool
 
-from pyboreas.data.splits import *
 from pyboreas.data.sequence import Sequence
-from pyboreas.data.sensors import Camera, Lidar, Radar
-from pyboreas.vis.visualizer import BoreasVisualizer
 
 
 class BoreasDataset:
-
-    def __init__(self, root='/data/boreas/', split=None, verbose=False, labelFolder='labels'):
+    def __init__(
+        self, root="/data/boreas/", split=None, verbose=False, labelFolder="labels"
+    ):
         self.root = root
         self.split = split
         self.camera_frames = []
@@ -23,10 +20,11 @@ class BoreasDataset:
         self.labelFolder = labelFolder
 
         if split is None:
-            split = sorted([[f] for f in os.listdir(root) if f.startswith('boreas-')])
+            split = sorted([[f] for f in os.listdir(root) if f.startswith("boreas-")])
 
         # It takes a few seconds to construct each sequence, so we parallelize this
         global _load_seq
+
         def _load_seq(seqSpec):
             return Sequence(root, seqSpec, labelFolder=self.labelFolder)
 
@@ -43,9 +41,9 @@ class BoreasDataset:
                 seq.print()
 
         if verbose:
-            print('total camera frames: {}'.format(len(self.camera_frames)))
-            print('total lidar frames: {}'.format(len(self.lidar_frames)))
-            print('total radar frames: {}'.format(len(self.radar_frames)))
+            print("total camera frames: {}".format(len(self.camera_frames)))
+            print("total lidar frames: {}".format(len(self.lidar_frames)))
+            print("total radar frames: {}".format(len(self.radar_frames)))
 
     def get_seq_from_ID(self, ID):
         return self.sequences[self.seqDict[ID]]
@@ -64,11 +62,3 @@ class BoreasDataset:
     def get_radar(self, idx):
         self.radar_frames[idx].load_data()
         return self.radar_frames[idx]
-
-    def get_sequence_visualizer(self, ID):
-        return BoreasVisualizer(self.get_seq_from_ID(ID))
-
-# TODO: projectBoundingBoxesOntoSensor(BB, Sensor) (include camera projection?)
-# TODO: projectMapOntoView(position, orientation, extent)
-# TODO: convert a list of poses to benchmark format
-# TODO: provide example code for interpolating between poses (pysteam)

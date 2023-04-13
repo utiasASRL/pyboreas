@@ -1,4 +1,5 @@
 # pyboreas
+
 ![Boreas](https://github.com/utiasASRL/pyboreas/blob/master/pyboreas/figs/pyboreas.png)
 
 This devkit provides tools for working with the Boreas Dataset, an all-weather autonomous driving dataset which includes a 128-beam Velodyne Alpha-Prime lidar, a 5MP Blackfly camera, a 360 degree Navtech radar, and post-processed Applanix POS LV GNSS data. Our dataset currently suports benchmarking odometry, localization, and 3D object detection.
@@ -7,7 +8,7 @@ Our leaderboard is now live! Baseline implementations for each leaderboard are c
 
 If you find our dataset useful in your research, please cite our dataset paper:
 
-[Boreas: A Multi-Season Autonomous Driving Dataset](https://arxiv.org/abs/2203.10168) 
+[Boreas: A Multi-Season Autonomous Driving Dataset](https://arxiv.org/abs/2203.10168)
 
 ```
 @article{burnett_boreas22,
@@ -21,17 +22,20 @@ If you find our dataset useful in your research, please cite our dataset paper:
 ## Installation
 
 ### Using pip
+
 ```
 pip install asrl-pyboreas
 ```
 
 ### From source
+
 ```
 git clone https://github.com/utiasASRL/pyboreas.git
 pip install -e pyboreas
 ```
 
 ## Download Instructions
+
 1. [Create an AWS account (OPTIONAL)](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/)
 2. [Install the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html)
 3. Create a `root` folder to store the dataset, example: `/path/to/data/boreas/` Each sequence will then be a folder under `root`.
@@ -41,21 +45,21 @@ pip install -e pyboreas
 
 The following command will download the entire Boreas dataset:
 
-```bash
+```text
 root=/path/to/data/boreas/
 aws s3 sync s3://boreas $root
 ```
 
 The following command will list all the top-level prefixes (sequences):
 
-```bash
+```text
 root=/path/to/data/boreas/
 aws s3 ls s3://boreas
 ```
 
 Alternatively, [boreas.utias.utoronto.ca (Work In Progress)](https://www.boreas.utias.utoronto.ca/#/download) can be used to browse through sequences so as to pick and choose what data to download. The website will then generate a list of AWS CLI commands that can be run as a bash script. These commands will look something like:
 
-```bash
+```text
 root=/path/to/data/boreas/
 cd $root
 aws s3 sync s3://boreas/boreas-2020-11-26-13-58 boreas-2020-11-26-13-58 --exclude "*" \
@@ -121,39 +125,16 @@ point_camera = np.matmul(calib.T_camera_lidar, point_lidar)
 lidar_frame = bd.get_lidar(0)
 t = lidar_frame.timestamp  # timestamp in seconds
 T_enu_lidar = lidar_frame.pose  # 4x4 homogenous transform [R t; 0 0 0 1]
-vbar = lidar_frame.velocity  # 6x1 vel in ENU frame [v_se_in_e; w_se_in_e] 
+vbar = lidar_frame.velocity  # 6x1 vel in ENU frame [v_se_in_e; w_se_in_e]
 varpi = lidar_frame.body_rate  # 6x1 vel in sensor frame [v_se_in_s; w_se_in_s]
 ```
-## Data Visualizer
-We provide a tool for visualization of sequence frames. Currently, the visualizer supports BEV lidar visualization, BEV radar visualization, Perspective camera + lidar visualization, and 3D lidar point visualization.
 
-```Python
-from pyboreas import BoreasDataset
-from pyboreas.vis.visualizer import BoreasVisualizer
-
-root = '/path/to/data/boreas/'
-bd = BoreasDataset(root)
-seq = bd.sequences[0]
-
-bv = BoreasVisualizer(seq)
-bv.visualize(starting_frame_idx=0)
-```
-Running the above code will start a local web server that visualizes the selected sequence.
-```
-Dash is running on http://127.0.0.1:8050/
-
- * Serving Flask app 'pyboreas.vis.visualizer' (lazy loading)
- * Environment: production
-   WARNING: This is a development server. Do not use it in a production deployment.
-   Use a production WSGI server instead.
- * Debug mode: off
- * Running on http://127.0.0.1:8050/ (Press CTRL+C to quit)
-```
-Open a web browser and navigate to the provided ip (in this case 127.0.0.1:8050) to view the sequence visualization.
 ## Tutorials
+
 Note that we provide a few simple tutorials for getting started with the Boreas dataset. Also note that we provide instructions for using this dataset using an AWS SageMaker instance, instructions at: pyboreas/tutorials/aws/README.md.
 
 **NOTE:** ground truth poses have dtype=np.float64, but PyTorch defaults to float32. Avoid using implicit type conversion as this will result in significant quantization error. Implicit conversion is only safe when the translation values are small, such as a pose with respect to a sensor frame or with respect to a starting position, but NOT with respect to ENU (very large).
 
 TODO:
+
 - Pointcloud voxelization

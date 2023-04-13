@@ -1,28 +1,36 @@
 import os
-from pathlib import Path
-from time import time
 from itertools import accumulate, repeat
 from multiprocessing import Pool
-import numpy as np
+from pathlib import Path
+from time import time
+
 import matplotlib.pyplot as plt
-from pyboreas.utils.utils import get_inverse_tf, rotation_error, translation_error, enforce_orthog, yawPitchRollToRot, \
-    get_time_from_filename
+import numpy as np
 from pylgmath import Transformation
-from pysteam.trajectory import Time
-from pysteam.trajectory.const_vel import Interface as TrajectoryInterface
 from pysteam.evaluable.se3 import SE3StateVar
 from pysteam.evaluable.vspace import VSpaceStateVar
 from pysteam.problem import OptimizationProblem
 from pysteam.solver import GaussNewtonSolver
+from pysteam.trajectory import Time
+from pysteam.trajectory.const_vel import Interface as TrajectoryInterface
+
+from pyboreas.utils.utils import (
+    enforce_orthog,
+    get_inverse_tf,
+    rotation_error,
+    translation_error,
+    yawPitchRollToRot,
+)
 
 
 class TrajStateVar:
     """This class defines a trajectory state variable for steam."""
+
     def __init__(
-          self,
-          time: Time,
-          pose: SE3StateVar,
-          velocity: VSpaceStateVar,
+        self,
+        time: Time,
+        pose: SE3StateVar,
+        velocity: VSpaceStateVar,
     ) -> None:
         self.time: Time = time
         self.pose: SE3StateVar = pose
@@ -49,16 +57,22 @@ def interpolate_poses(poses, times, query_times, solver=True, verbose=False):
     states = []
     for i in range(len(poses)):
         if i == 0:
-            dt = (times[1] - times[0])*1e-6  # microseconds to seconds
+            dt = (times[1] - times[0]) * 1e-6  # microseconds to seconds
             dT = Transformation(T_ba=poses[1]) @ Transformation(T_ba=poses[0]).inverse()
         else:
-            dt = (times[i] - times[i-1])*1e-6  # microseconds to seconds
-            dT = Transformation(T_ba=poses[i]) @ Transformation(T_ba=poses[i-1]).inverse()
-        velocity = dT.vec() / dt    # initializing with finite difference
-        states += [TrajStateVar(
-                        Time(nsecs=int(times[i]*1e3)),  # microseconds to nano
-                        SE3StateVar(Transformation(T_ba=poses[i]), locked=True),
-                        VSpaceStateVar(velocity))]
+            dt = (times[i] - times[i - 1]) * 1e-6  # microseconds to seconds
+            dT = (
+                Transformation(T_ba=poses[i])
+                @ Transformation(T_ba=poses[i - 1]).inverse()
+            )
+        velocity = dT.vec() / dt  # initializing with finite difference
+        states += [
+            TrajStateVar(
+                Time(nsecs=int(times[i] * 1e3)),  # microseconds to nano
+                SE3StateVar(Transformation(T_ba=poses[i]), locked=True),
+                VSpaceStateVar(velocity),
+            )
+        ]
 
     # setup trajectory
     traj = TrajectoryInterface(qcd)
@@ -78,8 +92,8 @@ def interpolate_poses(poses, times, query_times, solver=True, verbose=False):
         optimizer.optimize()
 
     query_poses = []
-    for time in query_times:
-        interp_eval = traj.get_pose_interpolator(Time(nsecs=int(time*1e3)))
+    for time_us in query_times:
+        interp_eval = traj.get_pose_interpolator(Time(nsecs=int(time_us * 1e3)))
         query_poses += [enforce_orthog(interp_eval.evaluate().matrix())]
 
     return query_poses
@@ -99,7 +113,7 @@ def trajectory_distances(poses):
         dx = P1[0, 3] - P2[0, 3]
         dy = P1[1, 3] - P2[1, 3]
         dz = P1[2, 3] - P2[2, 3]
-        dist.append(dist[i-1] + np.sqrt(dx**2 + dy**2 + dz**2))
+        dist.append(dist[i - 1] + np.sqrt(dx**2 + dy**2 + dz**2))
     return dist
 
 
@@ -140,15 +154,27 @@ def calc_sequence_errors(poses_gt, poses_pred, step_size):
             if last_frame == -1:
                 continue
             # Compute rotational and translation errors
-            pose_delta_gt = np.matmul(poses_gt[last_frame], get_inverse_tf(poses_gt[first_frame]))
-            pose_delta_res = np.matmul(poses_pred[last_frame], get_inverse_tf(poses_pred[first_frame]))
+            pose_delta_gt = np.matmul(
+                poses_gt[last_frame], get_inverse_tf(poses_gt[first_frame])
+            )
+            pose_delta_res = np.matmul(
+                poses_pred[last_frame], get_inverse_tf(poses_pred[first_frame])
+            )
             pose_error = np.matmul(pose_delta_gt, get_inverse_tf(pose_delta_res))
             r_err = rotation_error(pose_error)
             t_err = translation_error(pose_error)
             # Approx speed
             num_frames = float(last_frame - first_frame + 1)
             speed = float(length) / (0.1 * num_frames)
-            err.append([first_frame, r_err/float(length), t_err/float(length), length, speed])
+            err.append(
+                [
+                    first_frame,
+                    r_err / float(length),
+                    t_err / float(length),
+                    length,
+                    speed,
+                ]
+            )
     return err, lengths
 
 
@@ -163,9 +189,9 @@ def get_stats(err, lengths):
     t_err = 0
     r_err = 0
     len2id = {x: i for i, x in enumerate(lengths)}
-    t_err_len = [0.0]*len(len2id)
-    r_err_len = [0.0]*len(len2id)
-    len_count = [0]*len(len2id)
+    t_err_len = [0.0] * len(len2id)
+    r_err_len = [0.0] * len(len2id)
+    len_count = [0] * len(len2id)
     for e in err:
         t_err += e[2]
         r_err += e[1]
@@ -175,8 +201,12 @@ def get_stats(err, lengths):
         len_count[j] += 1
     t_err /= float(len(err))
     r_err /= float(len(err))
-    return t_err * 100, r_err * 180 / np.pi, [a/float(b) * 100 for a, b in zip(t_err_len, len_count)], \
-        [a/float(b) * 180 / np.pi for a, b in zip(r_err_len, len_count)]
+    return (
+        t_err * 100,
+        r_err * 180 / np.pi,
+        [a / float(b) * 100 for a, b in zip(t_err_len, len_count)],
+        [a / float(b) * 180 / np.pi for a, b in zip(r_err_len, len_count)],
+    )
 
 
 def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err):
@@ -194,103 +224,139 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err):
 
     # plot of path
     plt.figure(figsize=(6, 6))
-    plt.plot(path_odom[:, 0], path_odom[:, 1], 'b', linewidth=0.5, label='Estimate')
-    plt.plot(path_gt[:, 0], path_gt[:, 1], '--r', linewidth=0.5, label='Groundtruth')
-    plt.plot(path_gt[0, 0], path_gt[0, 1], 'ks', markerfacecolor='none', label='Sequence Start')
-    plt.xlabel('x [m]')
-    plt.ylabel('y [m]')
-    plt.axis('equal')
+    plt.plot(path_odom[:, 0], path_odom[:, 1], "b", linewidth=0.5, label="Estimate")
+    plt.plot(path_gt[:, 0], path_gt[:, 1], "--r", linewidth=0.5, label="Groundtruth")
+    plt.plot(
+        path_gt[0, 0],
+        path_gt[0, 1],
+        "ks",
+        markerfacecolor="none",
+        label="Sequence Start",
+    )
+    plt.xlabel("x [m]")
+    plt.ylabel("y [m]")
+    plt.axis("equal")
     plt.legend(loc="upper right")
-    plt.savefig(os.path.join(dir, seq[:-4] + '_path.pdf'), pad_inches=0, bbox_inches='tight')
+    plt.savefig(
+        os.path.join(dir, seq[:-4] + "_path.pdf"), pad_inches=0, bbox_inches="tight"
+    )
     plt.close()
 
     # plot of translation error along path length
     plt.figure(figsize=(6, 3))
-    plt.plot(lengths, t_err, 'bs', markerfacecolor='none')
-    plt.plot(lengths, t_err, 'b')
-    plt.xlabel('Path Length [m]')
-    plt.ylabel('Translation Error [%]')
-    plt.savefig(os.path.join(dir, seq[:-4] + '_tl.pdf'), pad_inches=0, bbox_inches='tight')
+    plt.plot(lengths, t_err, "bs", markerfacecolor="none")
+    plt.plot(lengths, t_err, "b")
+    plt.xlabel("Path Length [m]")
+    plt.ylabel("Translation Error [%]")
+    plt.savefig(
+        os.path.join(dir, seq[:-4] + "_tl.pdf"), pad_inches=0, bbox_inches="tight"
+    )
     plt.close()
 
     # plot of rotation error along path length
     plt.figure(figsize=(6, 3))
-    plt.plot(lengths, r_err, 'bs', markerfacecolor='none')
-    plt.plot(lengths, r_err, 'b')
-    plt.xlabel('Path Length [m]')
-    plt.ylabel('Rotation Error [deg/m]')
-    plt.savefig(os.path.join(dir, seq[:-4] + '_rl.pdf'), pad_inches=0, bbox_inches='tight')
+    plt.plot(lengths, r_err, "bs", markerfacecolor="none")
+    plt.plot(lengths, r_err, "b")
+    plt.xlabel("Path Length [m]")
+    plt.ylabel("Rotation Error [deg/m]")
+    plt.savefig(
+        os.path.join(dir, seq[:-4] + "_rl.pdf"), pad_inches=0, bbox_inches="tight"
+    )
     plt.close()
 
-def plot_loc_stats(seq, plot_dir, T_loc, T_gt, errs, consist=[], Xi=[], Cov=[], has_cov=False):
 
-
-    path_loc = np.array([np.linalg.inv(T_i_vk)[:3, 3] for T_i_vk in T_loc], dtype=np.float64)
-    path_gt = np.array([np.linalg.inv(T_i_vk)[:3, 3] for T_i_vk in T_gt], dtype=np.float64)
+def plot_loc_stats(
+    seq, plot_dir, T_loc, T_gt, errs, consist=[], Xi=[], Cov=[], has_cov=False
+):
+    path_loc = np.array(
+        [np.linalg.inv(T_i_vk)[:3, 3] for T_i_vk in T_loc], dtype=np.float64
+    )
+    path_gt = np.array(
+        [np.linalg.inv(T_i_vk)[:3, 3] for T_i_vk in T_gt], dtype=np.float64
+    )
 
     # path_loc, path_gt = get_path_from_Tvi_list(T_loc, T_gt)
 
     # plot of path
     plt.figure(figsize=(6, 6))
-    plt.plot(path_loc[:, 0], path_loc[:, 1], 'b', linewidth=0.5, label='Estimate')
-    plt.plot(path_gt[:, 0], path_gt[:, 1], '--r', linewidth=0.5, label='Groundtruth')
-    plt.plot(path_gt[0, 0], path_gt[0, 1], 'ks', markerfacecolor='none', label='Sequence Start')
-    plt.xlabel('x [m]')
-    plt.ylabel('y [m]')
-    plt.axis('equal')
+    plt.plot(path_loc[:, 0], path_loc[:, 1], "b", linewidth=0.5, label="Estimate")
+    plt.plot(path_gt[:, 0], path_gt[:, 1], "--r", linewidth=0.5, label="Groundtruth")
+    plt.plot(
+        path_gt[0, 0],
+        path_gt[0, 1],
+        "ks",
+        markerfacecolor="none",
+        label="Sequence Start",
+    )
+    plt.xlabel("x [m]")
+    plt.ylabel("y [m]")
+    plt.axis("equal")
     plt.legend(loc="upper right")
-    plt.savefig(os.path.join(plot_dir, seq[:-4] + '_path.pdf'), pad_inches=0, bbox_inches='tight')
+    plt.savefig(
+        os.path.join(plot_dir, seq[:-4] + "_path.pdf"),
+        pad_inches=0,
+        bbox_inches="tight",
+    )
     plt.close()
 
     # plot of errors vs. time
     # plt.rcParams.update({"text.usetex": True})
     fig, axs = plt.subplots(6, 1, figsize=(6, 12))
     Sigma = 3 * np.sqrt(Cov)
-    axs[0].plot(Xi[:, 0], color='limegreen', linewidth=1)
-    axs[0].plot(Sigma[:, 0], color='k', linewidth=1)
-    axs[0].plot(-Sigma[:, 0], color='k', linewidth=1)
-    axs[0].set_ylabel('rho_1')
+    axs[0].plot(Xi[:, 0], color="limegreen", linewidth=1)
+    axs[0].plot(Sigma[:, 0], color="k", linewidth=1)
+    axs[0].plot(-Sigma[:, 0], color="k", linewidth=1)
+    axs[0].set_ylabel("rho_1")
 
-    axs[1].plot(Xi[:, 1], color='limegreen', linewidth=1)
-    axs[1].plot(Sigma[:, 1], color='k', linewidth=1)
-    axs[1].plot(-Sigma[:, 1], color='k', linewidth=1)
-    axs[1].set_ylabel('rho_2')
+    axs[1].plot(Xi[:, 1], color="limegreen", linewidth=1)
+    axs[1].plot(Sigma[:, 1], color="k", linewidth=1)
+    axs[1].plot(-Sigma[:, 1], color="k", linewidth=1)
+    axs[1].set_ylabel("rho_2")
 
-    axs[2].plot(Xi[:, 2], color='limegreen', linewidth=1)
-    axs[2].plot(Sigma[:, 2], color='k', linewidth=1)
-    axs[2].plot(-Sigma[:, 2], color='k', linewidth=1)
-    axs[2].set_ylabel('rho_3')
+    axs[2].plot(Xi[:, 2], color="limegreen", linewidth=1)
+    axs[2].plot(Sigma[:, 2], color="k", linewidth=1)
+    axs[2].plot(-Sigma[:, 2], color="k", linewidth=1)
+    axs[2].set_ylabel("rho_3")
 
-    axs[3].plot(Xi[:, 3], color='limegreen', linewidth=1)
-    axs[3].plot(Sigma[:, 3], color='k', linewidth=1)
-    axs[3].plot(-Sigma[:, 3], color='k', linewidth=1)
-    axs[3].set_ylabel('psi_1')
+    axs[3].plot(Xi[:, 3], color="limegreen", linewidth=1)
+    axs[3].plot(Sigma[:, 3], color="k", linewidth=1)
+    axs[3].plot(-Sigma[:, 3], color="k", linewidth=1)
+    axs[3].set_ylabel("psi_1")
 
-    axs[4].plot(Xi[:, 4], color='limegreen', linewidth=1)
-    axs[4].plot(Sigma[:, 4], color='k', linewidth=1)
-    axs[4].plot(-Sigma[:, 4], color='k', linewidth=1)
-    axs[4].set_ylabel('psi_2')
+    axs[4].plot(Xi[:, 4], color="limegreen", linewidth=1)
+    axs[4].plot(Sigma[:, 4], color="k", linewidth=1)
+    axs[4].plot(-Sigma[:, 4], color="k", linewidth=1)
+    axs[4].set_ylabel("psi_2")
 
-    axs[5].plot(Xi[:, 5], color='limegreen', linewidth=1)
-    axs[5].plot(Sigma[:, 5], color='k', linewidth=1)
-    axs[5].plot(-Sigma[:, 5], color='k', linewidth=1)
-    axs[5].set_ylabel('psi_3')
-    axs[5].set_xlabel('time (s)')
-    plt.savefig(os.path.join(plot_dir, seq[:-4] + '_errs.pdf'), pad_inches=0, bbox_inches='tight')
+    axs[5].plot(Xi[:, 5], color="limegreen", linewidth=1)
+    axs[5].plot(Sigma[:, 5], color="k", linewidth=1)
+    axs[5].plot(-Sigma[:, 5], color="k", linewidth=1)
+    axs[5].set_ylabel("psi_3")
+    axs[5].set_xlabel("time (s)")
+    plt.savefig(
+        os.path.join(plot_dir, seq[:-4] + "_errs.pdf"),
+        pad_inches=0,
+        bbox_inches="tight",
+    )
     plt.close()
 
     e = np.array(errs)
     fig, axs = plt.subplots(2, 2, figsize=(8, 7))
     axs[0, 0].hist(e[:, 0], bins=20)
-    axs[0, 0].set_title('Lateral Error (m)')
+    axs[0, 0].set_title("Lateral Error (m)")
     axs[0, 1].hist(e[:, 1], bins=20)
-    axs[0, 1].set_title('Longitudinal Error (m)')
+    axs[0, 1].set_title("Longitudinal Error (m)")
     axs[1, 0].hist(e[:, 2], bins=20)
-    axs[1, 0].set_title('Vertical Error (m)')
+    axs[1, 0].set_title("Vertical Error (m)")
     axs[1, 1].hist(e[:, 3], bins=20)
-    axs[1, 1].set_title('Orientation Error (deg)')
-    plt.savefig(os.path.join(plot_dir, seq[:-4] + '_hist.pdf'), pad_inches=0, bbox_inches='tight')
+    axs[1, 1].set_title("Orientation Error (deg)")
+    plt.savefig(
+        os.path.join(plot_dir, seq[:-4] + "_hist.pdf"),
+        pad_inches=0,
+        bbox_inches="tight",
+    )
     plt.close()
+
 
 def get_path_from_Tvi_list(T_vi_odom, T_vi_gt):
     """Gets 3D path (xyz) from list of poses T_vk_i (transform between vehicle frame at time k and fixed frame i) and
@@ -326,14 +392,26 @@ def compute_interpolation_one_seq(T_pred, times_gt, times_pred, out_fname, solve
     Returns:
         Nothing
     """
-    T_query = interpolate_poses(T_pred, times_pred, times_gt, solver)   # interpolate
-    write_traj_file(out_fname, T_query, times_gt)    # write out
-    print(f'interpolated sequence {os.path.basename(out_fname)}, output file: {out_fname}')
+    T_query = interpolate_poses(T_pred, times_pred, times_gt, solver)  # interpolate
+    write_traj_file(out_fname, T_query, times_gt)  # write out
+    print(
+        f"interpolated sequence {os.path.basename(out_fname)}, output file: {out_fname}"
+    )
 
     return
 
 
-def compute_interpolation(T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pred, seq, out_dir, solver, processes):
+def compute_interpolation(
+    T_pred,
+    times_gt,
+    times_pred,
+    seq_lens_gt,
+    seq_lens_pred,
+    seq,
+    out_dir,
+    solver,
+    processes,
+):
     """Interpolate for poses at the groundtruth times and write them out as txt files.
     Args:
         T_pred (List[np.ndarray]): List of 4x4 SE(3) transforms (fixed reference frame 'i' to frame 'v', T_vi)
@@ -352,9 +430,16 @@ def compute_interpolation(T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pr
     indices_pred = tuple(accumulate(seq_lens_pred, initial=0))
 
     # prepare input iterators to compute_interpolation_one_seq
-    T_pred_seq =  (T_pred[indices_pred[i]:indices_pred[i+1]] for i in range(len(seq_lens_pred)))
-    times_gt_seq = (times_gt[indices_gt[i]:indices_gt[i+1]] for i in range(len(seq_lens_pred)))
-    times_pred_seq = (times_pred[indices_pred[i]:indices_pred[i+1]] for i in range(len(seq_lens_pred)))
+    T_pred_seq = (
+        T_pred[indices_pred[i] : indices_pred[i + 1]] for i in range(len(seq_lens_pred))
+    )
+    times_gt_seq = (
+        times_gt[indices_gt[i] : indices_gt[i + 1]] for i in range(len(seq_lens_pred))
+    )
+    times_pred_seq = (
+        times_pred[indices_pred[i] : indices_pred[i + 1]]
+        for i in range(len(seq_lens_pred))
+    )
     out_fname_seq = (os.path.join(out_dir, seq[i]) for i in range(len(seq_lens_pred)))
     solver_seq = repeat(solver, len(seq_lens_pred))
 
@@ -369,25 +454,37 @@ def compute_interpolation(T_pred, times_gt, times_pred, seq_lens_gt, seq_lens_pr
             times_pred_i = next(times_pred_seq)
 
             # query predicted trajectory at groundtruth times and write out
-            print('interpolating sequence', seq[i], '...')
-            T_query = interpolate_poses(T_pred_i, times_pred_i, times_gt_i, solver)   # interpolate
-            write_traj_file(os.path.join(out_dir, seq[i]), T_query, times_gt_i)    # write out
-            print(seq[i], 'took', str(time() - ts), ' seconds')
-            print('output file:', os.path.join(out_dir, seq[i]), '\n')
+            print("interpolating sequence", seq[i], "...")
+            T_query = interpolate_poses(
+                T_pred_i, times_pred_i, times_gt_i, solver
+            )  # interpolate
+            write_traj_file(
+                os.path.join(out_dir, seq[i]), T_query, times_gt_i
+            )  # write out
+            print(seq[i], "took", str(time() - ts), " seconds")
+            print("output file:", os.path.join(out_dir, seq[i]), "\n")
     else:
         # compute interpolation for each sequence in parallel
         with Pool(processes) as p:
             ts = time()  # start time
 
-            print(f'interpolating {len(seq_lens_pred)} sequences in parallel using {processes} workers ...')
+            print(
+                f"interpolating {len(seq_lens_pred)} sequences in parallel using {processes} workers ..."
+            )
             p.starmap(
-                compute_interpolation_one_seq, zip(T_pred_seq, times_gt_seq, times_pred_seq, out_fname_seq, solver_seq))
-            print(f'interpolation took {time() - ts:.2f} seconds\n')
+                compute_interpolation_one_seq,
+                zip(
+                    T_pred_seq, times_gt_seq, times_pred_seq, out_fname_seq, solver_seq
+                ),
+            )
+            print(f"interpolation took {time() - ts:.2f} seconds\n")
 
     return
 
 
-def compute_kitti_metrics(T_gt, T_pred, seq_lens_gt, seq_lens_pred, seq, plot_dir, dim, crop):
+def compute_kitti_metrics(
+    T_gt, T_pred, seq_lens_gt, seq_lens_pred, seq, plot_dir, dim, crop
+):
     """Computes the translational (%) and rotational drift (deg/m) in the KITTI style.
         KITTI rotation and translation metrics are computed for each sequence individually and then
         averaged across the sequences. If 'interp' specifies a directory, we instead interpolate
@@ -409,9 +506,11 @@ def compute_kitti_metrics(T_gt, T_pred, seq_lens_gt, seq_lens_pred, seq, plot_di
     if dim == 3:
         step_size = 10  # every 10 frames should be 1 second
     elif dim == 2:
-        step_size = 4   # every 4 frames should be 1 second
+        step_size = 4  # every 4 frames should be 1 second
     else:
-        raise ValueError('Invalid dim value in compute_kitti_metrics. Use either 2 or 3.')
+        raise ValueError(
+            "Invalid dim value in compute_kitti_metrics. Use either 2 or 3."
+        )
 
     # get start and end indices of each sequence
     indices_gt = [0]
@@ -425,24 +524,32 @@ def compute_kitti_metrics(T_gt, T_pred, seq_lens_gt, seq_lens_pred, seq, plot_di
         ts = time()  # start time
 
         # get poses and times of current sequence
-        T_gt_seq = T_gt[indices_gt[i]:indices_gt[i+1]]
-        T_pred_seq = T_pred[indices_pred[i]:indices_pred[i+1]]
+        T_gt_seq = T_gt[indices_gt[i] : indices_gt[i + 1]]
+        T_pred_seq = T_pred[indices_pred[i] : indices_pred[i + 1]]
         # times_gt_seq = times_gt[indices_gt[i]:indices_gt[i+1]]
         # times_pred_seq = times_pred[indices_pred[i]:indices_pred[i+1]]
 
-        print('processing sequence', seq[i], '...')
+        print("processing sequence", seq[i], "...")
         if len(T_pred_seq) != len(T_gt_seq):
-            T_pred_seq = T_pred_seq[crop[i][0]:crop[i][1]]
+            T_pred_seq = T_pred_seq[crop[i][0] : crop[i][1]]
 
         err, path_lengths = calc_sequence_errors(T_gt_seq, T_pred_seq, step_size)
         t_err, r_err, t_err_len, r_err_len = get_stats(err, path_lengths)
         err_list.append([t_err, r_err])
 
-        print(seq[i], 'took', str(time() - ts), ' seconds')
-        print('Error: ', t_err, ' %, ', r_err, ' deg/m \n')
+        print(seq[i], "took", str(time() - ts), " seconds")
+        print("Error: ", t_err, " %, ", r_err, " deg/m \n")
 
         if plot_dir:
-            plot_stats(seq[i], plot_dir, T_pred_seq, T_gt_seq, path_lengths, t_err_len, r_err_len)
+            plot_stats(
+                seq[i],
+                plot_dir,
+                T_pred_seq,
+                T_gt_seq,
+                path_lengths,
+                t_err_len,
+                r_err_len,
+            )
 
     err_list = np.asarray(err_list)
     avg = np.mean(err_list, axis=0)
@@ -452,7 +559,7 @@ def compute_kitti_metrics(T_gt, T_pred, seq_lens_gt, seq_lens_pred, seq, plot_di
     return t_err, r_err, err_list
 
 
-def get_sequences(path, file_ext=''):
+def get_sequences(path, file_ext=""):
     """Retrieves a list of all the sequences in the dataset with the given prefix.
     Args:
         path (string): directory path to where the files are
@@ -489,6 +596,7 @@ def get_sequence_poses(path, seq):
 
     return all_poses, all_times, seq_lens
 
+
 def get_sequence_poses_gt(path, seq, dim):
     """Retrieves a list of the poses corresponding to the given sequences in the given file path with the Boreas dataset
     directory structure.
@@ -510,14 +618,18 @@ def get_sequence_poses_gt(path, seq, dim):
     crop = []
     for filename in seq:
         # determine path to gt file
-        dir = filename[:-4]     # assumes last four characters are '.txt'
+        dir = filename[:-4]  # assumes last four characters are '.txt'
         if dim == 3:
-            filepath = os.path.join(path, dir, 'applanix/lidar_poses.csv')  # use 'lidar_poses.csv' for groundtruth
-            T_calib = np.loadtxt(os.path.join(path, dir, 'calib/T_applanix_lidar.txt'))
+            filepath = os.path.join(
+                path, dir, "applanix/lidar_poses.csv"
+            )  # use 'lidar_poses.csv' for groundtruth
+            T_calib = np.loadtxt(os.path.join(path, dir, "calib/T_applanix_lidar.txt"))
             poses, times = read_traj_file_gt(filepath, T_calib, dim)
             times_np = np.stack(times)
 
-            filepath = os.path.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
+            filepath = os.path.join(
+                path, dir, "applanix/camera_poses.csv"
+            )  # read in timestamps of camera groundtruth
             _, ctimes = read_traj_file_gt(filepath, np.identity(4), dim)
             istart = np.searchsorted(times_np, ctimes[0])
             iend = np.searchsorted(times_np, ctimes[-1])
@@ -525,21 +637,26 @@ def get_sequence_poses_gt(path, seq, dim):
             times = times[istart:iend]
             crop += [(istart, iend)]
             if times[0] < ctimes[0] or times[-1] > ctimes[-1]:
-                raise ValueError('Invalid start and end indices for groundtruth.')
+                raise ValueError("Invalid start and end indices for groundtruth.")
 
         elif dim == 2:
-            filepath = os.path.join(path, dir, 'applanix/radar_poses.csv')  # use 'radar_poses.csv' for groundtruth
+            filepath = os.path.join(
+                path, dir, "applanix/radar_poses.csv"
+            )  # use 'radar_poses.csv' for groundtruth
             T_calib = np.identity(4)
             poses, times = read_traj_file_gt(filepath, T_calib, dim)
             crop += [(0, len(poses))]
         else:
-            raise ValueError('Invalid dim value in get_sequence_poses_gt. Use either 2 or 3.')
+            raise ValueError(
+                "Invalid dim value in get_sequence_poses_gt. Use either 2 or 3."
+            )
 
         seq_lens.append(len(times))
         all_poses.extend(poses)
         all_times.extend(times)
 
     return all_poses, all_times, seq_lens, crop
+
 
 def get_sequence_times_gt(path, seq):
     """Retrieves a list of groundtruth (lidar) timestamps corresponding to the given sequences for 3D evaluation
@@ -557,9 +674,13 @@ def get_sequence_times_gt(path, seq):
     crop = []
     for filename in seq:
         # determine path to gt file
-        dir = filename[:-4]     # assumes last four characters are '.txt'
-        lfilepath = os.path.join(path, dir, 'applanix/lidar_poses.csv')  # use 'lidar_poses.csv' for groundtruth
-        cfilepath = os.path.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
+        dir = filename[:-4]  # assumes last four characters are '.txt'
+        lfilepath = os.path.join(
+            path, dir, "applanix/lidar_poses.csv"
+        )  # use 'lidar_poses.csv' for groundtruth
+        cfilepath = os.path.join(
+            path, dir, "applanix/camera_poses.csv"
+        )  # read in timestamps of camera groundtruth
         if os.path.isfile(lfilepath) and os.path.isfile(cfilepath):
             # csv files exist, use them
             _, times = read_traj_file_gt(lfilepath, np.identity(4), dim=3)
@@ -567,13 +688,13 @@ def get_sequence_times_gt(path, seq):
             _, ctimes = read_traj_file_gt(cfilepath, np.identity(4), dim=3)
         else:
             # read timestamps from data
-            lpath = os.path.join(path, dir, 'lidar')  # read lidar data filenames
-            times = [int(Path(f).stem) for f in os.listdir(lpath) if '.bin' in f]
+            lpath = os.path.join(path, dir, "lidar")  # read lidar data filenames
+            times = [int(Path(f).stem) for f in os.listdir(lpath) if ".bin" in f]
             times.sort()
             times_np = np.stack(times)
 
-            cpath = os.path.join(path, dir, 'camera')  # read camera data filenames
-            ctimes = [int(Path(f).stem) for f in os.listdir(cpath) if '.png' in f]
+            cpath = os.path.join(path, dir, "camera")  # read camera data filenames
+            ctimes = [int(Path(f).stem) for f in os.listdir(cpath) if ".png" in f]
             ctimes.sort()
 
         istart = np.searchsorted(times_np, ctimes[0])
@@ -581,7 +702,7 @@ def get_sequence_times_gt(path, seq):
         times = times[istart:iend]
         crop += [(istart, iend)]
         if times[0] < ctimes[0] or times[-1] > ctimes[-1]:
-            raise ValueError('Invalid start and end indices for groundtruth.')
+            raise ValueError("Invalid start and end indices for groundtruth.")
 
         seq_lens.append(len(times))
         all_times.extend(times)
@@ -598,11 +719,11 @@ def write_traj_file(path, poses, times):
     """
     with open(path, "w") as file:
         # Writing each time (nanoseconds) and pose to file
-        for time, pose in zip(times, poses):
-            line = [time]
+        for ts, pose in zip(times, poses):
+            line = [ts]
             line.extend(pose.reshape(16)[:12].tolist())
-            file.write(' '.join(str(num) for num in line))
-            file.write('\n')
+            file.write(" ".join(str(num) for num in line))
+            file.write("\n")
 
 
 def read_traj_file(path):
@@ -630,6 +751,7 @@ def read_traj_file(path):
             times.append(int(line_split[0]))
 
     return poses, times
+
 
 def read_traj_file2(path):
     """Reads trajectory from a space-separated txt file
@@ -680,7 +802,7 @@ def read_traj_file_gt(path, T_ab, dim):
         (List[np.ndarray]): list of 4x4 poses (from world to sensor frame)
         (List[int]): list of times in microseconds
     """
-    with open(path, 'r') as f:
+    with open(path, "r") as f:
         lines = f.readlines()
     poses = []
     times = []
@@ -688,9 +810,12 @@ def read_traj_file_gt(path, T_ab, dim):
     T_ab = enforce_orthog(T_ab)
     for line in lines[1:]:
         pose, time = convert_line_to_pose(line, dim)
-        poses += [enforce_orthog(T_ab @ get_inverse_tf(pose))]  # convert T_iv to T_vi and apply calibration
+        poses += [
+            enforce_orthog(T_ab @ get_inverse_tf(pose))
+        ]  # convert T_iv to T_vi and apply calibration
         times += [int(time)]  # microseconds
     return poses, times
+
 
 def read_traj_file_gt2(path, dim=3):
     """Reads trajectory from a comma-separated file, see Boreas documentation for format
@@ -702,7 +827,7 @@ def read_traj_file_gt2(path, dim=3):
         (List[np.ndarray]): list of 4x4 poses
         (List[int]): list of times in microseconds
     """
-    with open(path, 'r') as f:
+    with open(path, "r") as f:
         lines = f.readlines()
     poses = []
     times = []
@@ -711,6 +836,7 @@ def read_traj_file_gt2(path, dim=3):
         poses.append(pose)
         times.append(time)  # microseconds
     return poses, times
+
 
 def convert_line_to_pose(line, dim=3):
     """Reads trajectory from list of strings (single row of the comma-separeted groundtruth file). See Boreas
@@ -723,7 +849,7 @@ def convert_line_to_pose(line, dim=3):
         (int): time in nanoseconds
     """
     # returns T_iv
-    line = line.replace('\n', ',').split(',')
+    line = line.replace("\n", ",").split(",")
     line = [float(i) for i in line[:-1]]
     # x, y, z -> 1, 2, 3
     # roll, pitch, yaw -> 7, 8, 9
@@ -736,6 +862,8 @@ def convert_line_to_pose(line, dim=3):
     elif dim == 2:
         T[:3, :3] = yawPitchRollToRot(line[9], 0, 0)
     else:
-        raise ValueError('Invalid dim value in convert_line_to_pose. Use either 2 or 3.')
+        raise ValueError(
+            "Invalid dim value in convert_line_to_pose. Use either 2 or 3."
+        )
     time = int(line[0])
     return T, time

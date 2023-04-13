@@ -12,8 +12,9 @@
 #
 ###############################################################################
 
-import numpy as np
 import cv2
+import numpy as np
+
 from pyboreas.utils.utils import get_time_from_filename
 
 upgrade_time = 1632182400  # before: resolution = 0.0596, after: resolution = 0.04381
@@ -38,17 +39,29 @@ def load_radar(example_path):
         resolution = 0.04381
     raw_example_data = cv2.imread(example_path, cv2.IMREAD_GRAYSCALE)
     timestamps = raw_example_data[:, :8].copy().view(np.int64)
-    azimuths = (raw_example_data[:, 8:10].copy().view(np.uint16) / float(encoder_size) * 2 * np.pi).astype(np.float32)
+    azimuths = (
+        raw_example_data[:, 8:10].copy().view(np.uint16)
+        / float(encoder_size)
+        * 2
+        * np.pi
+    ).astype(np.float32)
     valid = raw_example_data[:, 10:11] == 255
-    fft_data = raw_example_data[:, 11:].astype(np.float32)[:, :, np.newaxis] / 255.
+    fft_data = raw_example_data[:, 11:].astype(np.float32)[:, :, np.newaxis] / 255.0
     min_range = int(round(2.5 / resolution))
     fft_data[:, :min_range] = 0
     fft_data = np.squeeze(fft_data)
     return timestamps, azimuths, valid, fft_data, resolution
 
 
-def radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resolution, cart_pixel_width,
-                             interpolate_crossover=True, fix_wobble=True):
+def radar_polar_to_cartesian(
+    azimuths,
+    fft_data,
+    radar_resolution,
+    cart_resolution,
+    cart_pixel_width,
+    interpolate_crossover=True,
+    fix_wobble=True,
+):
     """Convert a polar radar scan to cartesian.
     Args:
         azimuths (np.ndarray): Rotation for each polar radar azimuth (radians)
@@ -67,11 +80,13 @@ def radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resoluti
         cart_min_range = (cart_pixel_width / 2 - 0.5) * cart_resolution
     else:
         cart_min_range = cart_pixel_width // 2 * cart_resolution
-    coords = np.linspace(-cart_min_range, cart_min_range, cart_pixel_width, dtype=np.float32)
+    coords = np.linspace(
+        -cart_min_range, cart_min_range, cart_pixel_width, dtype=np.float32
+    )
     Y, X = np.meshgrid(coords, -1 * coords)
     sample_range = np.sqrt(Y * Y + X * X)
     sample_angle = np.arctan2(Y, X)
-    sample_angle += (sample_angle < 0).astype(np.float32) * 2. * np.pi
+    sample_angle += (sample_angle < 0).astype(np.float32) * 2.0 * np.pi
 
     # Interpolate Radar Data Coordinates
     azimuth_step = (azimuths[-1] - azimuths[0]) / (azimuths.shape[0] - 1)

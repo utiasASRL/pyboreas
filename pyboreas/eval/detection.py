@@ -1,16 +1,15 @@
-import os
-import os.path as osp
-import numpy as np
 import argparse
 import multiprocessing
+import os.path as osp
 from multiprocessing import Pool
-from time import time, sleep
-from shapely.geometry import Polygon
+from time import time
+
 import matplotlib.pyplot as plt
+import numpy as np
+from shapely.geometry import Polygon
 
 from pyboreas import BoreasDataset
 from pyboreas.data.splits import obj_train
-from pyboreas.data.bounding_boxes import BoundingBoxes
 
 GROUND = 1
 BOX3D = 2
@@ -62,17 +61,20 @@ def getThresholds(v, n_gt):
             r_recall = (i + 2) / float(n_gt)
         else:
             r_recall = l_recall
-        if (r_recall - current_recall) < (current_recall - l_recall) and i < (len(v) - 1):
+        if (r_recall - current_recall) < (current_recall - l_recall) and i < (
+            len(v) - 1
+        ):
             continue
-        recall = l_recall
         t.append(v[i])
         current_recall += 1.0 / float(N_SAMPLE_PTS - 1.0)
     return t
 
 
 # gtbbs, detbbs: list of BoundingBox objects
-def computeStatistics(current_class, gtbbs, detbbs, metric, minoverlap, thresh=0, overlap=None):
-    assert(overlap is not None)
+def computeStatistics(
+    current_class, gtbbs, detbbs, metric, minoverlap, thresh=0, overlap=None
+):
+    assert overlap is not None
     dim = 2 if metric < 2 else 3
     stat = PrData()
     N = len(gtbbs)
@@ -90,14 +92,24 @@ def computeStatistics(current_class, gtbbs, detbbs, metric, minoverlap, thresh=0
         max_thresh = NO_DETECTION
         max_overlap = 0
         for j in range(M):
-            if detbbs[j].label != current_class or assigned_detection[j] or detbbs[j].score < thresh:
+            if (
+                detbbs[j].label != current_class
+                or assigned_detection[j]
+                or detbbs[j].score < thresh
+            ):
                 continue
             if overlap[i, j] == -1:
                 overlap[i, j] = boxOverlap(detbbs[j], gtbbs[i], dim)
-            if overlap[i, j] > minoverlap[current_class] and detbbs[j].score > max_thresh:
+            if (
+                overlap[i, j] > minoverlap[current_class]
+                and detbbs[j].score > max_thresh
+            ):
                 det_idx = j
                 max_thresh = detbbs[j].score
-            elif overlap[i, j] > minoverlap[current_class] and overlap[i, j] > max_overlap:
+            elif (
+                overlap[i, j] > minoverlap[current_class]
+                and overlap[i, j] > max_overlap
+            ):
                 det_idx = j
                 max_overlap = overlap[i, j]
                 max_thresh = 1
@@ -111,14 +123,20 @@ def computeStatistics(current_class, gtbbs, detbbs, metric, minoverlap, thresh=0
             assigned_detection[det_idx] = True
 
     for j in range(M):
-        if not assigned_detection[j] and detbbs[j].label == current_class and detbbs[j].score > thresh:
+        if (
+            not assigned_detection[j]
+            and detbbs[j].label == current_class
+            and detbbs[j].score > thresh
+        ):
             stat.fp += 1
     return stat, n_gt
 
 
-def eval_class(current_class, groundtruth, detections, metric, minoverlap, savePath=None):
+def eval_class(
+    current_class, groundtruth, detections, metric, minoverlap, savePath=None
+):
     # does not support compute_aos
-    # Return: precision [], 
+    # Return: precision [],
     overlaps = []  # cache boxOverlap computations
     n_gt = 0
     v = []
@@ -127,7 +145,14 @@ def eval_class(current_class, groundtruth, detections, metric, minoverlap, saveP
     for i in range(N):
         # Only evaluate objects of current class
         overlap = -1 * np.ones((len(groundtruth[i].bbs), len(detections[i].bbs)))
-        pr_tmp, n = computeStatistics(current_class, groundtruth[i].bbs, detections[i].bbs, metric, minoverlap, overlap=overlap)
+        pr_tmp, n = computeStatistics(
+            current_class,
+            groundtruth[i].bbs,
+            detections[i].bbs,
+            metric,
+            minoverlap,
+            overlap=overlap,
+        )
         v.extend(pr_tmp.v)
         n_gt += n
         overlaps.append(overlap)
@@ -141,7 +166,15 @@ def eval_class(current_class, groundtruth, detections, metric, minoverlap, saveP
         pr.append(PrData())
     for i in range(N):
         for t in range(T):
-            tmp, _ = computeStatistics(current_class, groundtruth[i].bbs, detections[i].bbs, metric, minoverlap, thresholds[t], overlaps[i])
+            tmp, _ = computeStatistics(
+                current_class,
+                groundtruth[i].bbs,
+                detections[i].bbs,
+                metric,
+                minoverlap,
+                thresholds[t],
+                overlaps[i],
+            )
             pr[t].tp += tmp.tp
             pr[t].fp += tmp.fp
             pr[t].fn += tmp.fn
@@ -149,7 +182,6 @@ def eval_class(current_class, groundtruth, detections, metric, minoverlap, saveP
     # compute recall, precision
     recall = np.zeros(N_SAMPLE_PTS)
     precision = np.zeros(N_SAMPLE_PTS)
-    r = 0
     for i in range(T):
         recall[i] = pr[i].tp / float(pr[i].tp + pr[i].fn)
         precision[i] = pr[i].tp / float(pr[i].tp + pr[i].fp)
@@ -158,9 +190,9 @@ def eval_class(current_class, groundtruth, detections, metric, minoverlap, saveP
         precision[i] = np.max(precision[i:])
 
     if savePath is not None:
-        stats = ' '.join([str(p) for p in precision])
-        with open(savePath, 'w') as f:
-            f.write(stats + '\n')
+        stats = " ".join([str(p) for p in precision])
+        with open(savePath, "w") as f:
+            f.write(stats + "\n")
     return precision, get_mAP(precision)
 
 
@@ -187,40 +219,45 @@ def inject_noise(det):
 
 
 def eval_obj(groundtruth, detections, radar=False, resultsDir=None):
-    metric = 1 if radar else 2
     cpath = None
     ppath = None
     cypath = None
     if resultsDir is not None:
-        cpath = osp.join(resultsDir, 'car.txt')
-        ppath = osp.join(resultsDir, 'ped.txt')
-        cypath = osp.join(resultsDir, 'cyc.txt')
-    p1, carmap = eval_class(CLASS_NAMES[CAR], groundtruth, detections, BOX3D, MIN_OVERLAP, cpath)
-    print(CLASS_NAMES[CAR] + ' mAP: {} %'.format(carmap))
+        cpath = osp.join(resultsDir, "car.txt")
+        ppath = osp.join(resultsDir, "ped.txt")
+        cypath = osp.join(resultsDir, "cyc.txt")
+    p1, carmap = eval_class(
+        CLASS_NAMES[CAR], groundtruth, detections, BOX3D, MIN_OVERLAP, cpath
+    )
+    print(CLASS_NAMES[CAR] + " mAP: {} %".format(carmap))
     if resultsDir is not None:
-        plot_pr(resultsDir, p1, 'Car')
-    p2, pedmap = eval_class(CLASS_NAMES[PEDESTRIAN], groundtruth, detections, BOX3D, MIN_OVERLAP, ppath)
-    print(CLASS_NAMES[PEDESTRIAN] + ' mAP: {} %'.format(pedmap))
+        plot_pr(resultsDir, p1, "Car")
+    p2, pedmap = eval_class(
+        CLASS_NAMES[PEDESTRIAN], groundtruth, detections, BOX3D, MIN_OVERLAP, ppath
+    )
+    print(CLASS_NAMES[PEDESTRIAN] + " mAP: {} %".format(pedmap))
     if resultsDir is not None:
-        plot_pr(resultsDir, p2, 'Pedestrian')
-    p3, cycmap = eval_class(CLASS_NAMES[CYCLIST], groundtruth, detections, BOX3D, MIN_OVERLAP, cypath)
-    print(CLASS_NAMES[CYCLIST] + ' mAP: {} %'.format(cycmap))
+        plot_pr(resultsDir, p2, "Pedestrian")
+    p3, cycmap = eval_class(
+        CLASS_NAMES[CYCLIST], groundtruth, detections, BOX3D, MIN_OVERLAP, cypath
+    )
+    print(CLASS_NAMES[CYCLIST] + " mAP: {} %".format(cycmap))
     if resultsDir is not None:
-        plot_pr(resultsDir, p3, 'Cyclist')
+        plot_pr(resultsDir, p3, "Cyclist")
     return [carmap, pedmap, cycmap], [p1, p2, p3]
 
 
-def plot_pr(plot_dir, precision, label=''):
+def plot_pr(plot_dir, precision, label=""):
     delta = 1 / float(N_SAMPLE_PTS - 1)
     x = np.arange(0, 1 + delta, delta)
     plt.figure(figsize=(6, 6))
-    plt.plot(x, precision, 'b', linewidth=1)
-    plt.xlabel('Recall')
-    plt.ylabel('Precision')
-    plt.axis('equal')
-    if label != '':
+    plt.plot(x, precision, "b", linewidth=1)
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.axis("equal")
+    if label != "":
         plt.title(label)
-    plt.savefig(osp.join(plot_dir, label + '_detection.pdf'))
+    plt.savefig(osp.join(plot_dir, label + "_detection.pdf"))
     plt.close()
 
 
@@ -235,8 +272,9 @@ def get_bbs(root, split, labelFolder, noise=False, N=-1):
         frames = frames[:N]
 
     bb_frames = []
-    
+
     global _load_bb
+
     def _load_bb(lid):
         if not lid.has_bbs():
             return None
@@ -251,24 +289,38 @@ def get_bbs(root, split, labelFolder, noise=False, N=-1):
     bb_frames.sort(key=lambda x: x.timestamp)
     return bb_frames
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # Note: ground truth are stored in "labels_detection" under the ground truth sequence
-    parser.add_argument('--gt', type=str, help='path to groundtruth sequence', default='test/demo/gt/')
+    parser.add_argument(
+        "--gt", type=str, help="path to groundtruth sequence", default="test/demo/gt/"
+    )
     # Note: predictions are to be stored in a folder under the ground truth sequence, example: labels_pred
-    parser.add_argument('--pred', type=str, help='prediction folder name', default='labels_detection')
-    parser.add_argument('--radar', dest='radar', action='store_true', help='evaluate BEV detections')
-    parser.add_argument('--noise', dest='noise', action='store_false', help='If set, do not inject noise into preds')
-    parser.add_argument('--N', type=int, default=100, help='Set to -1 to evaluate all detections')
+    parser.add_argument(
+        "--pred", type=str, help="prediction folder name", default="labels_detection"
+    )
+    parser.add_argument(
+        "--radar", dest="radar", action="store_true", help="evaluate BEV detections"
+    )
+    parser.add_argument(
+        "--noise",
+        dest="noise",
+        action="store_false",
+        help="If set, do not inject noise into preds",
+    )
+    parser.add_argument(
+        "--N", type=int, default=100, help="Set to -1 to evaluate all detections"
+    )
     parser.set_defaults(radar=False)
     parser.set_defaults(noise=True)
     args = parser.parse_args()
 
     # We artificially restrict the number of inputs to N to make the demo run faster.
-    groundtruth = get_bbs(args.gt, obj_train, 'labels_detection', N=args.N)
+    groundtruth = get_bbs(args.gt, obj_train, "labels_detection", N=args.N)
     # We inject noise purely to simulate detections as a demo, set this to false during evaluations
     detections = get_bbs(args.gt, obj_train, args.pred, noise=args.noise, N=args.N)
 
     t0 = time()
-    eval_obj(groundtruth, detections, radar=args.radar, resultsDir='test/demo/pred/')
-    print('Evaluation time: {}'.format(time() - t0))
+    eval_obj(groundtruth, detections, radar=args.radar, resultsDir="test/demo/pred/")
+    print("Evaluation time: {}".format(time() - t0))

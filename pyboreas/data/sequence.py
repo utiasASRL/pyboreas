@@ -10,7 +10,8 @@ class Sequence:
     """
     Class for working with an individual Boreas dataset sequence
     """
-    def __init__(self, boreas_root, seqSpec, labelFolder='labels'):
+
+    def __init__(self, boreas_root, seqSpec, labelFolder="labels"):
         """init
         Args:
             boreas_root (str): path to root folder ex: /path/to/data/boreas/
@@ -18,19 +19,21 @@ class Sequence:
         """
         self.ID = seqSpec[0]
         if len(seqSpec) > 2:
-            assert seqSpec[2] > seqSpec[1], 'Sequence timestamps must go forward in time'
+            assert (
+                seqSpec[2] > seqSpec[1]
+            ), "Sequence timestamps must go forward in time"
             self.start_ts = str(seqSpec[1])
             self.end_ts = str(seqSpec[2])
         else:
-            self.start_ts = '0'  # dummy start and end if not specified
-            self.end_ts = '9' * 21
+            self.start_ts = "0"  # dummy start and end if not specified
+            self.end_ts = "9" * 21
         self.labelFolder = labelFolder
         self.seq_root = osp.join(boreas_root, self.ID)
-        self.applanix_root = osp.join(self.seq_root, 'applanix')
-        self.calib_root = osp.join(self.seq_root, 'calib')
-        self.camera_root = osp.join(self.seq_root, 'camera')
-        self.lidar_root = osp.join(self.seq_root, 'lidar')
-        self.radar_root = osp.join(self.seq_root, 'radar')
+        self.applanix_root = osp.join(self.seq_root, "applanix")
+        self.calib_root = osp.join(self.seq_root, "calib")
+        self.camera_root = osp.join(self.seq_root, "camera")
+        self.lidar_root = osp.join(self.seq_root, "lidar")
+        self.radar_root = osp.join(self.seq_root, "radar")
 
         self._check_dataroot_valid()  # Check if folder structure correct
 
@@ -43,13 +46,13 @@ class Sequence:
         self._check_download()  # prints warning when sensor data missing
 
     def print(self):
-        print('SEQ: {}'.format(self.ID))
-        if self.end_ts != '9' * 21:
-            print('START: {} END: {}'.format(self.start_ts, self.end_ts))
-        print('camera frames: {}'.format(len(self.camera_frames)))
-        print('lidar frames: {}'.format(len(self.lidar_frames)))
-        print('radar frames: {}'.format(len(self.radar_frames)))
-        print('-------------------------------')
+        print("SEQ: {}".format(self.ID))
+        if self.end_ts != "9" * 21:
+            print("START: {} END: {}".format(self.start_ts, self.end_ts))
+        print("camera frames: {}".format(len(self.camera_frames)))
+        print("lidar frames: {}".format(len(self.lidar_frames)))
+        print("radar frames: {}".format(len(self.radar_frames)))
+        print("-------------------------------")
 
     def get_camera(self, idx):
         self.camera_frames[idx].load_data()
@@ -109,14 +112,18 @@ class Sequence:
     def _check_download(self):
         """Checks if all sensor data has been downloaded, prints a warning otherwise"""
         if len(os.listdir(self.camera_root)) < len(self.camera_frames):
-            print('WARNING: camera images are not all downloaded: {}'.format(self.ID))
+            print("WARNING: camera images are not all downloaded: {}".format(self.ID))
         if len(os.listdir(self.lidar_root)) < len(self.lidar_frames):
-            print('WARNING: lidar frames are not all downloaded: {}'.format(self.ID))
+            print("WARNING: lidar frames are not all downloaded: {}".format(self.ID))
         if len(os.listdir(self.radar_root)) < len(self.radar_frames):
-            print('WARNING: radar scans are not all downloaded: {}'.format(self.ID))
-        gtfile = osp.join(self.applanix_root, 'gps_post_process.csv')
+            print("WARNING: radar scans are not all downloaded: {}".format(self.ID))
+        gtfile = osp.join(self.applanix_root, "gps_post_process.csv")
         if not osp.exists(gtfile):
-            print('WARNING: this may be a test sequence, or the groundtruth is not yet available: {}'.format(self.ID))
+            print(
+                "WARNING: this may be a test sequence, or the groundtruth is not yet available: {}".format(
+                    self.ID
+                )
+            )
 
     def _get_frames(self, posefile, root, ext, SensorType):
         """Initializes sensor frame objects with their ground truth pose information
@@ -132,10 +139,10 @@ class Sequence:
         if not osp.isdir(root):
             return frames
         if osp.exists(posefile):
-            with open(posefile, 'r') as f:
+            with open(posefile, "r") as f:
                 f.readline()  # header
                 for line in f:
-                    data = line.split(',')
+                    data = line.split(",")
                     ts = data[0]
                     if self.start_ts <= ts and ts <= self.end_ts:
                         frame = SensorType(osp.join(root, ts + ext))
@@ -145,7 +152,7 @@ class Sequence:
         else:
             framenames = sorted([f for f in os.listdir(root) if ext in f])
             for framename in framenames:
-                ts = framename.split(',')[0]
+                ts = framename.split(",")[0]
                 if self.start_ts <= ts and ts <= self.end_ts:
                     frame = SensorType(osp.join(root, framename))
                     frame.labelFolder = self.labelFolder
@@ -154,18 +161,18 @@ class Sequence:
 
     def get_all_frames(self):
         """Convenience method for retrieving sensor frames of all types"""
-        cfile = osp.join(self.applanix_root, 'camera_poses.csv')
-        lfile = osp.join(self.applanix_root, 'lidar_poses.csv')
-        rfile = osp.join(self.applanix_root, 'radar_poses.csv')
-        self.camera_frames = self._get_frames(cfile, self.camera_root, '.png', Camera)
-        self.lidar_frames = self._get_frames(lfile, self.lidar_root, '.bin', Lidar)
-        self.radar_frames = self._get_frames(rfile, self.radar_root, '.png', Radar)
+        cfile = osp.join(self.applanix_root, "camera_poses.csv")
+        lfile = osp.join(self.applanix_root, "lidar_poses.csv")
+        rfile = osp.join(self.applanix_root, "radar_poses.csv")
+        self.camera_frames = self._get_frames(cfile, self.camera_root, ".png", Camera)
+        self.lidar_frames = self._get_frames(lfile, self.lidar_root, ".bin", Lidar)
+        self.radar_frames = self._get_frames(rfile, self.radar_root, ".png", Radar)
 
     def reset_frames(self):
         """Resets all frames, removes downloaded data"""
         self.get_all_frames()
 
-    def synchronize_frames(self, ref='camera'):
+    def synchronize_frames(self, ref="camera"):
         """Simulates having synchronous measurements
         Note: measurements still won't be at the exact same timestamp and will have different poses
         However, for a given reference index, the other measurements will be as close to the reference
@@ -180,15 +187,33 @@ class Sequence:
         lstamps = [frame.timestamp for frame in self.lidar_frames]
         rstamps = [frame.timestamp for frame in self.radar_frames]
 
-        if ref == 'camera':
-            self.lidar_frames = [get_closest_frame(cstamp, lstamps, self.lidar_frames) for cstamp in cstamps]
-            self.radar_frames = [get_closest_frame(cstamp, rstamps, self.radar_frames) for cstamp in cstamps]
-        elif ref == 'lidar':
-            self.camera_frames = [get_closest_frame(lstamp, cstamps, self.camera_frames) for lstamp in lstamps]
-            self.radar_frames = [get_closest_frame(lstamp, rstamps, self.radar_frames) for lstamp in lstamps]
-        elif ref == 'radar':
-            self.camera_frames = [get_closest_frame(rstamp, cstamps, self.camera_frames) for rstamp in rstamps]
-            self.lidar_frames = [get_closest_frame(rstamp, lstamps, self.lidar_frames) for rstamp in rstamps]
+        if ref == "camera":
+            self.lidar_frames = [
+                get_closest_frame(cstamp, lstamps, self.lidar_frames)
+                for cstamp in cstamps
+            ]
+            self.radar_frames = [
+                get_closest_frame(cstamp, rstamps, self.radar_frames)
+                for cstamp in cstamps
+            ]
+        elif ref == "lidar":
+            self.camera_frames = [
+                get_closest_frame(lstamp, cstamps, self.camera_frames)
+                for lstamp in lstamps
+            ]
+            self.radar_frames = [
+                get_closest_frame(lstamp, rstamps, self.radar_frames)
+                for lstamp in lstamps
+            ]
+        elif ref == "radar":
+            self.camera_frames = [
+                get_closest_frame(rstamp, cstamps, self.camera_frames)
+                for rstamp in rstamps
+            ]
+            self.lidar_frames = [
+                get_closest_frame(rstamp, lstamps, self.lidar_frames)
+                for rstamp in rstamps
+            ]
 
     def filter_frames_gt(self):
         # Only keep lidar frames that were labelled, NO interpolated frames
@@ -204,6 +229,8 @@ class Sequence:
         self.labelPoses = []
         for frame in self.lidar_frames:
             if frame.has_bbs():
-                self.labelFiles.append(osp.join(self.seq_root, self.labelFolder, frame.frame + '.txt'))
+                self.labelFiles.append(
+                    osp.join(self.seq_root, self.labelFolder, frame.frame + ".txt")
+                )
                 self.labelTimes.append(frame.timestamp)
                 self.labelPoses.append(frame.pose)

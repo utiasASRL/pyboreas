@@ -1,16 +1,21 @@
 import os.path as osp
 from pathlib import Path
-import numpy as np
-import cv2
-import matplotlib.pyplot as plt
-from matplotlib import cm
 
-from pyboreas.data.pointcloud import PointCloud
-from pyboreas.utils.utils import get_transform, yawPitchRollToRot, get_time_from_filename, load_lidar
-from pyboreas.utils.utils import get_gt_data_for_frame, get_closest_index, get_inverse_tf
-from pyboreas.utils.radar import load_radar, radar_polar_to_cartesian
-from pyboreas.vis.vis_utils import vis_lidar, vis_camera, vis_radar
+import cv2
+import numpy as np
+
 from pyboreas.data.bounding_boxes import BoundingBoxes
+from pyboreas.data.pointcloud import PointCloud
+from pyboreas.utils.radar import load_radar, radar_polar_to_cartesian
+from pyboreas.utils.utils import (
+    get_closest_index,
+    get_gt_data_for_frame,
+    get_inverse_tf,
+    get_time_from_filename,
+    get_transform,
+    load_lidar,
+)
+from pyboreas.vis.vis_utils import vis_camera, vis_lidar, vis_radar
 
 
 class Sensor:
@@ -24,8 +29,12 @@ class Sensor:
         self.seq_root = str(Path(*p.parts[:-2]))
         self.sensor_root = osp.join(self.seq_root, self.sensType)
         self.pose = np.identity(4, dtype=np.float64)  # T_enu_sensor
-        self.velocity = np.zeros((6, 1))   # 6 x 1 velocity in ENU frame [v_se_in_e; w_se_in_e] 
-        self.body_rate = np.zeros((6, 1))  # 6 x 1 velocity in sensor frame [v_se_in_s; w_se_in_s]
+        self.velocity = np.zeros(
+            (6, 1)
+        )  # 6 x 1 velocity in ENU frame [v_se_in_e; w_se_in_e]
+        self.body_rate = np.zeros(
+            (6, 1)
+        )  # 6 x 1 velocity in sensor frame [v_se_in_s; w_se_in_s]
         self.timestamp = get_time_from_filename(self.frame)
 
     def init_pose(self, data=None):
@@ -41,18 +50,26 @@ class Sensor:
         self.pose = get_transform(gt)
         wbar = np.array([gt[12], gt[11], gt[10]]).reshape(3, 1)
         wbar = np.matmul(self.pose[:3, :3], wbar).squeeze()
-        self.velocity = np.array([gt[4], gt[5], gt[6], wbar[0], wbar[1], wbar[2]]).reshape(6, 1)
+        self.velocity = np.array(
+            [gt[4], gt[5], gt[6], wbar[0], wbar[1], wbar[2]]
+        ).reshape(6, 1)
         vbar = np.array([gt[4], gt[5], gt[6]]).reshape(3, 1)
         vbar = np.matmul(self.pose[:3, :3].T, vbar).squeeze()
-        self.body_rate = np.array([vbar[0], vbar[1], vbar[2], gt[12], gt[11], gt[10]]).reshape(6, 1)
+        self.body_rate = np.array(
+            [vbar[0], vbar[1], vbar[2], gt[12], gt[11], gt[10]]
+        ).reshape(6, 1)
 
     def get_bounding_boxes(self, seqLabelFiles=[], seqLabelTimes=[], seqLabelPoses=[]):
         self.bbs = BoundingBoxes()
-        labelPath = osp.join(self.seq_root, self.labelFolder, self.frame + '.txt')
+        labelPath = osp.join(self.seq_root, self.labelFolder, self.frame + ".txt")
         if osp.exists(labelPath):
             self.bbs.load_from_file(labelPath)
         else:
-            if len(seqLabelFiles) == 0 or len(seqLabelTimes) == 0 or len(seqLabelPoses) == 0:
+            if (
+                len(seqLabelFiles) == 0
+                or len(seqLabelTimes) == 0
+                or len(seqLabelPoses) == 0
+            ):
                 return None
             idx = get_closest_index(self.timestamp, seqLabelTimes)
             if idx == 0 or idx == len(seqLabelTimes) - 1:
@@ -61,7 +78,14 @@ class Sensor:
                 T = np.matmul(get_inverse_tf(self.pose), T_enu_lidar)
                 self.bbs.transform(T)
             else:
-                self.bbs.interpolate(idx, self.timestamp, self.pose, seqLabelFiles, seqLabelTimes, seqLabelPoses)
+                self.bbs.interpolate(
+                    idx,
+                    self.timestamp,
+                    self.pose,
+                    seqLabelFiles,
+                    seqLabelTimes,
+                    seqLabelPoses,
+                )
         return self.bbs
 
 
@@ -82,7 +106,7 @@ class Lidar(Sensor, PointCloud):
         self.points = None
 
     def has_bbs(self):
-        labelPath = osp.join(self.seq_root, self.labelFolder, self.frame + '.txt')
+        labelPath = osp.join(self.seq_root, self.labelFolder, self.frame + ".txt")
         return osp.exists(labelPath)
 
 
@@ -116,11 +140,13 @@ class Radar(Sensor):
     def load_data(self):
         # Loads polar radar data, timestamps, azimuths, and resolution value
         # Additionally, loads a pre-computed cartesian radar image and binary mask if they exist.
-        self.timestamps, self.azimuths, _, self.polar, self.resolution = load_radar(self.path)
-        cart_path = osp.join(self.sensor_root, 'cart', self.frame + '.png')
+        self.timestamps, self.azimuths, _, self.polar, self.resolution = load_radar(
+            self.path
+        )
+        cart_path = osp.join(self.sensor_root, "cart", self.frame + ".png")
         if osp.exists(cart_path):
             self.cartesian = cv2.imread(cart_path, cv2.IMREAD_GRAYSCALE)
-        mask_path = osp.join(self.sensor_root, 'mask', self.frame + '.png')
+        mask_path = osp.join(self.sensor_root, "mask", self.frame + ".png")
         if osp.exists(mask_path):
             self.mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
         return self.timestamps, self.azimuths, self.polar
@@ -132,7 +158,9 @@ class Radar(Sensor):
         self.cartesian = None
         self.mask = None
 
-    def polar_to_cart(self, cart_resolution, cart_pixel_width, polar=None, in_place=True):
+    def polar_to_cart(
+        self, cart_resolution, cart_pixel_width, polar=None, in_place=True
+    ):
         """Converts a polar scan from polar to Cartesian format
         Args:
             cart_resolution (float): resolution of the output Cartesian image in (m / pixel)
@@ -142,12 +170,12 @@ class Radar(Sensor):
         """
         if polar is None:
             polar = self.polar
-        cartesian = radar_polar_to_cartesian(self.azimuths, polar, self.resolution,
-                                             cart_resolution, cart_pixel_width)
+        cartesian = radar_polar_to_cartesian(
+            self.azimuths, polar, self.resolution, cart_resolution, cart_pixel_width
+        )
         if in_place:
             self.cartesian = cartesian
         return cartesian
 
     def visualize(self, **kwargs):
         return vis_radar(self, **kwargs)
-
