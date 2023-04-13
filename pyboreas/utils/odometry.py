@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pyboreas.utils.utils import get_inverse_tf, rotation_error, translation_error, enforce_orthog, yawPitchRollToRot, \
     get_time_from_filename
+from pylgmath import se3op, Transformation
 from pylgmath import Transformation
 from pysteam.trajectory import Time
 from pysteam.trajectory.const_vel import Interface as TrajectoryInterface
@@ -119,7 +120,7 @@ def last_frame_from_segment_length(dist, first_frame, length):
     return -1
 
 
-def calc_sequence_errors(poses_gt, poses_pred, step_size):
+def calc_sequence_errors(poses_gt, poses_pred, step_size, dim=3):
     """Calculate the translation and rotation error for each subsequence across several different lengths.
     Args:
         T_gt (List[np.ndarray]): each entry in list is 4x4 transformation matrix, ground truth transforms
@@ -143,6 +144,10 @@ def calc_sequence_errors(poses_gt, poses_pred, step_size):
             pose_delta_gt = np.matmul(poses_gt[last_frame], get_inverse_tf(poses_gt[first_frame]))
             pose_delta_res = np.matmul(poses_pred[last_frame], get_inverse_tf(poses_pred[first_frame]))
             pose_error = np.matmul(pose_delta_gt, get_inverse_tf(pose_delta_res))
+            if dim == 2:
+                pose_error_vec = se3op.tran2vec(pose_error)  # T_gt_pred
+                pose_error_vec[2:5] = 0  # z and roll, pitch to 0
+                pose_error = se3op.vec2tran(pose_error_vec)
             r_err = rotation_error(pose_error)
             t_err = translation_error(pose_error)
             # Approx speed
@@ -223,8 +228,6 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err):
     plt.close()
 
 def plot_loc_stats(seq, plot_dir, T_loc, T_gt, errs, consist=[], Xi=[], Cov=[], has_cov=False):
-
-
     path_loc = np.array([np.linalg.inv(T_i_vk)[:3, 3] for T_i_vk in T_loc], dtype=np.float64)
     path_gt = np.array([np.linalg.inv(T_i_vk)[:3, 3] for T_i_vk in T_gt], dtype=np.float64)
 
@@ -243,52 +246,64 @@ def plot_loc_stats(seq, plot_dir, T_loc, T_gt, errs, consist=[], Xi=[], Cov=[], 
     plt.close()
 
     # plot of errors vs. time
-    # plt.rcParams.update({"text.usetex": True})
-    fig, axs = plt.subplots(6, 1, figsize=(6, 12))
-    Sigma = 3 * np.sqrt(Cov)
-    axs[0].plot(Xi[:, 0], color='limegreen', linewidth=1)
-    axs[0].plot(Sigma[:, 0], color='k', linewidth=1)
-    axs[0].plot(-Sigma[:, 0], color='k', linewidth=1)
-    axs[0].set_ylabel('rho_1')
+    if len(Xi) > 0 and len(Cov) > 0:
+        # plt.rcParams.update({"text.usetex": True})
+        fig, axs = plt.subplots(6, 1, figsize=(6, 12))
+        Sigma = 3 * np.sqrt(Cov)
+        axs[0].plot(Xi[:, 0], color='limegreen', linewidth=1)
+        axs[0].plot(Sigma[:, 0], color='k', linewidth=1)
+        axs[0].plot(-Sigma[:, 0], color='k', linewidth=1)
+        axs[0].set_ylabel('rho_1')
 
-    axs[1].plot(Xi[:, 1], color='limegreen', linewidth=1)
-    axs[1].plot(Sigma[:, 1], color='k', linewidth=1)
-    axs[1].plot(-Sigma[:, 1], color='k', linewidth=1)
-    axs[1].set_ylabel('rho_2')
+        axs[1].plot(Xi[:, 1], color='limegreen', linewidth=1)
+        axs[1].plot(Sigma[:, 1], color='k', linewidth=1)
+        axs[1].plot(-Sigma[:, 1], color='k', linewidth=1)
+        axs[1].set_ylabel('rho_2')
 
-    axs[2].plot(Xi[:, 2], color='limegreen', linewidth=1)
-    axs[2].plot(Sigma[:, 2], color='k', linewidth=1)
-    axs[2].plot(-Sigma[:, 2], color='k', linewidth=1)
-    axs[2].set_ylabel('rho_3')
+        axs[2].plot(Xi[:, 2], color='limegreen', linewidth=1)
+        axs[2].plot(Sigma[:, 2], color='k', linewidth=1)
+        axs[2].plot(-Sigma[:, 2], color='k', linewidth=1)
+        axs[2].set_ylabel('rho_3')
 
-    axs[3].plot(Xi[:, 3], color='limegreen', linewidth=1)
-    axs[3].plot(Sigma[:, 3], color='k', linewidth=1)
-    axs[3].plot(-Sigma[:, 3], color='k', linewidth=1)
-    axs[3].set_ylabel('psi_1')
+        axs[3].plot(Xi[:, 3], color='limegreen', linewidth=1)
+        axs[3].plot(Sigma[:, 3], color='k', linewidth=1)
+        axs[3].plot(-Sigma[:, 3], color='k', linewidth=1)
+        axs[3].set_ylabel('psi_1')
 
-    axs[4].plot(Xi[:, 4], color='limegreen', linewidth=1)
-    axs[4].plot(Sigma[:, 4], color='k', linewidth=1)
-    axs[4].plot(-Sigma[:, 4], color='k', linewidth=1)
-    axs[4].set_ylabel('psi_2')
+        axs[4].plot(Xi[:, 4], color='limegreen', linewidth=1)
+        axs[4].plot(Sigma[:, 4], color='k', linewidth=1)
+        axs[4].plot(-Sigma[:, 4], color='k', linewidth=1)
+        axs[4].set_ylabel('psi_2')
 
-    axs[5].plot(Xi[:, 5], color='limegreen', linewidth=1)
-    axs[5].plot(Sigma[:, 5], color='k', linewidth=1)
-    axs[5].plot(-Sigma[:, 5], color='k', linewidth=1)
-    axs[5].set_ylabel('psi_3')
-    axs[5].set_xlabel('time (s)')
-    plt.savefig(os.path.join(plot_dir, seq[:-4] + '_errs.pdf'), pad_inches=0, bbox_inches='tight')
-    plt.close()
+        axs[5].plot(Xi[:, 5], color='limegreen', linewidth=1)
+        axs[5].plot(Sigma[:, 5], color='k', linewidth=1)
+        axs[5].plot(-Sigma[:, 5], color='k', linewidth=1)
+        axs[5].set_ylabel('psi_3')
+        axs[5].set_xlabel('time (s)')
+        plt.savefig(os.path.join(plot_dir, seq[:-4] + '_errs.pdf'), pad_inches=0, bbox_inches='tight')
+        plt.close()
+
+        e = np.array(errs)
+        fig, axs = plt.subplots(2, 2, figsize=(8, 7))
+        axs[0, 0].hist(e[:, 0], bins=20)
+        axs[0, 0].set_title('Lateral Error (m)')
+        axs[0, 1].hist(e[:, 1], bins=20)
+        axs[0, 1].set_title('Longitudinal Error (m)')
+        axs[1, 0].hist(e[:, 2], bins=20)
+        axs[1, 0].set_title('Vertical Error (m)')
+        axs[1, 1].hist(e[:, 3], bins=20)
+        axs[1, 1].set_title('Orientation Error (deg)')
+        plt.savefig(os.path.join(plot_dir, seq[:-4] + '_hist.pdf'), pad_inches=0, bbox_inches='tight')
+        plt.close()
 
     e = np.array(errs)
-    fig, axs = plt.subplots(2, 2, figsize=(8, 7))
-    axs[0, 0].hist(e[:, 0], bins=20)
-    axs[0, 0].set_title('Lateral Error (m)')
-    axs[0, 1].hist(e[:, 1], bins=20)
-    axs[0, 1].set_title('Longitudinal Error (m)')
-    axs[1, 0].hist(e[:, 2], bins=20)
-    axs[1, 0].set_title('Vertical Error (m)')
-    axs[1, 1].hist(e[:, 3], bins=20)
-    axs[1, 1].set_title('Orientation Error (deg)')
+    fig, axs = plt.subplots(1, 3, figsize=(12, 4))
+    axs[0].hist(e[:, 0], bins=20)
+    axs[0].set_title('Lateral Error (m)')
+    axs[1].hist(e[:, 1], bins=20)
+    axs[1].set_title('Longitudinal Error (m)')
+    axs[2].hist(e[:, 5], bins=20)
+    axs[2].set_title('Yaw Error (deg)')
     plt.savefig(os.path.join(plot_dir, seq[:-4] + '_hist.pdf'), pad_inches=0, bbox_inches='tight')
     plt.close()
 
@@ -302,6 +317,7 @@ def get_path_from_Tvi_list(T_vi_odom, T_vi_gt):
         path_odom (np.ndarray): K x 3 numpy array of estimated xyz coordinates
         path_gt (np.ndarray): K x 3 numpy array of groundtruth xyz coordinates
     """
+
     assert len(T_vi_odom) == len(T_vi_gt)  # assume 1:1 correspondence
     T_iv_odom = [np.linalg.inv(T_vk_i_odom) for T_vk_i_odom in T_vi_odom]
 
@@ -434,12 +450,19 @@ def compute_kitti_metrics(T_gt, T_pred, seq_lens_gt, seq_lens_pred, seq, plot_di
         if len(T_pred_seq) != len(T_gt_seq):
             T_pred_seq = T_pred_seq[crop[i][0]:crop[i][1]]
 
+        # 2d
+        err, path_lengths = calc_sequence_errors(T_gt_seq, T_pred_seq, step_size, 2)
+        t_err_2d, r_err_2d, _, _ = get_stats(err, path_lengths)
+
+        # 3d
         err, path_lengths = calc_sequence_errors(T_gt_seq, T_pred_seq, step_size)
         t_err, r_err, t_err_len, r_err_len = get_stats(err, path_lengths)
-        err_list.append([t_err, r_err])
 
         print(seq[i], 'took', str(time() - ts), ' seconds')
-        print('Error: ', t_err, ' %, ', r_err, ' deg/m \n')
+        # print('Error: ', t_err, ' %, ', r_err, ' deg/m \n')
+        print(f"& {t_err_2d:.2f} & {r_err_2d:.4f} & {t_err:.2f} & {r_err:.4f} \\\\")
+
+        err_list.append([t_err, r_err])
 
         if plot_dir:
             plot_stats(seq[i], plot_dir, T_pred_seq, T_gt_seq, path_lengths, t_err_len, r_err_len)
@@ -460,7 +483,7 @@ def get_sequences(path, file_ext=''):
     Returns:
         sequences (List[string]): list of sequence file names
     """
-    sequences = [f for f in os.listdir(path) if file_ext in f]
+    sequences = [f for f in os.listdir(path) if f.endswith(file_ext)]
     sequences.sort()
     return sequences
 
@@ -517,15 +540,18 @@ def get_sequence_poses_gt(path, seq, dim):
             poses, times = read_traj_file_gt(filepath, T_calib, dim)
             times_np = np.stack(times)
 
-            filepath = os.path.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
-            _, ctimes = read_traj_file_gt(filepath, np.identity(4), dim)
-            istart = np.searchsorted(times_np, ctimes[0])
-            iend = np.searchsorted(times_np, ctimes[-1])
+            ## TODO: this is temporary. revert the following changes
+            # filepath = os.path.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
+            # _, ctimes = read_traj_file_gt(filepath, np.identity(4), dim)
+            # istart = np.searchsorted(times_np, ctimes[0])
+            # iend = np.searchsorted(times_np, ctimes[-1])
+            istart = 0
+            iend = len(times_np)
             poses = poses[istart:iend]
             times = times[istart:iend]
             crop += [(istart, iend)]
-            if times[0] < ctimes[0] or times[-1] > ctimes[-1]:
-                raise ValueError('Invalid start and end indices for groundtruth.')
+            # if times[0] < ctimes[0] or times[-1] > ctimes[-1]:
+            #     raise ValueError('Invalid start and end indices for groundtruth.')
 
         elif dim == 2:
             filepath = os.path.join(path, dir, 'applanix/radar_poses.csv')  # use 'radar_poses.csv' for groundtruth
@@ -587,7 +613,6 @@ def get_sequence_times_gt(path, seq):
         all_times.extend(times)
 
     return all_times, seq_lens, crop
-
 
 def write_traj_file(path, poses, times):
     """Writes trajectory into a space-separated txt file
@@ -730,11 +755,13 @@ def convert_line_to_pose(line, dim=3):
     T = np.eye(4, dtype=np.float64)
     T[0, 3] = line[1]  # x
     T[1, 3] = line[2]  # y
+    # Note, yawPitchRollToRot returns C_v_i, where v is vehicle/sensor frame and i is stationary frame
+    # For SE(3) state, we want C_i_v (to match r_i loaded above), and so we take transpose
     if dim == 3:
         T[2, 3] = line[3]  # z
         T[:3, :3] = yawPitchRollToRot(line[9], line[8], line[7])
     elif dim == 2:
-        T[:3, :3] = yawPitchRollToRot(line[9], 0, 0)
+        T[:3, :3] = yawPitchRollToRot(line[9], np.round(line[8] / np.pi) * np.pi, np.round(line[7] / np.pi) * np.pi)
     else:
         raise ValueError('Invalid dim value in convert_line_to_pose. Use either 2 or 3.')
     time = int(line[0])
