@@ -11,6 +11,7 @@ from pyboreas.utils.utils import (
     se3ToSE3,
     yawPitchRollToRot,
 )
+from pylgmath import so3op
 from pyboreas.vis.vis_utils import draw_boxes
 
 
@@ -135,7 +136,7 @@ class BoundingBoxes:
 
     def interpolate(
         self, idx, timestamp, spose, seqLabelFiles, seqLabelTimes, seqLabelPoses
-    ):
+    ):        
         if seqLabelTimes[idx] < timestamp:
             lower = idx
             upper = idx + 1
@@ -204,7 +205,7 @@ class BoundingBox:
         # Construct array to extract points from extent
         # self.corner_map = {'ftr':0, 'ftl':1, 'btl':2, 'btr':3,
         #               'fbr':4, 'fbl':5, 'bbl':6, 'bbr':7}
-        dims = [
+        self.dims = [
             [1, 1, 1],
             [-1, 1, 1],
             [-1, -1, 1],
@@ -214,17 +215,18 @@ class BoundingBox:
             [-1, -1, -1],
             [1, -1, -1],
         ]
+        self._get_box_corners()
 
+    def _get_box_corners(self):
         def _get_point_with_offset(pose, offset):
             p = np.array([offset[0], offset[1], offset[2], 1]).reshape(-1, 1)
             return np.matmul(pose, p)[:3, 0]
-
         pose = get_transform2(self.rot, self.pos)
         points = []
-        for i in range(len(dims)):
+        for i in range(len(self.dims)):
             points.append(
                 _get_point_with_offset(
-                    pose, self.extent.squeeze() * np.array(dims[i]) / 2
+                    pose, self.extent.squeeze() * np.array(self.dims[i]) / 2
                 )
             )
         self.pc = PointCloud(np.array(points))
@@ -275,10 +277,6 @@ class BoundingBox:
     def _interpolate(self, alpha1, b2, alpha2):
         # linear interpolation
         self.pos = alpha1 * self.pos + alpha2 * b2.pos
-        y1, p1, r1 = rotToYawPitchRoll(self.rot)
-        y2, p2, r2 = rotToYawPitchRoll(b2.rot)
-        y = alpha1 * y1 + alpha2 * y2
-        p = alpha1 * p1 + alpha2 * p2
-        r = alpha1 * r1 + alpha2 * r2
-        self.rot = yawPitchRollToRot(y, p, r)
-        self.pc.points = alpha1 * self.pc.points + alpha2 * b2.pc.points
+        phi = so3op.rot2vec(b2.rot @ self.rot.T)
+        self.rot = so3op.vec2rot(phi * alpha2) @ self.rot
+        self._get_box_corners()

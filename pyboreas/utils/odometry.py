@@ -655,18 +655,13 @@ def get_sequence_poses_gt(path, seq, dim):
             poses, times = read_traj_file_gt(filepath, T_calib, dim)
             times_np = np.stack(times)
 
-            ## TODO: this is temporary. revert the following changes
-            # filepath = os.path.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
-            # _, ctimes = read_traj_file_gt(filepath, np.identity(4), dim)
-            # istart = np.searchsorted(times_np, ctimes[0])
-            # iend = np.searchsorted(times_np, ctimes[-1])
-            istart = 0
-            iend = len(times_np)
+            filepath = os.path.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
+            _, ctimes = read_traj_file_gt(filepath, np.identity(4), dim)
+            istart = np.searchsorted(times_np, ctimes[0])
+            iend = np.searchsorted(times_np, ctimes[-1])
             poses = poses[istart:iend]
             times = times[istart:iend]
             crop += [(istart, iend)]
-            # if times[0] < ctimes[0] or times[-1] > ctimes[-1]:
-            #     raise ValueError('Invalid start and end indices for groundtruth.')
 
         elif dim == 2:
             filepath = os.path.join(

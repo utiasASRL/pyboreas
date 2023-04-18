@@ -25,4 +25,10 @@ c = xi.T @ Sigma_inv_s1_s2 @ xi
 c = np.sqrt(c / 6)
 ```
 
-For the localization benchmark, an additional metadata tag is required: `reference` which can be one of: `lidar, radar, camera`. This is used to determine which sensor is being used as a reference for ground truth poses.
+For the localization benchmark, two additional metadata tags are required: 
+
+`ref_sensor` which can be one of: `lidar, radar, camera`. This is used to determine which sensor is being used as a reference for ground truth poses.
+
+`test_sensor` which can be one of: `lidar, radar, camera`. This is used to determine which sensor acts as the "test" sensor.
+
+For example, to localize lidar to a lidar map, use `ref_sensor='lidar'` and `test_sensor='lidar'`. Similarly, for radar-to-radar localization, set `ref_sensor='radar'` and `test_sensor='radar'`. To benchmark cross-modal localization, for example localizing radar scans to a lidar map, set `ref_sensor='lidar'` and `test_sensor='radar'`.

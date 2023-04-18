@@ -204,7 +204,7 @@ if __name__ == "__main__":
         "--test_sensor",
         default="lidar",
         type=str,
-        help="Which sensor to use as a reference (camera|lidar|radar)",
+        help="Which sensor to use as the test sensor (camera|lidar|radar)",
     )
     parser.add_argument("--dim", default=3, type=int, help="SE(3) or SE(2)")
     parser.add_argument("--plot", type=str, help="path to save plots")
