@@ -2,7 +2,7 @@ import os
 import os.path as osp
 
 from pyboreas.data.calib import Calib
-from pyboreas.data.sensors import Camera, Lidar, Radar
+from pyboreas.data.sensors import Camera, Lidar, Radar, Aeva
 from pyboreas.utils.utils import get_closest_frame
 
 
@@ -168,7 +168,7 @@ class Sequence:
         cfile = osp.join(self.applanix_root, "camera_poses.csv")
         lfile = osp.join(self.applanix_root, "lidar_poses.csv")
         rfile = osp.join(self.applanix_root, "radar_poses.csv")
-        self.aeva_frames = self._get_frames(afile, self.aeva_root, ".bin", Lidar)
+        self.aeva_frames = self._get_frames(afile, self.aeva_root, ".bin", Aeva)
         self.camera_frames = self._get_frames(cfile, self.camera_root, ".png", Camera)
         self.lidar_frames = self._get_frames(lfile, self.lidar_root, ".bin", Lidar)
         self.radar_frames = self._get_frames(rfile, self.radar_root, ".png", Radar)
@@ -191,6 +191,7 @@ class Sequence:
         cstamps = [frame.timestamp for frame in self.camera_frames]
         lstamps = [frame.timestamp for frame in self.lidar_frames]
         rstamps = [frame.timestamp for frame in self.radar_frames]
+        astamps = [frame.timestamp for frame in self.aeva_frames]
 
         if ref == "camera":
             self.lidar_frames = [
@@ -199,6 +200,10 @@ class Sequence:
             ]
             self.radar_frames = [
                 get_closest_frame(cstamp, rstamps, self.radar_frames)
+                for cstamp in cstamps
+            ]
+            self.aeva_frames = [
+                get_closest_frame(cstamp, astamps, self.aeva_frames)
                 for cstamp in cstamps
             ]
         elif ref == "lidar":
@@ -210,6 +215,10 @@ class Sequence:
                 get_closest_frame(lstamp, rstamps, self.radar_frames)
                 for lstamp in lstamps
             ]
+            self.aeva_frames = [
+                get_closest_frame(lstamp, astamps, self.aeva_frames)
+                for lstamp in lstamps
+            ]
         elif ref == "radar":
             self.camera_frames = [
                 get_closest_frame(rstamp, cstamps, self.camera_frames)
@@ -218,6 +227,23 @@ class Sequence:
             self.lidar_frames = [
                 get_closest_frame(rstamp, lstamps, self.lidar_frames)
                 for rstamp in rstamps
+            ]
+            self.aeva_frames = [
+                get_closest_frame(rstamp, astamps, self.aeva_frames)
+                for rstamp in rstamps
+            ]
+        elif ref == "aeva":
+            self.camera_frames = [
+                get_closest_frame(astamp, cstamps, self.camera_frames)
+                for astamp in astamps
+            ]
+            self.lidar_frames = [
+                get_closest_frame(astamp, lstamps, self.lidar_frames)
+                for astamp in astamps
+            ]
+            self.radar_frames = [
+                get_closest_frame(astamp, rstamps, self.radar_frames)
+                for astamp in astamps
             ]
 
     def filter_frames_gt(self):

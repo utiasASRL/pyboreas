@@ -48,10 +48,14 @@ def vis_lidar(
         c = p[:, 2]
     elif color == "intensity":
         c = p[:, 3]
-    elif color == "ring":
+    elif color == "ring" and lid.dim() == 6: # velodyne
+        c = p[:, 4]
+    elif color == "ring" and lid.dim() == 7: # aeva
+        c = p[:, 5]
+    elif color == "doppler" and lid.dim() == 7: # aeva
         c = p[:, 4]
     elif color == "time":
-        c = p[:, 5]
+        c = p[:, -1]
     elif color == "distance":
         c = np.sqrt(p[:, 0] ** 2 + p[:, 1] ** 2)
     else:

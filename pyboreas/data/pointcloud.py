@@ -42,8 +42,8 @@ class PointCloud:
             points (np.ndarray): points with motion distortion removed
         """
         assert body_rate.shape[0] == 6 and body_rate.shape[1] == 1
-        tmin = np.min(self.points[:, 5])
-        tmax = np.max(self.points[:, 5])
+        tmin = np.min(self.points[:, -1])
+        tmax = np.max(self.points[:, -1])
         if tref is None:
             tref = (tmin + tmax) / 2
         # Precompute finite number of transforms for speed
@@ -65,16 +65,16 @@ class PointCloud:
         global _process_motion
 
         def _process_motion(i):
-            index = int((points[i, 5] - tmin) / delta)
+            index = int((points[i, -1] - tmin) / delta)
             pbar = np.vstack((points[i, :3].reshape(3, 1), 1))
             pbar = np.matmul(T_undistorts[index], pbar)
             points[i, :3] = pbar[:3, 0]
 
         # This function is ~10x faster if the pointcloud is sorted by timestamp (default)
-        if is_sorted(points[:, 5]):
+        if is_sorted(points[:, -1]):
             for i in range(len(tbins) - 1):
                 locs = np.where(
-                    (points[:, 5] >= tbins[i]) & (points[:, 5] < tbins[i + 1])
+                    (points[:, -1] >= tbins[i]) & (points[:, -1] < tbins[i + 1])
                 )
                 p = points[locs]
                 p = np.hstack((p[:, :3], np.ones((p.shape[0], 1))))

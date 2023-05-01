@@ -96,9 +96,10 @@ class Lidar(Sensor, PointCloud):
         Sensor.__init__(self, path)
         self.points = None
         self.bbs = None
+        self._dim = 6
 
     def load_data(self):
-        self.points = load_lidar(self.path)
+        self.points = load_lidar(self.path, dim=self._dim)
         return self.points
 
     def visualize(self, **kwargs):
@@ -110,6 +111,19 @@ class Lidar(Sensor, PointCloud):
     def has_bbs(self):
         labelPath = osp.join(self.seq_root, self.labelFolder, self.frame + ".txt")
         return osp.exists(labelPath)
+
+    def dim(self):
+        return self._dim
+
+
+class Aeva(Lidar):
+    def __init__(self, path):
+        Lidar.__init__(self, path)
+        self._dim = 7
+    
+    def load_data(self):
+        self.points = load_lidar(self.path, dim=self._dim)
+        return self.points
 
 
 class Camera(Sensor):
