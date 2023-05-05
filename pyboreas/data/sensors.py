@@ -25,10 +25,16 @@ class Sensor:
         self.labelFolder = "labels"
         p = Path(path)
         self.frame = p.stem
-        self.sensType = p.parts[-2]
-        self.seqID = p.parts[-3]
-        self.seq_root = str(Path(*p.parts[:-2]))
-        self.sensor_root = osp.join(self.seq_root, self.sensType)
+        self.sensType = None
+        self.seqID = None
+        self.seq_root = None
+        self.sensor_root = None
+        if len(p.parts) >= 2:
+            self.sensType = p.parts[-2]
+            self.seq_root = str(Path(*p.parts[:-2]))
+            self.sensor_root = osp.join(self.seq_root, self.sensType)
+        if len(p.parts) >= 3:
+            self.seqID = p.parts[-3]
         self.pose = np.identity(4, dtype=np.float64)  # T_enu_sensor
         self.velocity = np.zeros(
             (6, 1)
