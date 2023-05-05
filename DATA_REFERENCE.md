@@ -113,12 +113,14 @@ Lidar pointclouds are stored in a binary format to minimize storage requirements
 ```Python
 import numpy as np
 from pathlib import Path
-def load_lidar(path):
-	# dtype MUST be float32 to load this properly!
-       points = np.fromfile(path, dtype=np.float32).reshape((-1, 6))
-       t = float(Path(path).stem) * 1e-6
-       points[:, 5] += t
-       return points
+def load_lidar(path, dim=6):
+    """Loads a pointcloud (np.ndarray) (N, 6) from path [x, y, z, intensity, laser_number, time]"""
+    # Aeva: [x, y, z, intensity, Doppler, laser_number, time]
+    # dtype MUST be float32 to load this properly!
+    points = np.fromfile(path, dtype=np.float32).reshape((-1, dim)).astype(np.float64)
+    t = get_time_from_filename(path)
+    points[:, -1] += t
+    return points
 ```
 
 ![lidar](figs/lidar.png)

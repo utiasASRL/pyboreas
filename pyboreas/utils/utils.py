@@ -7,12 +7,13 @@ import numpy as np
 from pyboreas.utils.lgmath import _tran2vec, _vec2tran, carrot
 
 
-def load_lidar(path):
+def load_lidar(path, dim=6):
     """Loads a pointcloud (np.ndarray) (N, 6) from path [x, y, z, intensity, laser_number, time]"""
+    # Aeva: [x, y, z, intensity, Doppler, laser_number, time]
     # dtype MUST be float32 to load this properly!
-    points = np.fromfile(path, dtype=np.float32).reshape((-1, 6)).astype(np.float64)
+    points = np.fromfile(path, dtype=np.float32).reshape((-1, dim)).astype(np.float64)
     t = get_time_from_filename(path)
-    points[:, 5] += t
+    points[:, -1] += t
     return points
 
 
