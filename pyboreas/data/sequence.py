@@ -194,57 +194,69 @@ class Sequence:
         astamps = [frame.timestamp for frame in self.aeva_frames]
 
         if ref == "camera":
-            self.lidar_frames = [
-                get_closest_frame(cstamp, lstamps, self.lidar_frames)
-                for cstamp in cstamps
+            if lstamps:
+                self.lidar_frames = [
+                    get_closest_frame(cstamp, lstamps, self.lidar_frames)
+                    for cstamp in cstamps
             ]
-            self.radar_frames = [
-                get_closest_frame(cstamp, rstamps, self.radar_frames)
-                for cstamp in cstamps
-            ]
-            self.aeva_frames = [
-                get_closest_frame(cstamp, astamps, self.aeva_frames)
-                for cstamp in cstamps
-            ]
+            if rstamps:
+                self.radar_frames = [
+                    get_closest_frame(cstamp, rstamps, self.radar_frames)
+                    for cstamp in cstamps
+                ]
+            if astamps:
+                self.aeva_frames = [
+                    get_closest_frame(cstamp, astamps, self.aeva_frames)
+                    for cstamp in cstamps
+                ]
         elif ref == "lidar":
-            self.camera_frames = [
-                get_closest_frame(lstamp, cstamps, self.camera_frames)
-                for lstamp in lstamps
-            ]
-            self.radar_frames = [
-                get_closest_frame(lstamp, rstamps, self.radar_frames)
-                for lstamp in lstamps
-            ]
-            self.aeva_frames = [
-                get_closest_frame(lstamp, astamps, self.aeva_frames)
-                for lstamp in lstamps
-            ]
+            if cstamps:
+                self.camera_frames = [
+                    get_closest_frame(lstamp, cstamps, self.camera_frames)
+                    for lstamp in lstamps
+                ]
+            if rstamps:
+                self.radar_frames = [
+                    get_closest_frame(lstamp, rstamps, self.radar_frames)
+                    for lstamp in lstamps
+                ]
+            if astamps:
+                self.aeva_frames = [
+                    get_closest_frame(lstamp, astamps, self.aeva_frames)
+                    for lstamp in lstamps
+                ]
         elif ref == "radar":
-            self.camera_frames = [
-                get_closest_frame(rstamp, cstamps, self.camera_frames)
-                for rstamp in rstamps
-            ]
-            self.lidar_frames = [
-                get_closest_frame(rstamp, lstamps, self.lidar_frames)
-                for rstamp in rstamps
-            ]
-            self.aeva_frames = [
-                get_closest_frame(rstamp, astamps, self.aeva_frames)
-                for rstamp in rstamps
-            ]
+            if cstamps:
+                self.camera_frames = [
+                    get_closest_frame(rstamp, cstamps, self.camera_frames)
+                    for rstamp in rstamps
+                ]
+            if lstamps:
+                self.lidar_frames = [
+                    get_closest_frame(rstamp, lstamps, self.lidar_frames)
+                    for rstamp in rstamps
+                ]
+            if astamps:
+                self.aeva_frames = [
+                    get_closest_frame(rstamp, astamps, self.aeva_frames)
+                    for rstamp in rstamps
+                ]
         elif ref == "aeva":
-            self.camera_frames = [
-                get_closest_frame(astamp, cstamps, self.camera_frames)
-                for astamp in astamps
-            ]
-            self.lidar_frames = [
-                get_closest_frame(astamp, lstamps, self.lidar_frames)
-                for astamp in astamps
-            ]
-            self.radar_frames = [
-                get_closest_frame(astamp, rstamps, self.radar_frames)
-                for astamp in astamps
-            ]
+            if cstamps:
+                self.camera_frames = [
+                    get_closest_frame(astamp, cstamps, self.camera_frames)
+                    for astamp in astamps
+                ]
+            if lstamps:
+                self.lidar_frames = [
+                    get_closest_frame(astamp, lstamps, self.lidar_frames)
+                    for astamp in astamps
+                ]
+            if rstamps:
+                self.radar_frames = [
+                    get_closest_frame(astamp, rstamps, self.radar_frames)
+                    for astamp in astamps
+                ]
 
     def filter_frames_gt(self):
         # Only keep lidar frames that were labelled, NO interpolated frames
