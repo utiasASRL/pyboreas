@@ -57,6 +57,17 @@ def check_yaml(yml):
             print("missing key: test_sensor, see localization.md for instructions")
             return False
 
+    if yml["benchmark"] == "odometry":
+        try:
+            sensors = yml["sensors"]
+            for sensor in sensors:
+                if sensor not in ["camera", "lidar", "radar", "IMU"]:
+                    print("incorrect list of sensors: {}".format(yml["sensors"]))
+                    return False
+        except KeyError:
+            print("missing key: sensors, see odometry.md for instructions")
+            return False
+
     if not isinstance(yml["2d"], bool):
         print("2d must be bool")
         return False

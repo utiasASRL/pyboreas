@@ -149,6 +149,9 @@ Overall error:  0.5678934633365106  %,  0.0022963231993319904  deg/m
 
 There should now be plots of the odometry path and error for each sequence in the `pred` directory (`pyboreas/test/demo/pred/3d/interp/` for this demo).
 
-### Online Evaluation
+For the odometry benchmark, one additional metadata tags is required:
 
-TODO
+`sensors`: a list of the sensors used by the odometry algorithm, sensors must be one of: (`lidar`, `radar`, `camera`, `IMU`), example:
+
+`sensors: ['lidar', 'IMU']` : for lidar-inertial odometry,
+`sensors: ['radar']` : for radar-only odometry,

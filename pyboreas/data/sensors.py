@@ -42,8 +42,12 @@ class Sensor:
         self.body_rate = np.zeros(
             (6, 1)
         )  # 6 x 1 velocity in sensor frame [v_se_in_s; w_se_in_s]
-        self.timestamp = get_time_from_filename(self.frame)
-        self.timestamp_micro = get_time_from_filename_microseconds(self.frame)
+        try:
+            self.timestamp = get_time_from_filename(self.frame)
+            self.timestamp_micro = get_time_from_filename_microseconds(self.frame)
+        except:
+            self.timestamp = 0
+            self.timestamp_micro = 0
 
     def init_pose(self, data=None):
         """Initializes pose variables with ground truth applanix data

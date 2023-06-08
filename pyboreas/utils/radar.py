@@ -34,7 +34,10 @@ def load_radar(example_path):
     # Hard coded configuration to simplify parsing code
     encoder_size = 5600
     resolution = 0.0596
-    t = get_time_from_filename(example_path)
+    try:
+        t = get_time_from_filename(example_path)
+    except:
+        t = 0
     if t > upgrade_time:
         resolution = 0.04381
     raw_example_data = cv2.imread(example_path, cv2.IMREAD_GRAYSCALE)
