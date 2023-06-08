@@ -1,3 +1,3 @@
-This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International Public License (“CC BY-NC-SA 4.0”) and is intended for non-commercial academic use. The CC BY-NC-SA 4.0 may be accessed at https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode. If you are interested in using the dataset for commerical purposes, please contact us.
+The Boreas dataset is licensed under a Creative Commons Attribution 4.0 International Public License (“CC BY 4.0”).
 
-If you have any privacy concerns, including to remove your name or other personally identifiable information, please contact us by sending an e-mail to boreas@robotics.utias.utoronto.ca
+If you have any privacy concerns, including to remove any personally identifiable information, please contact us by sending an e-mail to boreas@robotics.utias.utoronto.ca
