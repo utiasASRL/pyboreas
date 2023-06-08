@@ -2,9 +2,12 @@
 
 ## Introduction
 
+For more detailed information, please refer to our paper:
+[Boreas: A Multi-Season Autonomous Driving Dataset](https://arxiv.org/abs/2203.10168)
+
 ### Purpose
 
-This dataset and the associated benchmarks are intended to support odometry and metric localization for lidar, radar, and vision. In the future, we hope to also be able to provide 3D and 2D object labels. This dataset features repeated traversals over a long period and multiple weather conditions. These changing conditions may be used to benchmark long-term localization capabilities of different sensors or the robustness of various sensor types to adverse weather conditions.
+This dataset and the associated benchmarks are intended to support odometry, metric localization, and 3D object detection for lidar, radar, and vision. This dataset features repeated traversals over a long period and multiple weather conditions. These changing conditions may be used to benchmark long-term localization capabilities of different sensors or the robustness of various sensor types to adverse weather.
 
 ### Sensors
 
@@ -31,7 +34,7 @@ The Navtech CIR204-H radar has a range resolution of 0.0596m per range bin with 
 
 The FLIR Blackfly S monocular camera has a resolution of 2448 x 2048. Based on the calibration, the camera has a field of view of approximately 81 x 71 degrees. We extract camera images at 10Hz to minimize storage requirements.
 
-The Applanix POSLV system includes an external wheel encoder, and an RTX subscription which improves the accuracy. All of the logged Applanix data is post-processed using their proprietary POSPac suite. This performs a batch optimization over each sequence. The post-processed position data can be expected to have an RMS error around 5 cm, depending on the sequence. Post-processed data is provided at 200Hz.
+The Applanix POSLV system includes an external wheel encoder, and an RTX subscription which improves the accuracy. All of the logged Applanix data is post-processed using their proprietary POSPac suite. This performs a batch optimization over each sequence. The post-processed position data can be expected to have an RMS error around 2-4 cm, depending on the sequence. Post-processed data is provided at 200Hz.
 
 ### Placement
 
@@ -140,9 +143,14 @@ Images are simply stored as `png` files. All images are rectified such that a si
 ![camera](figs/camera.png)
 
 ### Pose Files
+
+Ground truth poses are obtained by post-processing GNSS, IMU, and wheel encoder measurements along with corrections obtained from an RTX subscription using Applanix's POSPac software suite. Positions and velocities are given with respect to a fixed East-North-Up frame $ENU_{\text{ref}}$. The position of $ENU_{\text{ref}}$ is aligned with the first pose of the first sequence (`boreas-2020-11-26-13-58`) but the orientation is defined to be tangential to the geoid as defined in the WGS-84 convention such that x points East, y points North, and z points up.
+
+For each sequence, `applanix/gps_post_process.csv` contains the post-processed ground truth in the Applanix frame at 200Hz.
+
 Each sensor frame's pose information is stored in the associated `applanix/<sensor>_poses.csv` file with the following format:
 
-`t, x, y, z, vx, vy, vz, r, p, y, wz, wy, wx` where `t` is the UTC timestamp in microseconds that matches the file name, `(x, y, z)` is the position of the sensor with repect to the ENU origin frame, as measured in the ENU frame, `(vx, vy, vz)` is the velocity of the sensor with respect to the ENU frame, `(r, p, y)` are the yaw-pitch-roll angles which can be converted into the rotation matrix from the sensor frame to the ENU frame, `(wz, wy, wx)` are the angular velocities of the sensor with respect to ENU as measured in the sensor frame. The pose of the sensor frame is then:
+`t, x, y, z, vx, vy, vz, r, p, y, wz, wy, wx` where `t` is the UTC timestamp in microseconds that matches the file name, `(x, y, z)` is the position of the sensor $s$ with repect to $ENU_{\text{ref}}$, as measured in $ENU_{\text{ref}}$ `(vx, vy, vz)` is the velocity of the sensor with respect to $ENU_{\text{ref}}$, `(r, p, y)` are the yaw-pitch-roll angles which can be converted into the rotation matrix from the sensor frame and $ENU_{\text{ref}}$, `(wz, wy, wx)` are the angular velocities of the sensor with respect to $ENU_{\text{ref}}$ as measured in the sensor frame. The pose of the sensor frame is then:
 
 ```Python
 import numpy as np
@@ -186,10 +194,4 @@ The extrinsics between the lidar and IMU (Applanix reference frame) were obtaine
 
 ## Applanix Data
 
-Raw GPS position measurements are provided as Latitude, Longitude, and Altitude (LLA). These measurements are provided in the WGS84 standard. The Applanix measurement frame is oriented as shown below:
-
-![frames](figs/frames.png)
-
-We convert from LLA into a metric coordinate frame, UTM, for this dataset. UTM divides the earth into 60 zones and projects each to a plane as the basis for its coordinates. Converting from LLA to UTM outputs a metric value for Easting and Northing. For our origin frame, we use x-east, y-north, z-up which is abbreviated as ENU.
-
-We use Applanix's proprietary POSPac suite to obtain post-processed results. The POSPac suite uses all available (GPS, IMU, wheel encoder) data and performs a batch optimization using an RTS smoother to obtain the most accurate orientation, and velocity information at each time step. The RMS position error is typically between 5 and 20 cm. However, this accuracy can change depending on the atmospheric conditions and the visibility of satellites. The accuracy can also change throughout the course of a sequence. For detailed information on the position accuracy of each sequence, we have provided a script, `plot_processed_error.py`, which produces plots of position, orientation, and velocity error vs. time.
+We use Applanix's proprietary POSPac suite to obtain post-processed results. The POSPac suite uses all available (GPS, IMU, wheel encoder) data and performs a batch optimization using an RTS smoother to obtain the most accurate orientation, and velocity information at each time step. The RMS position error is typically 2-4 cm. However, this accuracy can change depending on the atmospheric conditions and the visibility of satellites. The accuracy can also change throughout the course of a sequence. For detailed information on the position accuracy of each sequence, we have provided a script, `plot_processed_error.py`, which produces plots of position, orientation, and velocity residual error vs. time.
