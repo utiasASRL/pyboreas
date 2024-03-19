@@ -23,6 +23,7 @@ def check_yaml(yml):
         "year",
         "runtimeseconds",
         "computer",
+        "sensors"
     ]
     for key in keys:
         try:
@@ -59,7 +60,7 @@ def check_yaml(yml):
 
     if yml["benchmark"] == "odometry":
         try:
-            sensors = yml["sensors"]
+            sensors = yml["sensors"].split(", ")
             for sensor in sensors:
                 if sensor not in ["camera", "lidar", "radar", "IMU"]:
                     print("incorrect list of sensors: {}".format(yml["sensors"]))
