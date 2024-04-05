@@ -27,6 +27,9 @@ def get_Tas(gtpath, seq, sensor="lidar"):
     elif sensor == "radar":
         T_radar_lidar = np.loadtxt(osp.join(gtpath, seq, "calib", "T_radar_lidar.txt"))
         return np.matmul(T_applanix_lidar, get_inverse_tf(T_radar_lidar))
+    elif sensor == "aeva":
+        T_applanix_aeva = np.loadtxt(osp.join(gtpath, seq, 'calib', 'T_applanix_aeva.txt'))
+        return T_applanix_aeva
     return T_applanix_lidar
 
 
@@ -198,19 +201,19 @@ if __name__ == "__main__":
         "--ref_sensor",
         default="lidar",
         type=str,
-        help="Which sensor to use as a reference (camera|lidar|radar)",
+        help="Which sensor to use as a reference (camera|lidar|radar|aeva)",
     )
     parser.add_argument(
         "--test_sensor",
         default="lidar",
         type=str,
-        help="Which sensor to use as the test sensor (camera|lidar|radar)",
+        help="Which sensor to use as the test sensor (camera|lidar|radar|aeva)",
     )
     parser.add_argument("--dim", default=3, type=int, help="SE(3) or SE(2)")
     parser.add_argument("--plot", type=str, help="path to save plots")
     args = parser.parse_args()
-    assert args.ref_sensor in ["camera", "lidar", "radar"]
-    assert args.test_sensor in ["camera", "lidar", "radar"]
+    assert args.ref_sensor in ["camera", "lidar", "radar", "aeva"]
+    assert args.test_sensor in ["camera", "lidar", "radar", "aeva"]
     assert args.dim in [2, 3]
     if args.ref_sensor == "radar" or args.test_sensor == "radar":
         assert args.dim == 2

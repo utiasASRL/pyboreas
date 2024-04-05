@@ -131,6 +131,18 @@ def compute_kitti_metrics(
 
     return t_err, r_err, err_list
 
+# katya -- QOL: make gt data the same length as pred data
+def adjust_length(T, seq_lens, target_len_T, target_len_seq_lens):
+    if len(T) > target_len_T:
+        T = T[:target_len_T]
+        seq_lens = seq_lens[:target_len_seq_lens]
+    elif len(T) < target_len_T:
+        # pad with the last pose repeated
+        last_pose = T[-1]
+        pad_len = target_len_T - len(T)
+        T += [last_pose] * pad_len
+        seq_lens += [seq_lens[-1]] * pad_len
+    return T, seq_lens
 
 def eval_odom(pred, gt):
     # parse sequences
@@ -139,6 +151,11 @@ def eval_odom(pred, gt):
 
     # get corresponding groundtruth poses
     T_gt, _, seq_lens_gt = get_sequence_poses_gt(gt, seq)
+
+    # adjust the length of T_gt and seq_lens_gt
+    T_gt, seq_lens_gt = adjust_length(T_gt, seq_lens_gt, len(T_pred), len(seq_lens_pred))
+    
+    print(len(T_gt), len(T_pred))
 
     # compute errors
     t_err, r_err, _ = compute_kitti_metrics(
