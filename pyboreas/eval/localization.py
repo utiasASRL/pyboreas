@@ -70,6 +70,18 @@ def compute_errors(Te):
 def root_mean_square(errs):
     return np.sqrt(np.mean(np.power(np.array(errs), 2), axis=0)).squeeze()
 
+# QOL: make gt data the same length as pred data
+def adjust_length(T, seq_lens, target_len_T, target_len_seq_lens):
+    if len(T) > target_len_T:
+        T = T[:target_len_T]
+        seq_lens = seq_lens[:target_len_seq_lens]
+    elif len(T) < target_len_T:
+        # pad with the last pose repeated
+        last_pose = T[-1]
+        pad_len = target_len_T - len(T)
+        T += [last_pose] * pad_len
+        seq_lens += [seq_lens[-1]] * pad_len
+    return T, seq_lens
 
 def eval_local(
     predpath,
@@ -112,6 +124,12 @@ def eval_local(
         gt_poses, gt_times = read_traj_file_gt2(
             osp.join(gtpath, seq, "applanix", test_sensor + "_poses.csv"), dim=dim
         )
+        
+        # adjust the length of T_gt and seq_lens_gt
+        gt_poses, gt_times = adjust_length(gt_poses, gt_times, len(pred_poses), len(pred_times))
+        
+        print(len(gt_poses), len(pred_poses))
+        
         # check that pred_times is a 1-to-1 match with gt_times
         check_time_match(pred_times, gt_times)
         # check that each ref time matches to one gps_ref_time

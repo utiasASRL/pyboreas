@@ -143,7 +143,13 @@ def calc_sequence_errors(poses_gt, poses_pred, step_size, dim=3):
         err (List[Tuple]): each entry in list is [first_frame, r_err, t_err, length, speed]
         lengths (List[int]): list of lengths that odometry is evaluated at
     """
-    lengths = [100, 200, 300, 400, 500, 600, 700, 800]
+    # temp modification for testing - remove before merge!
+    if len(poses_pred) < 2000:
+        print("\n***WARNING***: provided prediction sequence is too short! Using placeholder values. Error metrics will be incorrect.")
+        lengths = [1, 2, 3, 4, 5, 6, 7, 8]
+    else:
+        lengths = [100, 200, 300, 400, 500, 600, 700, 800]
+        
     err = []
     # Pre-compute distances from ground truth as reference
     dist = trajectory_distances(poses_gt)
@@ -835,7 +841,8 @@ def read_traj_file_gt(path, T_ab, dim):
     for line in lines[1:]:
         pose, time = convert_line_to_pose(line, dim)
         poses += [
-            enforce_orthog(T_ab @ get_inverse_tf(pose))
+            #enforce_orthog(T_ab @ get_inverse_tf(pose))
+            enforce_orthog(get_inverse_tf(pose @ T_ab))
         ]  # convert T_iv to T_vi and apply calibration
         times += [int(time)]  # microseconds
     return poses, times

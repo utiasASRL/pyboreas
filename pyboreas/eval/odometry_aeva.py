@@ -39,9 +39,14 @@ def get_sequence_poses_gt(path, seq):
 
         filepath = os.path.join(
             path, dir, "applanix/aeva_poses.csv"
-        )  # use 'aeva_poses.csv' for groundtruth
+        )  # use 'aeva_poses.csv' for groundtruth, T_world_sensor
         T_calib = np.loadtxt(os.path.join(path, dir, "calib/T_applanix_aeva.txt"))
-        poses, times = read_traj_file_gt(filepath, T_calib, 3)
+        T_s_v = np.array([[0.9999366830849237, 0.008341717781538466, 0.0075534496251198685, -1.0119098938516395],
+                          [-0.008341717774127972, 0.9999652112886684, -3.150635091210066e-05, -0.3965882433517194],
+                          [-0.007553449599178521, -3.1504388681967066e-05, 0.9999714717963843, -1.697000000000001],
+                          [0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]]).astype(np.float64)
+
+        poses, times = read_traj_file_gt(filepath, T_s_v, 3)
 
         seq_lens.append(len(times))
         all_poses.extend(poses)
@@ -131,7 +136,7 @@ def compute_kitti_metrics(
 
     return t_err, r_err, err_list
 
-# katya -- QOL: make gt data the same length as pred data
+# QOL: make gt data the same length as pred data
 def adjust_length(T, seq_lens, target_len_T, target_len_seq_lens):
     if len(T) > target_len_T:
         T = T[:target_len_T]
