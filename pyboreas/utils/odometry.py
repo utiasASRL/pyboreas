@@ -269,6 +269,7 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err):
     plt.close()
 
 
+
 def plot_loc_stats(
     seq, plot_dir, T_loc, T_gt, errs, consist=[], Xi=[], Cov=[], has_cov=False
 ):
@@ -386,16 +387,49 @@ def get_path_from_Tvi_list(T_vi_odom, T_vi_gt):
         path_odom (np.ndarray): K x 3 numpy array of estimated xyz coordinates
         path_gt (np.ndarray): K x 3 numpy array of groundtruth xyz coordinates
     """
-
     assert len(T_vi_odom) == len(T_vi_gt)  # assume 1:1 correspondence
     T_iv_odom = [np.linalg.inv(T_vk_i_odom) for T_vk_i_odom in T_vi_odom]
-
     T_iv_gt = [np.linalg.inv(T_vk_i_gt) for T_vk_i_gt in T_vi_gt]
-    T_odom_gt_i = T_iv_odom[0] @ np.linalg.inv(T_iv_gt[0])  # align the first pose
-    T_iv_gt_aligned = [T_odom_gt_i @ T_i_vk_gt for T_i_vk_gt in T_iv_gt]
 
-    path_odom = np.array([T_i_vk[:3, 3] for T_i_vk in T_iv_odom], dtype=np.float64)
-    path_gt = np.array([T_i_vk[:3, 3] for T_i_vk in T_iv_gt_aligned], dtype=np.float64)
+    # Zero out T_iv_gt so first pose is 0
+    T_iv_gt_0 = T_iv_gt[0]
+    T_iv_gt = [np.linalg.inv(T_iv_gt_0) @ T_iv_gt_i for T_iv_gt_i in T_iv_gt]
+
+    # This code aligns the first pose of the groundtruth with the first pose of the estimated trajectory
+    # T_odom_gt_i = T_iv_odom[0] @ np.linalg.inv(T_iv_gt[0])  # align the first pose
+    # T_iv_gt_aligned = [T_odom_gt_i @ T_i_vk_gt for T_i_vk_gt in T_iv_gt]
+
+    # path_odom = np.array([T_i_vk[:3, 3] for T_i_vk in T_iv_odom], dtype=np.float64)
+    # path_gt = np.array([T_i_vk[:3, 3] for T_i_vk in T_iv_gt_aligned], dtype=np.float64)
+
+    #This code aligns the first pose of the estimated trajectory with the first pose of the groundtruth
+    T_gt_odom_i = T_iv_gt[0] @ np.linalg.inv(T_iv_odom[0])  # align the first pose
+    T_iv_odom_aligned = [T_gt_odom_i @ T_i_vk_odom for T_i_vk_odom in T_iv_odom]
+
+    # middle_idx = np.round(len(T_vi_odom) / 2).astype(int)
+    # T_gt_odom_i = T_iv_gt[middle_idx] @ np.linalg.inv(T_iv_odom[middle_idx])  # align the middle pose
+    # T_iv_odom_aligned = [T_gt_odom_i @ T_i_vk_odom for T_i_vk_odom in T_iv_odom]    
+
+    # Use first 10% of trajectory to compute an alignment transform
+    # num_frames = np.round(len(T_vi_odom) * 0.01).astype(int)
+    # num_frames = 200
+    # xi_align_avg = se3op.tran2vec(T_iv_gt[0] @ np.linalg.inv(T_iv_odom[0]))
+    # for i in range(1, num_frames):
+    #     T_odom_gt_i = T_iv_gt[i] @ np.linalg.inv(T_iv_odom[i])
+    #     xi_align_i = se3op.tran2vec(T_odom_gt_i)
+    #     xi_align_avg[0] += xi_align_i[0]
+    #     xi_align_avg[1] += xi_align_i[1]
+    #     # xi_align_avg[5] += xi_align_i[5]
+    #     # xi_align_avg += xi_align_i
+    # #xi_align_avg /= num_frames
+    # T_gt_odom_i = se3op.vec2tran(xi_align_avg)
+    # T_iv_odom_aligned = [T_gt_odom_i @ T_i_vk_odom for T_i_vk_odom in T_iv_odom]
+    # print(xi_align_avg)
+    # print(T_gt_odom_i)
+
+
+    path_odom = np.array([T_i_vk[:3, 3] for T_i_vk in T_iv_odom_aligned], dtype=np.float64)
+    path_gt = np.array([T_i_vk[:3, 3] for T_i_vk in T_iv_gt], dtype=np.float64)
 
     return path_odom, path_gt
 
@@ -576,7 +610,7 @@ def compute_kitti_metrics(
                 T_gt_seq,
                 path_lengths,
                 t_err_len,
-                r_err_len,
+                r_err_len
             )
 
     err_list = np.asarray(err_list)
@@ -678,7 +712,6 @@ def get_sequence_poses_gt(path, seq, dim):
         seq_lens.append(len(times))
         all_poses.extend(poses)
         all_times.extend(times)
-
     return all_poses, all_times, seq_lens, crop
 
 
@@ -897,3 +930,378 @@ def convert_line_to_pose(line, dim=3):
         )
     time = int(line[0])
     return T, time
+
+def get_sequence_velocities(path, seq, dim):
+    """Retrieves a list of the velocities corresponding to the given sequences in the given file path.
+    Args:
+        path (string): directory path to where the files are
+        seq (List[string]): list of sequence file names
+    Returns:
+        all_velocities (List[np.ndarray]): list of 6x1 poses from all sequence files
+        all_times (List[int]): list of times in nanoseconds from all sequence files
+        seq_lens (List[int]): list of sequence lengths
+    """
+
+    # loop for each sequence
+    all_velocities = []
+    all_times = []
+    seq_lens = []
+    for filename in seq:
+        # parse file for list of poses and times
+        vel, times = read_vel_file(os.path.join(path, filename), dim)
+        seq_lens.append(len(times))
+        all_velocities.extend(vel)
+        all_times.extend(times)
+
+    return all_velocities, all_times, seq_lens
+
+def read_vel_file(path, dim=3):
+    """Reads velocity from a space-separated txt file
+    Args:
+        path (string): file path including file name
+    Returns:
+        (List[np.ndarray]): list of 6x1 velocities
+        (List[int]): list of times in microseconds
+    """
+    with open(path, "r") as file:
+        # read each time and pose to lists
+        velocities = []
+        times = []
+
+        for line in file:
+            line_split = line.strip().split()
+            values = [float(v) for v in line_split[1:]]
+            vel = np.zeros((6, 1), dtype=np.float64)
+            vel[:, 0] = values
+            # If 2D, zero out z, roll, pitch
+            if dim == 2:
+                vel[2:5] = 0.0
+
+            velocities.append(vel)
+            times.append(int(line_split[0]))
+
+    return velocities, times
+
+def get_sequence_velocities_gt(path, seq, dim):
+    """Retrieves a list of the velocities corresponding to the given sequences in the given file path with the Boreas dataset
+    directory structure.
+    Args:
+        path (string): directory path to root directory of Boreas dataset
+        seq (List[string]): list of sequence file names
+        dim (int): dimension for evaluation. Set to '3' for 3D or '2' for 2D
+    Returns:
+        all_velocities (List[np.ndarray]): list of 4x4 poses from all sequence files
+        all_times (List[int]): list of times in microseconds from all sequence files
+        seq_lens (List[int]): list of sequence lengths
+        crop (List[Tuple]): sequences are cropped to prevent extrapolation, this list holds start and end indices
+    """
+
+    # loop for each sequence
+    all_velocities = []
+    all_times = []
+    seq_lens = []
+    crop = []
+    for filename in seq:
+        # determine path to gt file
+        dir = filename[:-4]  # assumes last four characters are '.txt'
+        if dim == 3:
+            filepath = os.path.join(
+                path, dir, "applanix/lidar_poses.csv"
+            )  # use 'lidar_poses.csv' for groundtruth
+            T_calib = np.loadtxt(os.path.join(path, dir, "calib/T_applanix_lidar.txt"))
+            velocities, times = read_vel_file_gt(filepath, T_calib, dim)
+            times_np = np.stack(times)
+
+            filepath = os.path.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
+            _, ctimes = read_vel_file_gt(filepath, np.identity(4), dim)
+            istart = np.searchsorted(times_np, ctimes[0])
+            iend = np.searchsorted(times_np, ctimes[-1])
+            velocities = velocities[istart:iend]
+            times = times[istart:iend]
+            crop += [(istart, iend)]
+
+        elif dim == 2:
+            filepath = os.path.join(
+                path, dir, "applanix/radar_poses.csv"
+            )  # use 'radar_poses.csv' for groundtruth
+            T_calib = np.identity(4)
+            velocities, times = read_vel_file_gt(filepath, T_calib, dim)
+            crop += [(0, len(velocities))]
+        else:
+            raise ValueError(
+                "Invalid dim value in get_sequence_poses_gt. Use either 2 or 3."
+            )
+
+        seq_lens.append(len(times))
+        all_velocities.extend(velocities)
+        all_times.extend(times)
+
+    return all_velocities, all_times, seq_lens, crop
+
+
+def read_vel_file_gt(path, T_ab, dim):
+    """Reads trajectory from a comma-separated file, see Boreas documentation for format
+    Args:
+        path (string): file path including file name
+        T_ab (np.ndarray): 4x4 transformation matrix for calibration. Poses read are in frame 'b', output in frame 'a'
+        dim (int): dimension for evaluation. Set to '3' for 3D or '2' for 2D
+    Returns:
+        (List[np.ndarray]): list of 4x4 poses (from world to sensor frame)
+        (List[int]): list of times in microseconds
+    """
+    with open(path, "r") as f:
+        lines = f.readlines()
+    velocities = []
+    times = []
+
+    T_ab = enforce_orthog(T_ab)
+    for line in lines[1:]:
+        vel, time = convert_line_to_vel(line, dim)
+        vel[:3] = T_ab[:3, :3] @ vel[:3]
+        vel[3:] = T_ab[:3, :3] @ vel[3:]
+        # If 2D, zero out z, roll, pitch
+        if dim == 2:
+            vel[2:5] = 0.0
+        velocities += [
+            vel
+        ]  # convert T_iv to T_vi and apply calibration
+        times += [int(time)]  # microseconds
+    return velocities, times
+
+
+def convert_line_to_vel(line, dim=3):
+    """Reads velocities from list of strings (single row of the comma-separeted groundtruth file). See Boreas
+    documentation for format
+    Args:
+        line (List[string]): list of strings
+        dim (int): dimension for evaluation. Set to '3' for 3D or '2' for 2D
+    Returns:
+        (np.ndarray): 4x4 SE(3) pose
+        (int): time in nanoseconds
+    """
+    # returns T_iv
+    line = line.replace("\n", ",").split(",")
+    line = [float(i) for i in line[:-1]]
+
+    # Get pose first
+    # x, y, z -> 1, 2, 3
+    # roll, pitch, yaw -> 7, 8, 9
+    T = np.eye(4, dtype=np.float64)
+    T[0, 3] = line[1]  # x
+    T[1, 3] = line[2]  # y
+    # Note, yawPitchRollToRot returns C_v_i, where v is vehicle/sensor frame and i is stationary frame
+    # For SE(3) state, we want C_i_v (to match r_i loaded above), and so we take transpose
+    if dim == 3:
+        T[2, 3] = line[3]  # z
+        T[:3, :3] = yawPitchRollToRot(line[9], line[8], line[7])
+    elif dim == 2:
+        T[:3, :3] = yawPitchRollToRot(
+            line[9],
+            np.round(line[8] / np.pi) * np.pi,
+            np.round(line[7] / np.pi) * np.pi,
+        )
+    else:
+        raise ValueError(
+            "Invalid dim value in convert_line_to_pose. Use either 2 or 3."
+        )
+
+    # Get velocity in body frame
+    # vel_x, vel_y, vel_z -> 4, 5, 6
+    # omega_x, omega_y, omega_z -> 10, 11, 12
+    vel = np.zeros((6, 1), dtype=np.float64)
+
+
+    wbar = np.array([line[12], line[11], line[10]]).reshape(3, 1)
+    wbar = np.matmul(T[:3, :3], wbar).squeeze()
+    vel = np.array(
+        [line[4], line[5], line[6], wbar[0], wbar[1], wbar[2]]
+    ).reshape(6, 1)
+    vbar = np.array([line[4], line[5], line[6]]).reshape(3, 1)
+    vbar = np.matmul(T[:3, :3].T, vbar).squeeze()
+    body_rate = np.array(
+        [vbar[0], vbar[1], vbar[2], line[12], line[11], line[10]]
+    ).reshape(6, 1)
+
+    time = int(line[0])
+    return body_rate, time
+
+def compute_vel_metrics(vel_gt, vel_pred, times_pred, seq, pred_vel_path, dim, crop):
+    """Evaluates velocity metrics for the given sequences and plots.
+    Args:
+        vel_gt (List[np.ndarray]): List of 6x1 groundtruth velocities
+        vel_pred (List[np.ndarray]): List of 6x1 predicted velocities
+        times_pred (List[int]): List of times (microseconds) corresponding to T_pred
+        seq (List[string]): List of sequence file names
+        dim (int): dimension for evaluation. Set to '3' for 3D or '2' for 2D
+        crop (List[Tuple]): sequences are cropped to prevent extrapolation, this list holds start and end indices
+    Returns:
+        vel_RMSE: RMSE of velocity error
+        vel_mean: Mean velocity error
+        vel_RMSE_out: RMSE of velocity error with outliers rejected
+        vel_mean_out: Mean velocity error with outliers rejected
+    """
+    vel_pred = np.array(vel_pred)
+    vel_gt = np.array(vel_gt)
+    times_pred = np.array(times_pred)
+
+    vel_err = []
+    for ii, seq_ii in enumerate(seq):
+        print("processing vel for sequence", seq_ii, "...")
+        vel_pred_ii = vel_pred[:,:,ii]
+        vel_gt_ii = vel_gt[:,:,ii]
+        if len(vel_pred_ii) != len(vel_gt_ii):
+            vel_pred_ii = vel_pred_ii[crop[ii][0] : crop[ii][1], :]
+
+        # Convert to degrees/s
+        vel_pred_ii[:, 3:6] = vel_pred_ii[:, 3:6] * 180 / np.pi
+        vel_gt_ii[:, 3:6] = vel_gt_ii[:, 3:6] * 180 / np.pi
+
+        v_err_ii = vel_pred_ii - vel_gt_ii
+
+        if dim == 2:
+            v_err_ii[:, 2:5] = 0.0
+
+        vel_err += [v_err_ii]
+        times_ii = times_pred[crop[ii][0] : crop[ii][1]] / 1e6
+        times_ii = times_ii - times_ii[0]
+
+        plot_vel_stats(seq_ii, pred_vel_path, vel_pred_ii, vel_gt_ii, v_err_ii, times_ii)
+
+    vel_err = np.array(vel_err).reshape(-1, 6)
+    vel_RMSE = np.sqrt(np.mean(np.array(vel_err) ** 2, axis=0))
+    vel_mean = np.mean(vel_err, axis=0)
+    
+    # Compute outlier rejected RMSE and mean
+    outlier_thres = 2.0
+    vel_err_out = vel_err[np.all(np.abs(vel_err[:, :3]) < outlier_thres, axis=1)]
+    if vel_err_out.shape[0] < vel_err.shape[0]:
+        outlier_timestamps = times_pred[np.where(np.any(np.abs(vel_err[:, :3]) > outlier_thres, axis=1))]
+        print("Outliers at scan num, timestamps, error:")
+        print("*commented out right now*")
+        for ts in outlier_timestamps:
+            rad_num = np.where(times_pred == ts)[0][0]
+            #print(rad_num, ts, vel_err[np.where(times_pred == ts)][0,:2])
+        print("Num outliers rejected:", len(outlier_timestamps))
+    vel_RMSE_out = np.sqrt(np.mean(np.array(vel_err_out) ** 2, axis=0))
+    vel_mean_out = np.mean(vel_err_out, axis=0)
+
+    if dim == 2:
+        # Crop out z, roll, pitch
+        vel_RMSE = np.array([vel_RMSE[0], vel_RMSE[1], vel_RMSE[5]])
+        vel_mean = np.array([vel_mean[0], vel_mean[1], vel_mean[5]])
+
+        vel_RMSE_out = np.array([vel_RMSE_out[0], vel_RMSE_out[1], vel_RMSE_out[5]])
+        vel_mean_out = np.array([vel_mean_out[0], vel_mean_out[1], vel_mean_out[5]])
+
+    return vel_RMSE, vel_mean, vel_RMSE_out, vel_mean_out
+
+
+def plot_vel_stats(seq, dir, vel_pred, vel_gt, v_err, times_ii):
+    """Outputs plots of calculated statistics to specified directory.
+    Args:
+        seq (List[string]): list of sequence file names
+        dir (string): directory path for plot outputs
+        vel_pred (List[np.ndarray]): List of 6x1 predicted velocities
+        vel_gt (List[np.ndarray]): List of 6x1 groundtruth velocities
+        v_err (List[np.ndarray]): List of 6x1 velocity errors
+    """
+    # Plot superimposed velocities
+    fig, axs = plt.subplots(1, 3, figsize=(18, 3))
+    axs[0].plot(times_ii, vel_gt[:,0], label="gt")
+    axs[0].plot(times_ii, vel_pred[:,0], label="pred")
+    axs[0].set_xlabel("Time (s)")
+    axs[0].set_ylabel("Forward Velocity [m/s]")
+    axs[0].legend(loc = 'upper right')
+
+    axs[1].plot(times_ii, vel_gt[:,1], label="gt")
+    axs[1].plot(times_ii, vel_pred[:,1], label="pred")
+    axs[1].set_xlabel("Time (s)")
+    axs[1].set_ylabel("Side Velocity [m/s]")
+    axs[1].legend(loc = 'upper right')
+
+    axs[2].plot(times_ii, vel_gt[:,5], label="gt")
+    axs[2].plot(times_ii, vel_pred[:,5], label="pred")
+    axs[2].set_xlabel("Time (s)")
+    axs[2].set_ylabel("Yaw Velocity [deg/s]")
+    axs[2].legend(loc = 'upper right')
+
+    plt.savefig(os.path.join(dir, seq[:-4] + "_vel.pdf"), pad_inches=0, bbox_inches='tight')
+    plt.close()
+
+    # Plot errors
+    fig, axs = plt.subplots(1, 3, figsize=(18, 3))
+    axs[0].plot(times_ii, v_err[:,0])
+    axs[0].set_xlabel("Time (s)")
+    axs[0].set_ylabel("Forward Velocity Error [m/s]")
+
+    axs[1].plot(times_ii, v_err[:,1], label="gt")
+    axs[1].set_xlabel("Time (s)")
+    axs[1].set_ylabel("Side Velocity [m/s]")
+
+    axs[2].plot(times_ii, v_err[:,5], label="gt")
+    axs[2].set_xlabel("Time (s)")
+    axs[2].set_ylabel("Yaw Velocity [deg/s]")
+
+    plt.savefig(os.path.join(dir, seq[:-4] + "_vel_err.pdf"), pad_inches=0, bbox_inches='tight')
+    plt.close()
+
+    # Plot error histograms
+    fig, axs = plt.subplots(1, 3, figsize=(18, 3))
+    axs[0].hist(v_err[:,0], bins=100)
+    axs[0].set_xlabel("Error [m/s]")
+    axs[0].set_ylabel("Frequency")
+    axs[0].set_title("Fwd. Velocity Error Histogram")
+
+    axs[1].hist(v_err[:,1], bins=100)
+    axs[1].set_xlabel("Error [m/s]")
+    axs[1].set_ylabel("Frequency")
+    axs[1].set_title("Side Velocity Error Histogram")
+
+    axs[2].hist(v_err[:,5], bins=100)
+    axs[2].set_xlabel("Error [deg/s]")
+    axs[2].set_ylabel("Frequency")
+    axs[2].set_title("Yaw Velocity Error Histogram")
+
+    plt.savefig(os.path.join(dir, seq[:-4] + "_vel_err_hist.pdf"), pad_inches=0, bbox_inches='tight')
+    plt.close()
+
+    # Plot error as a function of ground truth yaw
+    fig, axs = plt.subplots(1, 2, figsize=(12, 3))
+    axs[0].plot(vel_gt[:,5], v_err[:,0], '.')
+    axs[0].set_xlabel("Linear Velocity [m/s]")
+    axs[0].set_ylabel("Error")
+    axs[0].set_title("Fwd. Velocity Error vs. Ground Truth Angular velocity")
+
+    axs[1].plot(vel_gt[:,5], v_err[:,1], '.')
+    axs[1].set_xlabel("Linear Velocity [m/s]")
+    axs[1].set_ylabel("Error")
+    axs[1].set_title("Side Velocity Error vs. Ground Truth Angular velocity")
+
+
+    plt.savefig(os.path.join(dir, seq[:-4] + "_vel_err_vs_gt_yaw.pdf"), pad_inches=0, bbox_inches='tight')
+    plt.close()
+
+    # Plot error as a function of ground truth velocity
+    fig, axs = plt.subplots(1, 3, figsize=(18, 3))
+    axs[0].plot(vel_gt[:,0], v_err[:,0], '.')
+    axs[0].set_xlabel("Linear Velocity [m/s]")
+    axs[0].set_ylabel("Error")
+    axs[0].set_title("Fwd. Velocity Error vs. Ground Truth Fwd. Velocity")
+
+    axs[1].plot(vel_gt[:,1], v_err[:,1], '.')
+    axs[1].set_xlabel("Linear Velocity [m/s]")
+    axs[1].set_ylabel("Error")
+    axs[1].set_title("Side Velocity Error vs. Ground Truth Side Velocity")
+
+    axs[2].plot(vel_gt[:,5], v_err[:,5], '.')
+    axs[2].set_xlabel("Linear Velocity [m/s]")
+    axs[2].set_ylabel("Error")
+    axs[2].set_title("Yaw Velocity Error vs. Ground Truth Yaw Velocity")
+
+    plt.savefig(os.path.join(dir, seq[:-4] + "_vel_err_vs_gt_vel.pdf"), pad_inches=0, bbox_inches='tight')
+    plt.close()
+
+
+
+
+    

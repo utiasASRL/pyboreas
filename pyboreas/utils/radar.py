@@ -55,7 +55,6 @@ def load_radar(example_path):
     fft_data = np.squeeze(fft_data)
     return timestamps, azimuths, valid, fft_data, resolution
 
-
 def radar_polar_to_cartesian(
     azimuths,
     fft_data,
