@@ -7,11 +7,16 @@ import numpy as np
 
 from pyboreas.utils.odometry import (
     calc_sequence_errors,
+    convert_line_to_pose,
     get_sequence_poses,
     get_sequences,
     get_stats,
     plot_stats,
-    read_traj_file_gt,
+)
+
+from pyboreas.utils.utils import (
+    enforce_orthog,
+    get_inverse_tf,
 )
 
 
@@ -45,8 +50,19 @@ def get_sequence_poses_gt(path, seq):
                           [-0.008341717774127972, 0.9999652112886684, -3.150635091210066e-05, -0.3965882433517194],
                           [-0.007553449599178521, -3.1504388681967066e-05, 0.9999714717963843, -1.697000000000001],
                           [0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]]).astype(np.float64)
+        
+        with open(filepath, "r") as f:
+            lines = f.readlines()
+        poses = []
+        times = []
 
-        poses, times = read_traj_file_gt(filepath, T_s_v, 3)
+        T_ab = enforce_orthog(T_s_v)
+        for line in lines[1:]:
+            pose, time = convert_line_to_pose(line, 3)
+            poses += [
+                enforce_orthog(get_inverse_tf(pose @ T_ab))
+            ]  # convert T_iv to T_vi and apply calibration
+            times += [int(time)]  # microseconds
 
         seq_lens.append(len(times))
         all_poses.extend(poses)

@@ -841,8 +841,7 @@ def read_traj_file_gt(path, T_ab, dim):
     for line in lines[1:]:
         pose, time = convert_line_to_pose(line, dim)
         poses += [
-            #enforce_orthog(T_ab @ get_inverse_tf(pose))
-            enforce_orthog(get_inverse_tf(pose @ T_ab))
+            enforce_orthog(T_ab @ get_inverse_tf(pose))
         ]  # convert T_iv to T_vi and apply calibration
         times += [int(time)]  # microseconds
     return poses, times
