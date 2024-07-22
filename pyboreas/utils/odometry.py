@@ -269,7 +269,6 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err):
     plt.close()
 
 
-
 def plot_loc_stats(
     seq, plot_dir, T_loc, T_gt, errs, consist=[], Xi=[], Cov=[], has_cov=False
 ):
@@ -384,49 +383,21 @@ def get_path_from_Tvi_list(T_vi_odom, T_vi_gt):
         T_vi_odom (List[np.ndarray]): list of 4x4 estimated poses T_vk_i (vehicle frame at time k and fixed frame i)
         T_vi_gt (List[np.ndarray]): List of 4x4 groundtruth poses T_vk_i (vehicle frame at time k and fixed frame i)
     Returns:
-        path_odom (np.ndarray): K x 3 numpy array of estimated xyz coordinates
-        path_gt (np.ndarray): K x 3 numpy array of groundtruth xyz coordinates
+        path_odom (np.ndarray): K x 3 numpy array of estimated xyz coordinates in (0'd position) groundtruth inertial frame
+        path_gt (np.ndarray): K x 3 numpy array of groundtruth xyz coordinates in (0'd position) groundtruth inertial frame
     """
     assert len(T_vi_odom) == len(T_vi_gt)  # assume 1:1 correspondence
     T_iv_odom = [np.linalg.inv(T_vk_i_odom) for T_vk_i_odom in T_vi_odom]
     T_iv_gt = [np.linalg.inv(T_vk_i_gt) for T_vk_i_gt in T_vi_gt]
 
-    # Zero out T_iv_gt so first pose is 0
-    T_iv_gt_0 = T_iv_gt[0]
-    T_iv_gt = [np.linalg.inv(T_iv_gt_0) @ T_iv_gt_i for T_iv_gt_i in T_iv_gt]
+    # Zero out the position of the first pose in the groundtruth to make plotting nicer
+    pose_0_gt = T_iv_gt[0].copy()
+    pose_0_gt[:3, :3] = np.zeros(3)
+    T_iv_gt = [T_iv_gt_i - pose_0_gt for T_iv_gt_i in T_iv_gt]
 
-    # This code aligns the first pose of the groundtruth with the first pose of the estimated trajectory
-    # T_odom_gt_i = T_iv_odom[0] @ np.linalg.inv(T_iv_gt[0])  # align the first pose
-    # T_iv_gt_aligned = [T_odom_gt_i @ T_i_vk_gt for T_i_vk_gt in T_iv_gt]
-
-    # path_odom = np.array([T_i_vk[:3, 3] for T_i_vk in T_iv_odom], dtype=np.float64)
-    # path_gt = np.array([T_i_vk[:3, 3] for T_i_vk in T_iv_gt_aligned], dtype=np.float64)
-
-    #This code aligns the first pose of the estimated trajectory with the first pose of the groundtruth
+    # Align odometry estimate to groundtruth inertial frame
     T_gt_odom_i = T_iv_gt[0] @ np.linalg.inv(T_iv_odom[0])  # align the first pose
     T_iv_odom_aligned = [T_gt_odom_i @ T_i_vk_odom for T_i_vk_odom in T_iv_odom]
-
-    # middle_idx = np.round(len(T_vi_odom) / 2).astype(int)
-    # T_gt_odom_i = T_iv_gt[middle_idx] @ np.linalg.inv(T_iv_odom[middle_idx])  # align the middle pose
-    # T_iv_odom_aligned = [T_gt_odom_i @ T_i_vk_odom for T_i_vk_odom in T_iv_odom]    
-
-    # Use first 10% of trajectory to compute an alignment transform
-    # num_frames = np.round(len(T_vi_odom) * 0.01).astype(int)
-    # num_frames = 200
-    # xi_align_avg = se3op.tran2vec(T_iv_gt[0] @ np.linalg.inv(T_iv_odom[0]))
-    # for i in range(1, num_frames):
-    #     T_odom_gt_i = T_iv_gt[i] @ np.linalg.inv(T_iv_odom[i])
-    #     xi_align_i = se3op.tran2vec(T_odom_gt_i)
-    #     xi_align_avg[0] += xi_align_i[0]
-    #     xi_align_avg[1] += xi_align_i[1]
-    #     # xi_align_avg[5] += xi_align_i[5]
-    #     # xi_align_avg += xi_align_i
-    # #xi_align_avg /= num_frames
-    # T_gt_odom_i = se3op.vec2tran(xi_align_avg)
-    # T_iv_odom_aligned = [T_gt_odom_i @ T_i_vk_odom for T_i_vk_odom in T_iv_odom]
-    # print(xi_align_avg)
-    # print(T_gt_odom_i)
-
 
     path_odom = np.array([T_i_vk[:3, 3] for T_i_vk in T_iv_odom_aligned], dtype=np.float64)
     path_gt = np.array([T_i_vk[:3, 3] for T_i_vk in T_iv_gt], dtype=np.float64)
