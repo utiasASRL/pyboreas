@@ -15,7 +15,7 @@ from pyboreas.utils.odometry import (
 )
 
 
-def eval_odom(pred="test/demo/pred/3d", gt="test/demo/gt", radar=False, velocity=False):
+def eval_odom(pred="test/demo/pred/3d", gt="test/demo/gt", radar=False):
     # evaluation mode
     dim = 2 if radar else 3
 
@@ -33,37 +33,41 @@ def eval_odom(pred="test/demo/pred/3d", gt="test/demo/gt", radar=False, velocity
         T_gt, T_pred, seq_lens_gt, seq_lens_pred, seq, pred_pose, dim, crop
     )
 
-    if velocity:
-        # parse sequences
-        pred_vel_path = osp.join(pred, "odometry_vel_result")
-        seq = get_sequences(pred_vel_path, ".txt")
-
-        vel_pred, times_pred, seq_vel_lens_pred = get_sequence_velocities(pred_vel_path, seq, dim)
-
-        # get corresponding groundtruth poses
-        vel_gt, _, seq_lens_gt, crop = get_sequence_velocities_gt(gt, seq, dim)
-
-        # compute errors
-        v_RMSE, v_mean, v_RMSE_out, v_mean_out = compute_vel_metrics(vel_gt, vel_pred, times_pred, seq, pred_vel_path, dim, crop)
-
     # print out results
     print("Evaluated sequences: ", seq)
     print("Overall error: ", t_err, " %, ", r_err, " deg/m")
 
-    if velocity:
-        if dim == 2:
-            print("Velocity RMSE: ", v_RMSE, " [m/s, m/s, deg/s]")
-            print("Velocity mean: ", v_mean, " [m/s, m/s, deg/s]")
-            print("Velocity RMSE w/o outliers: ", v_RMSE_out, " [m/s, m/s, deg/s]")
-            print("Velocity mean w/o outliers: ", v_mean_out, " [m/s, m/s, deg/s]")
-        else:
-            print("Velocity RMSE: ", v_RMSE, " [m/s, m/s, m/s, deg/s, deg/s, deg/s]")
-            print("Velocity mean: ", v_mean, " [m/s, m/s, m/s, deg/s, deg/s, deg/s]")
-            print("Velocity RMSE w/o outliers: ", v_RMSE_out, " [m/s, m/s, m/s, deg/s, deg/s, deg/s]")
-            print("Velocity mean w/o outliers: ", v_mean_out, " [m/s, m/s, m/s, deg/s, deg/s, deg/s]")
-
-
     return t_err, r_err
+
+def eval_odom_vel(pred="test/demo/pred/3d", gt="test/demo/gt", radar=False):
+    # evaluation mode
+    dim = 2 if radar else 3
+
+    # parse sequences
+    pred_vel_path = osp.join(pred, "odometry_vel_result")
+    seq = get_sequences(pred_vel_path, ".txt")
+
+    vel_pred, times_pred, seq_vel_lens_pred = get_sequence_velocities(pred_vel_path, seq, dim)
+
+    # get corresponding groundtruth poses
+    vel_gt, _, seq_lens_gt, crop = get_sequence_velocities_gt(gt, seq, dim)
+
+    # compute errors
+    v_RMSE, v_mean, v_RMSE_out, v_mean_out = compute_vel_metrics(vel_gt, vel_pred, times_pred, seq, pred_vel_path, dim, crop)
+
+    # print out results
+    if dim == 2:
+        print("Velocity RMSE: ", v_RMSE, " [m/s, m/s, deg/s]")
+        print("Velocity mean: ", v_mean, " [m/s, m/s, deg/s]")
+        print("Velocity RMSE w/o outliers: ", v_RMSE_out, " [m/s, m/s, deg/s]")
+        print("Velocity mean w/o outliers: ", v_mean_out, " [m/s, m/s, deg/s]")
+    else:
+        print("Velocity RMSE: ", v_RMSE, " [m/s, m/s, m/s, deg/s, deg/s, deg/s]")
+        print("Velocity mean: ", v_mean, " [m/s, m/s, m/s, deg/s, deg/s, deg/s]")
+        print("Velocity RMSE w/o outliers: ", v_RMSE_out, " [m/s, m/s, m/s, deg/s, deg/s, deg/s]")
+        print("Velocity mean w/o outliers: ", v_mean_out, " [m/s, m/s, m/s, deg/s, deg/s, deg/s]")
+
+    return v_RMSE, v_mean
 
 
 if __name__ == "__main__":
@@ -92,4 +96,6 @@ if __name__ == "__main__":
     parser.set_defaults(radar=False)
     args = parser.parse_args()
 
-    eval_odom(args.pred, args.gt, args.radar, args.velocity)
+    eval_odom(args.pred, args.gt, args.radar)
+    if args.velocity:
+        eval_odom_vel(args.pred, args.gt, args.radar)
