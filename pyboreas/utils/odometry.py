@@ -150,6 +150,8 @@ def calc_sequence_errors(poses_gt, poses_pred, step_size, dim=3):
     else:
         lengths = [100, 200, 300, 400, 500, 600, 700, 800]
         
+    lengths = [100, 200, 300, 400, 500, 600, 700, 800]
+        
     err = []
     # Pre-compute distances from ground truth as reference
     dist = trajectory_distances(poses_gt)
@@ -301,7 +303,7 @@ def plot_loc_stats(
     plt.axis("equal")
     plt.legend(loc="upper right")
     plt.savefig(
-        os.path.join(plot_dir, seq[:-4] + "_path.pdf"),
+        os.path.join(plot_dir, seq + "_path.pdf"),
         pad_inches=0,
         bbox_inches="tight",
     )
@@ -343,7 +345,7 @@ def plot_loc_stats(
         axs[5].set_ylabel("psi_3")
         axs[5].set_xlabel("time (s)")
         plt.savefig(
-            os.path.join(plot_dir, seq[:-4] + "_errs.pdf"),
+            os.path.join(plot_dir, seq + "_errs.pdf"),
             pad_inches=0,
             bbox_inches="tight",
         )
@@ -360,22 +362,29 @@ def plot_loc_stats(
         axs[1, 1].hist(e[:, 3], bins=20)
         axs[1, 1].set_title("Orientation Error (deg)")
         plt.savefig(
-            os.path.join(plot_dir, seq[:-4] + "_hist.pdf"),
+            os.path.join(plot_dir, seq + "_hist.pdf"),
             pad_inches=0,
             bbox_inches="tight",
         )
         plt.close()
 
     e = np.array(errs)
-    fig, axs = plt.subplots(1, 3, figsize=(12, 4))
-    axs[0].hist(e[:, 0], bins=20)
-    axs[0].set_title("Lateral Error (m)")
-    axs[1].hist(e[:, 1], bins=20)
-    axs[1].set_title("Longitudinal Error (m)")
-    axs[2].hist(e[:, 5], bins=20)
-    axs[2].set_title("Yaw Error (deg)")
+    fig, axs = plt.subplots(2, 3, figsize=(12, 8))
+    axs[0, 0].hist(e[:, 0], bins=20)
+    axs[0, 0].set_title("Lateral Error (m)")
+    axs[0, 1].hist(e[:, 1], bins=20)
+    axs[0, 1].set_title("Longitudinal Error (m)")
+    axs[0, 2].hist(e[:, 2], bins=20)
+    axs[0, 2].set_title("Altitudinal Error (m)")
+    axs[1, 0].hist(e[:, 3], bins=20)
+    axs[1, 0].set_title("Roll Error (deg)")
+    axs[1, 1].hist(e[:, 4], bins=20)
+    axs[1, 1].set_title("Pitch Error (deg)")
+    axs[1, 2].hist(e[:, 5], bins=20)
+    axs[1, 2].set_title("Yaw Error (deg)")
+    # axs[2].set_xlim(-2, 2)
     plt.savefig(
-        os.path.join(plot_dir, seq[:-4] + "_hist.pdf"),
+        os.path.join(plot_dir, seq + "_hist.pdf"),
         pad_inches=0,
         bbox_inches="tight",
     )

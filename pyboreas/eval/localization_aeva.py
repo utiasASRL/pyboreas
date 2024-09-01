@@ -4,6 +4,7 @@ import os.path as osp
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 from pyboreas.data.splits import loc_reference
 from pyboreas.utils.odometry import plot_loc_stats, read_traj_file2, read_traj_file_gt2
@@ -13,6 +14,7 @@ from pyboreas.utils.utils import (
     get_inverse_tf,
     rotToRollPitchYaw,
 )
+from pyboreas.eval.odometry_aeva import get_aeva_hq_groundtruth
 
 
 def get_Tas(gtpath, seq, sensor="aeva"):
@@ -66,6 +68,9 @@ def compute_errors(Te):
 def root_mean_square(errs):
     return np.sqrt(np.mean(np.power(np.array(errs), 2), axis=0)).squeeze()
 
+def take_mean(errs):
+    return np.mean(np.array(errs), axis=0).squeeze()
+
 # QOL: make gt data the same length as pred data
 def adjust_length(T, seq_lens, target_len_T, target_len_seq_lens):
     if len(T) > target_len_T:
@@ -79,15 +84,14 @@ def adjust_length(T, seq_lens, target_len_T, target_len_seq_lens):
         seq_lens += [seq_lens[-1]] * pad_len
     return T, seq_lens
 
-def eval_local(
+def eval_boreas_local(
     predpath,
     gtpath,
     gt_ref_seq,
     ref_sensor="aeva",
     test_sensor="aeva",
     dim=3,
-    plot_dir=None,
-):
+    plot_dir=None):
     
     T_s_v = np.array([[0.9999366830849237, 0.008341717781538466, 0.0075534496251198685, -1.0119098938516395],
                         [-0.008341717774127972, 0.9999652112886684, -3.150635091210066e-05, -0.3965882433517194],
@@ -180,6 +184,12 @@ def eval_local(
                 rmse[0], rmse[1], rmse[2], rmse[3], rmse[4], rmse[5]
             )
         )
+        mean_err = take_mean(errs)
+        print(
+            "mean: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg".format(
+                mean_err[0], mean_err[1], mean_err[2], mean_err[3], mean_err[4], mean_err[5]
+            )
+        )
         c = -1
         if has_cov:
             c = np.sqrt(max(0, np.mean(consist) / 6.0))
@@ -206,6 +216,132 @@ def eval_local(
 
     return errs, gt_seqs
 
+def eval_aevahq_local(
+    predpath,
+    gtpath,
+    gt_ref_seq,
+    ref_sensor="aeva",
+    test_sensor="aeva",
+    dim=3,
+    plot_dir=None):
+    
+    pred_files = sorted(
+        [
+            f
+            for f in os.listdir(predpath)
+            if f.startswith("route") and f.endswith(".txt") and "err" not in f
+        ]
+    )
+    gt_seqs = []
+    for predfile in pred_files:
+        if Path(predfile).stem.split(".")[0] not in os.listdir(gtpath):
+            raise Exception(
+                f"prediction file {predfile} doesn't match ground truth sequence list"
+            )
+        gt_seqs.append(Path(predfile).stem.split(".")[0])
+        
+    pdcsv = pd.read_csv(osp.join(gtpath, gt_ref_seq, "processed_sbet.csv"))
+    gt_ref_poses, gt_ref_times, _ = get_aeva_hq_groundtruth(pdcsv)
+
+    seq_rmse = []
+    seq_consist = []
+    seqs_have_cov = True
+    for predfile, seq in zip(pred_files, gt_seqs):
+        print("Processing {}...".format(seq))
+        T_as = get_Tas(gtpath, seq, ref_sensor) # T_applanix_sensor
+        T_sa = get_inverse_tf(T_as)             # T_sensor_applanix
+        pred_poses, pred_times, ref_times, cov_matrices, has_cov = read_traj_file2(
+            osp.join(predpath, predfile)
+        )
+        seqs_have_cov *= has_cov
+        gt_poses, gt_times = read_traj_file_gt2(
+            osp.join(gtpath, seq, "applanix", test_sensor + "_poses.csv"), dim=dim
+        )
+        
+        # adjust the length of T_gt and seq_lens_gt
+        gt_poses, gt_times = adjust_length(gt_poses, gt_times, len(pred_poses), len(pred_times))
+        
+        print(len(gt_poses), len(pred_poses))
+        
+        # check that pred_times is a 1-to-1 match with gt_times
+        check_time_match(pred_times, gt_times)
+        # check that each ref time matches to one gps_ref_time
+        check_ref_time_match(ref_times, gt_ref_times)
+        errs = []
+        consist = []
+        T_gt_seq = []
+        T_pred_seq = []
+        Xi = []
+        Cov = []
+        for j, pred_T_s1_s2 in enumerate(pred_poses):
+            gt_T_enu_s2 = gt_poses[j]
+            T_gt_seq.append(get_inverse_tf(gt_T_enu_s2))
+
+            gt_T_enu_s1 = get_T_enu_s1(ref_times[j], gt_ref_times, gt_ref_poses)
+            T_pred_seq.append(get_inverse_tf(gt_T_enu_s1 @ pred_T_s1_s2))
+
+            gt_T_s1_s2 = get_inverse_tf(gt_T_enu_s1) @ gt_T_enu_s2
+            T = pred_T_s1_s2 @ get_inverse_tf(gt_T_s1_s2)
+            Te = T_as @ T @ T_sa # error is reported with x lateral, y longitudinal
+            errs.append(compute_errors(Te))
+            # If the user submitted a covariance matrix, calculate consistency
+            if has_cov:
+                if abs(np.sum(cov_matrices[j] - np.identity(6))) < 1e-3:
+                    consist.append(1)
+                xi = SE3Tose3(T)
+                Xi.append(xi.squeeze())
+                c = xi.T @ cov_matrices[j] @ xi
+                consist.append(
+                    c[0, 0]
+                )  # assumes user has uploaded inverse covariance matrices
+                Cov.append(1 / cov_matrices[j].diagonal())
+        Xi = np.array(Xi)
+        Cov = np.array(Cov)
+        if plot_dir is not None:
+            plot_err_file = osp.join(plot_dir, seq + "-err.txt")
+            print("Saving errs to {}...".format(plot_err_file))
+            np.savetxt(plot_err_file, np.array(errs))
+            plot_loc_stats(
+                seq, plot_dir, T_pred_seq, T_gt_seq, errs, consist, Xi, Cov, has_cov
+            )
+        rmse = root_mean_square(errs)
+        seq_rmse.append(rmse)
+        print(
+            "RMSE: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg".format(
+                rmse[0], rmse[1], rmse[2], rmse[3], rmse[4], rmse[5]
+            )
+        )
+        mean_err = take_mean(errs)
+        print(
+            "mean: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg".format(
+                mean_err[0], mean_err[1], mean_err[2], mean_err[3], mean_err[4], mean_err[5]
+            )
+        )
+        c = -1
+        if has_cov:
+            c = np.sqrt(max(0, np.mean(consist) / 6.0))
+            # c = np.mean(np.sqrt(np.array(consist) / 6.0))
+            print("Consistency: {}".format(c))
+        seq_consist.append(c)
+        print(" ")
+
+    seq_rmse = np.array(seq_rmse)
+    rmse = np.mean(seq_rmse, axis=0).squeeze()
+    print(
+        "Overall RMSE: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg".format(
+            rmse[0], rmse[1], rmse[2], rmse[3], rmse[4], rmse[5]
+        )
+    )
+    c = -1
+    if seqs_have_cov:
+        c = np.mean(seq_consist)
+        print("Overall Consistency: {}".format(c))
+        con = np.array(seq_consist).reshape(-1, 1)
+        errs = np.concatenate((seq_rmse, con), -1)
+    else:
+        errs = seq_rmse
+
+    return errs, gt_seqs
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -231,19 +367,31 @@ if __name__ == "__main__":
     )
     parser.add_argument("--dim", default=3, type=int, help="SE(3) or SE(2)")
     parser.add_argument("--plot", type=str, help="path to save plots")
+    parser.add_argument("--data_type", type=str, help="dataset name (aeva_boreas, aeva_hq)")
     args = parser.parse_args()
     assert args.ref_sensor in ["camera", "lidar", "radar", "aeva"]
     assert args.test_sensor in ["camera", "lidar", "radar", "aeva"]
+    assert args.data_type in ["aeva_boreas", "aeva_hq"]
     assert args.dim in [2, 3]
     if args.ref_sensor == "radar" or args.test_sensor == "radar":
         assert args.dim == 2
     os.makedirs(args.plot, exist_ok=True)
-    eval_local(
-        args.pred,
-        args.gt,
-        args.ref_seq,
-        args.ref_sensor,
-        args.test_sensor,
-        args.dim,
-        args.plot,
-    )
+    if args.data_type == "aeva_boreas":
+        eval_boreas_local(
+            args.pred,
+            args.gt,
+            args.ref_seq,
+            args.ref_sensor,
+            args.test_sensor,
+            args.dim,
+            args.plot)
+    elif args.data_type == "aeva_hq":
+        eval_aevahq_local(
+            args.pred,
+            args.gt,
+            args.ref_seq,
+            args.ref_sensor,
+            args.test_sensor,
+            args.dim,
+            args.plot,
+        )

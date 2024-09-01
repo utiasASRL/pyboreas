@@ -369,3 +369,62 @@ def get_T_bev_metric(resolution, width):
             [0, 0, 0, 1],
         ]
     )
+    
+def T2Cr(*, T_ab=None, return_r_ab_in_b=False):
+  assert T_ab is not None
+  C_ab = T_ab[..., 0:3, 0:3]
+  r_ba_ina = T_ab[..., 0:3, 3:4]
+  if return_r_ab_in_b:
+    return C_ab, -np.swapaxes(C_ab, -2, -1) @ r_ba_ina
+  else:
+    return C_ab, r_ba_ina
+
+def so3op_hat(x: np.ndarray) -> np.ndarray:
+  """Builds the 3x3 skew symmetric matrix
+
+  The hat (^) operator, builds the 3x3 skew symmetric matrix from the 3x1 vector:
+    v^ = [0.0  -v3   v2]
+         [ v3  0.0  -v1]
+         [-v2   v1  0.0]
+
+  See eq. 5 in Barfoot-TRO-2014 for more information.
+
+  Args:
+    x (np.ndarray): a 3x1 vector
+  Returns:
+    np.ndarray: the 3x3 skew symmetric matrix of x
+  """
+  assert x.shape[-2:] == (3, 1)
+  x_hat = np.zeros(x.shape[:-2] + (3, 3))
+  x_hat[..., 0, 1] = -x[..., 2, 0]
+  x_hat[..., 0, 2] = x[..., 1, 0]
+  x_hat[..., 1, 0] = x[..., 2, 0]
+  x_hat[..., 1, 2] = -x[..., 0, 0]
+  x_hat[..., 2, 0] = -x[..., 1, 0]
+  x_hat[..., 2, 1] = x[..., 0, 0]
+  return x_hat
+
+def tranAd(T_or_C_ab, r_ba_ina=None) -> np.ndarray:
+  """Builds the 6x6 adjoint transformation matrix from either the 3x3 rotation matrix and 3x1 translation vector, or the
+  4x4 transformation matrix.
+  Adjoint(T_ab) = Adjoint([C_ab r_ba_ina]) = [C_ab r_ba_ina^*C_ab] = exp(curlyhat(xi_ba))
+                          ([ 0^T        1])   [   0           C_ab]
+  See eq. 101 in Barfoot-TRO-2014 for more information.
+
+  Args:
+    T_or_C_ab (np.ndarray): either 4x4 transformation matrix T_ab, or 3x3 rotation matrix C_ab if r_ba_ina is None
+    r_ba_ina (np.ndarray|None): 3x1 translation vector
+  Returns:
+    np.ndarray: the 6x6 adjoint transformation matrix
+  """
+  if r_ba_ina is None:
+    C_ab, r_ba_ina = T2Cr(T_ab=T_or_C_ab)
+  else:
+    C_ab = T_or_C_ab
+
+  adjoint_T_ab = np.zeros(T_or_C_ab.shape[:-2] + (6, 6))
+  adjoint_T_ab[..., :3, :3] = C_ab
+  adjoint_T_ab[..., 3:, 3:] = C_ab
+  adjoint_T_ab[..., :3, 3:] = so3op_hat(r_ba_ina) @ C_ab
+
+  return adjoint_T_ab
