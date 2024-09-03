@@ -23,11 +23,21 @@ def eval_odom(pred="test/demo/pred/3d", gt="test/demo/gt", radar=False):
     seq = get_sequences(pred, ".txt")
     T_pred, times_pred, seq_lens_pred = get_sequence_poses(pred, seq)
 
+    # Addition to filter parameter specific sequence to regular sequence ground truth
+    seq_gt = []
+    for s in seq:
+        curr_seq = s.split('_')[0]
+        if ".txt" != curr_seq[-4:]: 
+            curr_seq=curr_seq+".txt"
+        seq_gt.append(curr_seq)
+
+    # seq_gt = [s.split('_')[0]+".txt" for s in seq]
+
     # get corresponding groundtruth poses
-    T_gt, _, seq_lens_gt, crop = get_sequence_poses_gt(gt, seq, dim)
+    T_gt, _, seq_lens_gt, crop = get_sequence_poses_gt(gt, seq_gt, dim)
 
     # compute errors
-    t_err, r_err, _ = compute_kitti_metrics(
+    t_err, r_err, _, t_re_rmse, t_re_rmse_99f9 = compute_kitti_metrics(
         T_gt, T_pred, seq_lens_gt, seq_lens_pred, seq, pred, dim, crop
     )
 
@@ -35,7 +45,9 @@ def eval_odom(pred="test/demo/pred/3d", gt="test/demo/gt", radar=False):
     print("Evaluated sequences: ", seq)
     print("Overall error: ", t_err, " %, ", r_err, " deg/m")
 
-    return t_err, r_err
+    # return t_err, r_err
+    return t_err, r_err, t_re_rmse, t_re_rmse_99f9
+
 
 def eval_odom_vel(pred="test/demo/pred/3d", gt="test/demo/gt", radar=False):
     # evaluation mode
@@ -45,8 +57,19 @@ def eval_odom_vel(pred="test/demo/pred/3d", gt="test/demo/gt", radar=False):
     seq = get_sequences(pred, ".txt")
     vel_pred, times_pred, seq_vel_lens_pred = get_sequence_velocities(pred, seq, dim)
 
+    # Addition to filter parameter specific sequence to regular sequence ground truth
+    seq_gt = []
+    for s in seq:
+        curr_seq = s.split('_')[0]
+        if ".txt" != curr_seq[-4:]: 
+            curr_seq=curr_seq+".txt"
+        seq_gt.append(curr_seq)
+    
+    # seq_gt = [s.split('_')[0]+".txt" for s in seq]
+
     # get corresponding groundtruth poses
-    vel_gt, _, seq_lens_gt, crop = get_sequence_velocities_gt(gt, seq, dim)
+    # vel_gt, _, seq_lens_gt, crop = get_sequence_velocities_gt(gt, seq, dim)
+    vel_gt, _, seq_lens_gt, crop = get_sequence_velocities_gt(gt, seq_gt, dim)
 
     # compute errors
     v_RMSE, v_mean, v_RMSE_out, v_mean_out = compute_vel_metrics(vel_gt, vel_pred, times_pred, seq, pred, dim, crop)

@@ -117,7 +117,7 @@ class OdometryTestCase(unittest.TestCase):
         T_pred, times_pred, seq_lens_pred = get_sequence_poses(interp, seq)
 
         # compute errors
-        _, _, err_list = compute_kitti_metrics(
+        _, _, err_list, _, _ = compute_kitti_metrics(
             T_gt, T_pred, seq_lens_gt, seq_lens_pred, seq, "", dim, crop
         )
 
