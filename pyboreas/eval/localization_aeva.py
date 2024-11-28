@@ -15,6 +15,7 @@ from pyboreas.utils.utils import (
     rotToRollPitchYaw,
 )
 from pyboreas.eval.odometry_aeva import get_aeva_hq_groundtruth
+import pyboreas.utils.se3_utils_numpy as se3
 
 
 def get_Tas(gtpath, seq, sensor="aeva"):
@@ -102,7 +103,7 @@ def eval_boreas_local(
         [
             f
             for f in os.listdir(predpath)
-            if f.startswith("boreas-20") and f.endswith(".txt") and "err" not in f
+            if f.startswith("20") and f.endswith(".txt") and "err" not in f
         ]
     )
     gt_seqs = []
@@ -239,34 +240,48 @@ def eval_aevahq_local(
                 f"prediction file {predfile} doesn't match ground truth sequence list"
             )
         gt_seqs.append(Path(predfile).stem.split(".")[0])
-        
-    pdcsv = pd.read_csv(osp.join(gtpath, gt_ref_seq, "processed_sbet.csv"))
-    gt_ref_poses, gt_ref_times, _ = get_aeva_hq_groundtruth(pdcsv)
 
     seq_rmse = []
     seq_consist = []
     seqs_have_cov = True
     for predfile, seq in zip(pred_files, gt_seqs):
         print("Processing {}...".format(seq))
-        T_as = get_Tas(gtpath, seq, ref_sensor) # T_applanix_sensor
-        T_sa = get_inverse_tf(T_as)             # T_sensor_applanix
+        
+        T_lidar_robot = np.array([[ 0.9999366830849237  , 0.008341717781538466 , 0.0075534496251198685,-1.0119098938516395],
+                                  [-0.008341717774127972, 0.9999652112886684   ,-3.150635091210066e-05,-0.3965882433517194],
+                                  [-0.007553449599178521,-3.150438868196706e-05, 0.9999714717963843   ,-1.697000000000001 ],
+                                  [ 0.00000000e+00      , 0.00000000e+00       , 0.00000000e+00       , 1.00000000e+00    ]]).astype(np.float64)
+        
+        T_r_app = np.array([[ 9.99960818e-01,-1.40913767e-03, 8.73943838e-03, 0.00000000e+00],
+                            [ 1.40913767e-03, 9.99999007e-01, 6.15750237e-06, 0.00000000e+00],
+                            [-8.73943838e-03, 6.15781076e-06, 9.99961810e-01, 0.00000000e+00],
+                            [ 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]).astype(np.float64)
+        T_sa = T_lidar_robot @ T_r_app          # T_sensor_applanix 
+        T_as = get_inverse_tf(T_sa)             # T_applanix_sensor
         pred_poses, pred_times, ref_times, cov_matrices, has_cov = read_traj_file2(
             osp.join(predpath, predfile)
         )
         seqs_have_cov *= has_cov
-        gt_poses, gt_times = read_traj_file_gt2(
-            osp.join(gtpath, seq, "applanix", test_sensor + "_poses.csv"), dim=dim
-        )
         
-        # adjust the length of T_gt and seq_lens_gt
-        gt_poses, gt_times = adjust_length(gt_poses, gt_times, len(pred_poses), len(pred_times))
+        query_times = np.array(pred_times) / 1000
+        quert_ref_times = np.array(ref_times) / 1000       
+        
+        pdcsv = pd.read_csv(osp.join(gtpath, gt_ref_seq, "processed_sbet.csv"))
+        gt_ref_poses, gt_ref_times, _ = get_aeva_hq_groundtruth(pdcsv, quert_ref_times) # T_vi
+        gt_ref_poses = se3.se3_inv(T_lidar_robot @ gt_ref_poses)            # T_is
+        
+        pdcsv = pd.read_csv(osp.join(gtpath, seq, "processed_sbet.csv"))
+        gt_poses, gt_times, _ = get_aeva_hq_groundtruth(pdcsv, query_times) # T_vi
+        gt_poses = se3.se3_inv(T_lidar_robot @ gt_poses)                    # T_is
         
         print(len(gt_poses), len(pred_poses))
         
+        # # commented out because these should be the same in aevaHQ -- we are interpolating GT at pred times
         # check that pred_times is a 1-to-1 match with gt_times
-        check_time_match(pred_times, gt_times)
+        # check_time_match(pred_times, gt_times)
         # check that each ref time matches to one gps_ref_time
-        check_ref_time_match(ref_times, gt_ref_times)
+        # check_ref_time_match(ref_times, gt_ref_times)
+        
         errs = []
         consist = []
         T_gt_seq = []
@@ -276,8 +291,7 @@ def eval_aevahq_local(
         for j, pred_T_s1_s2 in enumerate(pred_poses):
             gt_T_enu_s2 = gt_poses[j]
             T_gt_seq.append(get_inverse_tf(gt_T_enu_s2))
-
-            gt_T_enu_s1 = get_T_enu_s1(ref_times[j], gt_ref_times, gt_ref_poses)
+            gt_T_enu_s1 = get_T_enu_s1(ref_times[j], gt_ref_times * 1000, gt_ref_poses)
             T_pred_seq.append(get_inverse_tf(gt_T_enu_s1 @ pred_T_s1_s2))
 
             gt_T_s1_s2 = get_inverse_tf(gt_T_enu_s1) @ gt_T_enu_s2

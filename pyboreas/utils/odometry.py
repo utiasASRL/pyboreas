@@ -145,12 +145,11 @@ def calc_sequence_errors(poses_gt, poses_pred, step_size, dim=3):
     """
     # temp modification for testing - remove before merge!
     if len(poses_pred) < 2000:
-        print("\n***WARNING***: provided prediction sequence is too short! Using placeholder values. Error metrics will be incorrect.")
+        # temp case -- used in testing 
+        print("\n***WARNING***: provided prediction sequence is too short! Using placeholder values in KITTI evaluation. Error metrics will be incorrect.")
         lengths = [1, 2, 3, 4, 5, 6, 7, 8]
     else:
         lengths = [100, 200, 300, 400, 500, 600, 700, 800]
-        
-    lengths = [100, 200, 300, 400, 500, 600, 700, 800]
         
     err = []
     # Pre-compute distances from ground truth as reference

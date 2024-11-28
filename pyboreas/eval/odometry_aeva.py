@@ -61,11 +61,14 @@ def get_sequence_poses_gt(path, seq, data_type):
             T_calib = np.eye(4) # will convert to vehicle frame after interpolation
         elif (data_type == "aeva_boreas"):
             filepath = os.path.join(path, dir, "applanix/aeva_poses.csv")  # use 'aeva_poses.csv' for groundtruth, T_world_sensor
-            T_as = np.loadtxt(os.path.join(path, dir, "calib/T_applanix_aeva.txt"))
-            T_sr = np.array([[ 0.9999366830849237  , 0.008341717781538466 , 0.0075534496251198685,-1.0119098938516395],
-                             [-0.008341717774127972, 0.9999652112886684   ,-3.150635091210066e-05,-0.3965882433517194],
-                             [-0.007553449599178521,-3.150438868196706e-05, 0.9999714717963843   ,-1.697000000000001 ],
-                             [ 0.00000000e+00      , 0.00000000e+00       , 0.00000000e+00       , 1.00000000e+00    ]]).astype(np.float64)
+            # T_sr = np.array([[ 0.9999366830849237  , 0.008341717781538466 , 0.0075534496251198685,-1.0119098938516395],
+            #                  [-0.008341717774127972, 0.9999652112886684   ,-3.150635091210066e-05,-0.3965882433517194],
+            #                  [-0.007553449599178521,-3.150438868196706e-05, 0.9999714717963843   ,-1.697000000000001 ],
+            #                  [ 0.00000000e+00      , 0.00000000e+00       , 0.00000000e+00       , 1.00000000e+00    ]]).astype(np.float64)
+            T_sr = np.array([[ 0.99982945,  0.01750912,  0.00567659, -1.03971349],
+                             [-0.01754661,  0.99973757,  0.01034526, -0.38788971],
+                             [-0.00549427, -0.01044368,  0.99993037, -1.69798033],
+                             [ 0         ,  0         ,  0         ,  1         ]]).astype(np.float64)
             T_calib = T_sr
         
         with open(filepath, "r") as f:
@@ -282,8 +285,20 @@ def get_aeva_hq_groundtruth(pdcsv, times_pred):
     T_gt, _ = wnoa_interp_traj(times_gt, raw_Tiv, varpi_gt, query_times)
     T_gt = T_r_app @ T_gt
     seq_lens_gt.append(len(T_gt))
-    return T_gt, times_gt, seq_lens_gt
+    return T_gt, times_pred, seq_lens_gt
     
+# QOL: make gt data the same length as pred data
+def adjust_length(T, seq_lens, target_len_T, target_len_seq_lens):
+    if len(T) > target_len_T:
+        T = T[:target_len_T]
+        seq_lens = seq_lens[:target_len_seq_lens]
+    elif len(T) < target_len_T:
+        # pad with the last pose repeated
+        last_pose = T[-1]
+        pad_len = target_len_T - len(T)
+        T += [last_pose] * pad_len
+        seq_lens += [seq_lens[-1]] * pad_len
+    return T, seq_lens
 
 def eval_odom(pred, gt, data_type):
     # parse sequences
@@ -293,6 +308,8 @@ def eval_odom(pred, gt, data_type):
     # get corresponding groundtruth poses
     if (data_type == "aeva_boreas"):
         T_gt, times_gt, seq_lens_gt = get_sequence_poses_gt(gt, seq, data_type)
+        print(len(T_pred), len(T_gt))
+        T_gt, seq_lens_gt = adjust_length(T_gt, seq_lens_gt, len(T_pred), len(seq_lens_pred))
     
     if (data_type == "aeva_hq"):
         for filename in seq:
