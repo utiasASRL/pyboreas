@@ -128,9 +128,6 @@ def last_frame_from_segment_length(dist, first_frame, length):
         last_frame (int): index of the last frame in this segment
     """
     for i in range(first_frame, len(dist)):
-        # print(vel_gt_seq[i])
-        # if vel_gt_seq[i][0][0] < 1:
-            # break
         if dist[i] > dist[first_frame] + length:
             return i
     return -1
@@ -147,45 +144,15 @@ def calc_sequence_errors(poses_gt, poses_pred, step_size, dim=3):
         lengths (List[int]): list of lengths that odometry is evaluated at
     """
     lengths = [100, 200, 300, 400, 500, 600, 700, 800]
-    # lengths = [1]
     err = []
     # Pre-compute distances from ground truth as reference
     dist = trajectory_distances(poses_gt)
 
-    new_segment = False
-    curr_last_frame = 0
-    curr_last_frame_per_length = {}
-    for length in lengths: curr_last_frame_per_length[length]=0
-
-    max_index = (len(poses_gt) - 1)
-    # step_size_original=step_size
-    step_size_original=1
-    step_size=1
-
-    for first_frame_step_1 in range(0, len(poses_gt), step_size):
+    for first_frame in range(0, len(poses_gt), step_size):
         for length in lengths:
-            first_frame = first_frame_step_1*step_size_original
-            if first_frame > max_index: continue
             last_frame = last_frame_from_segment_length(dist, first_frame, length)
-            
-            # if length != 1:
-            #     first_frame = first_frame_step_1*step_size_original
-            #     if first_frame > max_index: continue
-            #     last_frame = last_frame_from_segment_length(dist, first_frame, length)
-            # else: 
-            #     first_frame=first_frame_step_1
-            #     last_frame = first_frame+1
-            #     if first_frame >= max_index: continue
-
-
             if last_frame == -1:
                 continue
-
-            # Determine if this is a new segment for Relative Error
-            if first_frame >= curr_last_frame_per_length[length]:
-                curr_last_frame_per_length[length] = last_frame
-                new_segment = True
-
             # Compute rotational and translation errors
             pose_delta_gt = np.matmul(
                 poses_gt[last_frame], get_inverse_tf(poses_gt[first_frame])
@@ -203,29 +170,15 @@ def calc_sequence_errors(poses_gt, poses_pred, step_size, dim=3):
             # Approx speed
             num_frames = float(last_frame - first_frame + 1)
             speed = float(length) / (0.1 * num_frames)
-
-            t_re_err= -1.0
-            r_re_err= -1.0
-            if new_segment:
-                t_re_err = t_err
-                r_re_err = r_err
-                new_segment = False
-                curr_last_frame_per_length[length] = last_frame
-
-            err.append([first_frame, r_err/float(length), t_err/float(length), length, speed, t_re_err, r_re_err])
-
-            # err.append(
-            #     [
-            #         first_frame,
-            #         r_err / float(length),
-            #         t_err / float(length),
-            #         length,
-            #         speed,
-            #     ]
-            # )
-    # if 1 in lengths:
-    #     lengths = [num for num in lengths if num != 1]
-
+            err.append(
+                [
+                    first_frame,
+                    r_err / float(length),
+                    t_err / float(length),
+                    length,
+                    speed,
+                ]
+            )
     return err, lengths
 
 
@@ -243,72 +196,24 @@ def get_stats(err, lengths):
     t_err_len = [0.0] * len(len2id)
     r_err_len = [0.0] * len(len2id)
     len_count = [0] * len(len2id)
-
-    t_re_err_map = {}
-    for length in lengths:t_re_err_map[length] = []
-    # t_re_err_accum = []
-    relative_error_count = 0
-
     for e in err:
-
-        # Length == 1m
-        # if e[3] == 50:
-        #     relative_error_count+=1
-        #     if e[5] > 0:
-        #         # t_re_err_map[e[3]].append(e[5])
-        #         t_re_err_accum.append(e[5])
-        #     continue
-        if e[5] > 0:
-            t_re_err_map[e[3]].append(e[5])
-
         t_err += e[2]
         r_err += e[1]
         j = len2id[e[3]]
         t_err_len[j] += e[2]
         r_err_len[j] += e[1]
         len_count[j] += 1
-
-    t_err /= float(len(err)-relative_error_count)
-    r_err /= float(len(err)-relative_error_count)
-
-    t_re_package = []
-    avg_t_re_rmse = 0
-    avg_t_re_rmse_99f9 = 0
-
-    for length in lengths:
-        t_re_err_accum = t_re_err_map[length]
-
-        if t_re_err_accum != []:
-            t_re_rmse = np.sqrt(np.mean(np.array(t_re_err_accum) ** 2))
-
-            sorted_errors = np.sort(t_re_err_accum)
-            percentile_cutoff = np.percentile(sorted_errors, 99.9)
-            t_re_err_accum_99f9_percentile = sorted_errors[sorted_errors <= percentile_cutoff]
-            t_re_rmse_99f9 = np.sqrt(np.mean(np.array(t_re_err_accum_99f9_percentile) ** 2))
-
-            t_re_err_above_99f9_percentile = sorted_errors[sorted_errors > percentile_cutoff]
-            avg_above_99f9 = np.mean(np.array(t_re_err_above_99f9_percentile))
-            max_above_99f9 = np.max(np.array(t_re_err_above_99f9_percentile))
-
-            avg_t_re_rmse += t_re_rmse
-            avg_t_re_rmse_99f9 += t_re_rmse_99f9
-
-            # t_re_package = [t_re_err_accum_99f9_percentile, t_re_rmse, t_re_rmse_99f9, avg_above_99f9, max_above_99f9]
-    avg_t_re_rmse = avg_t_re_rmse / len(lengths)
-    avg_t_re_rmse_99f9 = avg_t_re_rmse_99f9 / len(lengths)
-
-    t_re_package = [t_re_err_accum_99f9_percentile, avg_t_re_rmse, avg_t_re_rmse_99f9, avg_above_99f9, max_above_99f9]
-
+    t_err /= float(len(err))
+    r_err /= float(len(err))
     return (
         t_err * 100,
         r_err * 180 / np.pi,
         [a / float(b) * 100 for a, b in zip(t_err_len, len_count)],
         [a / float(b) * 180 / np.pi for a, b in zip(r_err_len, len_count)],
-        t_re_package
     )
 
 
-def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err, t_re_package):
+def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err):
     """Outputs plots of calculated statistics to specified directory.
     Args:
         seq (List[string]): list of sequence file names
@@ -362,27 +267,6 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err, t_re_package):
         os.path.join(dir, seq[:-4] + "_rl.pdf"), pad_inches=0, bbox_inches="tight"
     )
     plt.close()
-
-    if t_re_package != []:
-        t_re_err_accum=t_re_package[0]
-        avg_above_99f9=t_re_package[3]
-        max_above_99f9=t_re_package[4]
-        # plot of histogram
-        std_dev = np.std(t_re_err_accum)
-        plt.figure(figsize=(6, 6))
-        plt.hist(t_re_err_accum, bins=30, edgecolor='black')
-        plt.axvline(np.mean(t_re_err_accum), color='red', linestyle='dashed', linewidth=1, label=f'Mean: {np.mean(t_re_err_accum):.2f}')
-        plt.axvline(np.mean(t_re_err_accum) + std_dev, color='green', linestyle='dashed', linewidth=1, label=f'Std Dev: {std_dev:.2f}')
-        plt.axvline(np.mean(t_re_err_accum) - std_dev, color='green', linestyle='dashed', linewidth=1)
-        plt.xlabel('Translation Error [m]')
-        plt.ylabel('Count')
-        handles, labels = plt.gca().get_legend_handles_labels()
-        handles.extend([plt.Line2D([0], [0], color='white', marker='', linestyle=''),
-                        plt.Line2D([0], [0], color='white', marker='', linestyle='')])
-        labels.extend(["Max in 99.9th: "+str(round(max_above_99f9, 2)), "Mean in 99.9th: "+str(round(avg_above_99f9, 2))])
-        plt.legend(handles, labels, loc="upper right")
-        plt.savefig(os.path.join(dir, seq[:-4] + '_tl_hist.pdf'), pad_inches=0, bbox_inches='tight')
-        plt.close()
 
 
 def plot_loc_stats(
@@ -675,11 +559,11 @@ def compute_kitti_metrics(
 
         # 2d
         err, path_lengths = calc_sequence_errors(T_gt_seq, T_pred_seq, step_size, 2)
-        t_err_2d, r_err_2d, _, _, _ = get_stats(err, path_lengths)
+        t_err_2d, r_err_2d, _, _ = get_stats(err, path_lengths)
 
         # 3d
         err, path_lengths = calc_sequence_errors(T_gt_seq, T_pred_seq, step_size)
-        t_err, r_err, t_err_len, r_err_len, t_re_package = get_stats(err, path_lengths)
+        t_err, r_err, t_err_len, r_err_len = get_stats(err, path_lengths)
 
         print(seq[i], "took", str(time() - ts), " seconds")
         # print('Error: ', t_err, ' %, ', r_err, ' deg/m \n')
@@ -697,8 +581,7 @@ def compute_kitti_metrics(
                 T_gt_seq,
                 path_lengths,
                 t_err_len,
-                r_err_len,
-                t_re_package
+                r_err_len
             )
 
     err_list = np.asarray(err_list)
@@ -706,13 +589,7 @@ def compute_kitti_metrics(
     t_err = avg[0]
     r_err = avg[1]
 
-    t_re_rmse = 0
-    t_re_rmse_99f9 = 0
-    if t_re_package != []:
-        t_re_rmse = t_re_package[1]
-        t_re_rmse_99f9 = t_re_package[2]
-
-    return t_err, r_err, err_list, t_re_rmse, t_re_rmse_99f9
+    return t_err, r_err, err_list
 
 
 def get_sequences(path, file_ext=""):
@@ -1321,21 +1198,6 @@ def plot_vel_stats(seq, dir, vel_pred, vel_gt, v_err, times_ii):
 
     plt.savefig(os.path.join(dir, seq[:-4] + "_vel.pdf"), pad_inches=0, bbox_inches='tight')
     plt.close()
-
-    print(v_err[:,0])
-    print(len(v_err[:,0]))
-
-    abs_values = np.abs(v_err[:,0])
-    
-    # Get the indices of the top n largest absolute values
-    top_indices = np.argsort(abs_values)[-10:]
-    
-    # Sort the indices in descending order based on their absolute values
-    top_indices = sorted(top_indices, key=lambda x: abs_values[x], reverse=True)
-    
-    # Print the indices and values of the top n largest absolute values
-    for index in top_indices:
-        print(f"Index: {index}, Value: {v_err[index,0]}")
 
     # Plot errors
     fig, axs = plt.subplots(1, 3, figsize=(18, 3))
