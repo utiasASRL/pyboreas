@@ -5,9 +5,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from pyboreas.data.splits import loc_reference
-from pyboreas.utils.odometry import plot_loc_stats, read_traj_file2, read_traj_file_gt2
+from pyboreas.utils.odometry import plot_loc_stats, read_traj_file2, read_traj_file_gt2, get_path_from_Tvi_list
 from pyboreas.utils.utils import (
     SE3Tose3,
     get_closest_index,
@@ -91,13 +92,20 @@ def eval_boreas_local(
     gt_ref_seq,
     ref_sensor="aeva",
     test_sensor="aeva",
+    sensor_type="aevaii_boreas",
     dim=3,
     plot_dir=None):
     
-    T_s_v = np.array([[0.9999366830849237, 0.008341717781538466, 0.0075534496251198685, -1.0119098938516395],
-                        [-0.008341717774127972, 0.9999652112886684, -3.150635091210066e-05, -0.3965882433517194],
-                        [-0.007553449599178521, -3.1504388681967066e-05, 0.9999714717963843, -1.697000000000001],
-                        [0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]]).astype(np.float64)
+    if sensor_type == "aevaii_boreas":
+        T_s_v = np.array([[ 0.99982945,  0.01750912,  0.00567659, -1.03971349],
+                          [-0.01754661,  0.99973757,  0.01034526, -0.38788971],
+                          [-0.00549427, -0.01044368,  0.99993037, -1.69798033],
+                          [ 0, 0, 0, 1]]).astype(np.float64)
+    elif sensor_type == "aeva_boreas":
+        T_s_v = np.array([[0.9999366830849237, 0.008341717781538466, 0.0075534496251198685, -1.0119098938516395],
+                          [-0.008341717774127972, 0.9999652112886684, -3.150635091210066e-05, -0.3965882433517194],
+                          [-0.007553449599178521, -3.1504388681967066e-05, 0.9999714717963843, -1.697000000000001],
+                          [0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]]).astype(np.float64)
     
     pred_files = sorted(
         [
@@ -180,6 +188,50 @@ def eval_boreas_local(
             )
         rmse = root_mean_square(errs)
         seq_rmse.append(rmse)
+        
+        T_pred = np.array(
+            [np.linalg.inv(T_i_vk)[:3, 3] for T_i_vk in T_pred_seq], dtype=np.float64
+        )
+        T_gt = np.array(
+            [np.linalg.inv(T_i_vk)[:3, 3] for T_i_vk in T_gt_seq], dtype=np.float64
+        )
+        fig, ax = plt.subplots(1, 3, figsize=(13, 9))
+        
+        # xy
+        ax[0].plot(T_pred[:, 0], T_pred[:, 1], label='pred')
+        ax[0].plot(T_gt[:, 0], T_gt[:, 1], linestyle='dashed', label = 'gt')
+        ax[0].grid()
+        ax[0].legend()
+        ax[0].set_xlabel('x [m]')
+        ax[0].set_ylabel('y [m]')
+        ax[0].axis('equal')
+
+        # xz
+        ax[1].plot(T_pred[:, 0], T_pred[:, 2], label='pred')
+        ax[1].plot(T_gt[:, 0], T_gt[:, 2], linestyle='dashed', label = 'gt')
+        ax[1].grid()
+        ax[1].legend()
+        ax[1].set_xlabel('x [m]')
+        ax[1].set_ylabel('z [m]')
+        ax[1].axis('equal')
+
+        # yz
+        ax[2].plot(T_pred[:, 1], T_pred[:, 2], label='pred')
+        ax[2].plot(T_gt[:, 1], T_gt[:, 2], linestyle='dashed', label = 'gt')
+        ax[2].grid()
+        ax[2].legend()
+        ax[2].set_xlabel('y [m]')
+        ax[2].set_ylabel('z [m]')
+        ax[2].axis('equal')   
+
+        fig.suptitle("RMSE: x: {} m y: {} m z: {} m\nroll: {} deg pitch: {} deg yaw: {} deg".format(
+            rmse[0], rmse[1], rmse[2], rmse[3], rmse[4], rmse[5]))
+        fig.tight_layout()
+        save_path = os.path.join(plot_dir, seq + '_path.png')
+        print('Path saved to ', save_path)
+        plt.savefig(save_path)
+        plt.close()
+        
         print(
             "RMSE: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg".format(
                 rmse[0], rmse[1], rmse[2], rmse[3], rmse[4], rmse[5]
@@ -381,22 +433,23 @@ if __name__ == "__main__":
     )
     parser.add_argument("--dim", default=3, type=int, help="SE(3) or SE(2)")
     parser.add_argument("--plot", type=str, help="path to save plots")
-    parser.add_argument("--data_type", type=str, help="dataset name (aeva_boreas, aeva_hq)")
+    parser.add_argument("--data_type", type=str, help="dataset name (aeva_boreas, aevaii_boreas, aeva_hq)")
     args = parser.parse_args()
     assert args.ref_sensor in ["camera", "lidar", "radar", "aeva"]
     assert args.test_sensor in ["camera", "lidar", "radar", "aeva"]
-    assert args.data_type in ["aeva_boreas", "aeva_hq"]
+    assert args.data_type in ["aeva_boreas", "aevaii_boreas", "aeva_hq"]
     assert args.dim in [2, 3]
     if args.ref_sensor == "radar" or args.test_sensor == "radar":
         assert args.dim == 2
     os.makedirs(args.plot, exist_ok=True)
-    if args.data_type == "aeva_boreas":
+    if args.data_type == "aeva_boreas" or args.data_type == "aevaii_boreas":
         eval_boreas_local(
             args.pred,
             args.gt,
             args.ref_seq,
             args.ref_sensor,
             args.test_sensor,
+            args.data_type,
             args.dim,
             args.plot)
     elif args.data_type == "aeva_hq":

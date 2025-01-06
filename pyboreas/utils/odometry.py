@@ -672,15 +672,15 @@ def get_sequence_poses_gt(path, seq, dim):
             )  # use 'lidar_poses.csv' for groundtruth
             T_calib = np.loadtxt(os.path.join(path, dir, "calib/T_applanix_lidar.txt"))
             poses, times = read_traj_file_gt(filepath, T_calib, dim)
-            times_np = np.stack(times)
+            times_np = np.array(times)
 
-            filepath = os.path.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
-            _, ctimes = read_traj_file_gt(filepath, np.identity(4), dim)
-            istart = np.searchsorted(times_np, ctimes[0])
-            iend = np.searchsorted(times_np, ctimes[-1])
-            poses = poses[istart:iend]
-            times = times[istart:iend]
-            crop += [(istart, iend)]
+            # filepath = os.path.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
+            # _, ctimes = read_traj_file_gt(filepath, np.identity(4), dim)
+            # istart = np.searchsorted(times_np, ctimes[0])
+            # iend = np.searchsorted(times_np, ctimes[-1])
+            # poses = poses[istart:iend]
+            # times = times[istart:iend]
+            # crop += [(istart, iend)]
 
         elif dim == 2:
             filepath = os.path.join(

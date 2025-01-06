@@ -5,6 +5,7 @@ from time import time
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from pyboreas.utils.odometry import (
     calc_sequence_errors,
@@ -13,6 +14,7 @@ from pyboreas.utils.odometry import (
     get_sequences,
     get_stats,
     plot_stats,
+    get_path_from_Tvi_list,
 )
 
 from pyboreas.utils.utils import (
@@ -61,10 +63,13 @@ def get_sequence_poses_gt(path, seq, data_type):
             T_calib = np.eye(4) # will convert to vehicle frame after interpolation
         elif (data_type == "aeva_boreas"):
             filepath = os.path.join(path, dir, "applanix/aeva_poses.csv")  # use 'aeva_poses.csv' for groundtruth, T_world_sensor
-            # T_sr = np.array([[ 0.9999366830849237  , 0.008341717781538466 , 0.0075534496251198685,-1.0119098938516395],
-            #                  [-0.008341717774127972, 0.9999652112886684   ,-3.150635091210066e-05,-0.3965882433517194],
-            #                  [-0.007553449599178521,-3.150438868196706e-05, 0.9999714717963843   ,-1.697000000000001 ],
-            #                  [ 0.00000000e+00      , 0.00000000e+00       , 0.00000000e+00       , 1.00000000e+00    ]]).astype(np.float64)
+            T_sr = np.array([[ 0.9999366830849237  , 0.008341717781538466 , 0.0075534496251198685,-1.0119098938516395],
+                             [-0.008341717774127972, 0.9999652112886684   ,-3.150635091210066e-05,-0.3965882433517194],
+                             [-0.007553449599178521,-3.150438868196706e-05, 0.9999714717963843   ,-1.697000000000001 ],
+                             [ 0.00000000e+00      , 0.00000000e+00       , 0.00000000e+00       , 1.00000000e+00    ]]).astype(np.float64)
+            T_calib = T_sr
+        elif (data_type == "aevaii_boreas"):
+            filepath = os.path.join(path, dir, "applanix/aeva_poses.csv")  # use 'aeva_poses.csv' for groundtruth, T_world_sensor
             T_sr = np.array([[ 0.99982945,  0.01750912,  0.00567659, -1.03971349],
                              [-0.01754661,  0.99973757,  0.01034526, -0.38788971],
                              [-0.00549427, -0.01044368,  0.99993037, -1.69798033],
@@ -305,10 +310,11 @@ def eval_odom(pred, gt, data_type):
     seq = get_sequences(pred, ".txt")
     T_pred, times_pred, seq_lens_pred = get_sequence_poses(pred, seq)
     
+    print('data type: ', data_type)
     # get corresponding groundtruth poses
-    if (data_type == "aeva_boreas"):
+    if (data_type == "aeva_boreas" or data_type == "aevaii_boreas"):
         T_gt, times_gt, seq_lens_gt = get_sequence_poses_gt(gt, seq, data_type)
-        print(len(T_pred), len(T_gt))
+        print("original sequence lengths (gt, pred): ", len(T_gt), ", ", len(T_pred))
         T_gt, seq_lens_gt = adjust_length(T_gt, seq_lens_gt, len(T_pred), len(seq_lens_pred))
     
     if (data_type == "aeva_hq"):
@@ -318,16 +324,55 @@ def eval_odom(pred, gt, data_type):
         pdcsv = pd.read_csv(os.path.join(gt, dir, "processed_sbet.csv"))
         T_gt, _, seq_lens_gt = get_aeva_hq_groundtruth(pdcsv, times_pred)
         
-    print("sequence lengths (gt, pred): ", len(T_gt), ", ", len(T_pred))
+    print("new sequence lengths (gt, pred): ", len(T_gt), ", ", len(T_pred))
 
     # compute errors
     t_err, r_err, _ = compute_kitti_metrics(
         T_gt, T_pred, seq_lens_gt, seq_lens_pred, seq, pred, 3, None
     )
-
+    
     # print out results
     print("Evaluated sequences: ", seq)
     print("Overall error: ", t_err, " %, ", r_err, " deg/m")
+    
+    T_pred, T_gt = get_path_from_Tvi_list(T_pred, T_gt)
+    
+    fig, ax = plt.subplots(1, 3, figsize=(13, 9))
+    
+    # xy
+    ax[0].plot(T_pred[:, 0], T_pred[:, 1], label='pred')
+    ax[0].plot(T_gt[:, 0], T_gt[:, 1], linestyle='dashed', label = 'gt')
+    ax[0].grid()
+    ax[0].legend()
+    ax[0].set_xlabel('x [m]')
+    ax[0].set_ylabel('y [m]')
+    ax[0].axis('equal')
+
+    # xz
+    ax[1].plot(T_pred[:, 0], T_pred[:, 2], label='pred')
+    ax[1].plot(T_gt[:, 0], T_gt[:, 2], linestyle='dashed', label = 'gt')
+    ax[1].grid()
+    ax[1].legend()
+    ax[1].set_xlabel('x [m]')
+    ax[1].set_ylabel('z [m]')
+    ax[1].axis('equal')
+
+    # yz
+    ax[2].plot(T_pred[:, 1], T_pred[:, 2], label='pred')
+    ax[2].plot(T_gt[:, 1], T_gt[:, 2], linestyle='dashed', label = 'gt')
+    ax[2].grid()
+    ax[2].legend()
+    ax[2].set_xlabel('y [m]')
+    ax[2].set_ylabel('z [m]')
+    ax[2].axis('equal')   
+
+    fig.suptitle('pred: {:.4f}, {:.4f}'.format(t_err, r_err))
+    fig.tight_layout()
+    save_path = os.path.join('external/pyboreas/pyboreas/figs/', pred + '_path.png')
+    print('Path saved to ', save_path)
+    plt.savefig(save_path)
+    plt.close()
+    
     return t_err, r_err
 
 if __name__ == "__main__":
