@@ -74,17 +74,13 @@ def take_mean(errs):
     return np.mean(np.array(errs), axis=0).squeeze()
 
 # QOL: make gt data the same length as pred data
-def adjust_length(T, seq_lens, target_len_T, target_len_seq_lens):
-    if len(T) > target_len_T:
-        T = T[:target_len_T]
-        seq_lens = seq_lens[:target_len_seq_lens]
-    elif len(T) < target_len_T:
-        # pad with the last pose repeated
-        last_pose = T[-1]
-        pad_len = target_len_T - len(T)
-        T += [last_pose] * pad_len
-        seq_lens += [seq_lens[-1]] * pad_len
-    return T, seq_lens
+def adjust_length(gt_poses, gt_times, target_len):
+    if len(gt_poses) > target_len:
+        gt_poses = gt_poses[:target_len]
+        gt_times = gt_times[:target_len]
+    else:
+        raise Exception("gt_poses is shorter than pred_poses, try regenerating the gt data")
+    return gt_poses, gt_times
 
 def eval_boreas_local(
     predpath,
@@ -140,8 +136,22 @@ def eval_boreas_local(
             osp.join(gtpath, seq, "applanix", test_sensor + "_poses.csv"), dim=dim
         )
         
+        cutoff = len(pred_poses) # 2139
+        print(len(gt_poses), len(pred_poses))
+       
         # adjust the length of T_gt and seq_lens_gt
-        gt_poses, gt_times = adjust_length(gt_poses, gt_times, len(pred_poses), len(pred_times))
+        gt_poses, gt_times = adjust_length(gt_poses, gt_times, cutoff)
+        pred_poses = pred_poses[:cutoff]
+        pred_times = pred_times[:cutoff]
+        
+        
+        # Compare pred times to gt times and list the indices where they differ
+        differing_indices = np.where(np.array(pred_times) != np.array(gt_times))[0]
+        if len(differing_indices) > 0:
+            print("Indices where pred times differ from gt times:")
+            print(differing_indices, len(differing_indices))
+        else:
+            print("No differences between pred times and gt times.")
         
         print(len(gt_poses), len(pred_poses))
         
@@ -231,6 +241,22 @@ def eval_boreas_local(
         print('Path saved to ', save_path)
         plt.savefig(save_path)
         plt.close()
+        
+        # 3D plot
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot(T_pred[:, 0], T_pred[:, 1], T_pred[:, 2], label='pred')
+        ax.plot(T_gt[:, 0], T_gt[:, 1], T_gt[:, 2], linestyle='dashed', label='gt')
+        ax.set_xlabel('X [m]')
+        ax.set_ylabel('Y [m]')
+        ax.set_zlabel('Z [m]')
+        ax.legend()
+        ax.grid()
+        ax.set_title('3D Trajectory')
+        save_path_3d = os.path.join(plot_dir, seq + '_path_3D.png')
+        print('3D Path saved to ', save_path_3d)
+        plt.savefig(save_path_3d)
+        plt.show()
         
         print(
             "RMSE: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg".format(

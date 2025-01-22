@@ -373,6 +373,22 @@ def eval_odom(pred, gt, data_type):
     plt.savefig(save_path)
     plt.close()
     
+    # 3D plot
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot(T_pred[:, 0], T_pred[:, 1], T_pred[:, 2], label='pred')
+    ax.plot(T_gt[:, 0], T_gt[:, 1], T_gt[:, 2], linestyle='dashed', label='gt')
+    ax.set_xlabel('X [m]')
+    ax.set_ylabel('Y [m]')
+    ax.set_zlabel('Z [m]')
+    ax.legend()
+    ax.grid()
+    ax.set_title('3D Trajectory')
+    save_path_3d = os.path.join('external/pyboreas/pyboreas/figs/', pred + '_path_3d.png')
+    print('3D Path saved to ', save_path_3d)
+    plt.savefig(save_path_3d)
+    plt.show()
+    
     return t_err, r_err
 
 if __name__ == "__main__":

@@ -25,7 +25,7 @@ class BoreasDataset:
                 [
                     [f]
                     for f in os.listdir(root)
-                    if f.startswith("boreas-") and f != "boreas-test-gt"
+                    if f.startswith("boreas-") or f.startswith("20") and f != "boreas-test-gt"
                 ]
             )
 

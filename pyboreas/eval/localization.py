@@ -81,7 +81,7 @@ def eval_local(
         [
             f
             for f in os.listdir(predpath)
-            if f.startswith("boreas-20") and f.endswith(".txt") and "err" not in f
+            if f.startswith("20") and f.endswith(".txt") and "err" not in f
         ]
     )
     gt_seqs = []
