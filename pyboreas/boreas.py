@@ -30,13 +30,8 @@ class BoreasDataset:
             )
 
         # It takes a few seconds to construct each sequence, so we parallelize this
-        global _load_seq
-
-        def _load_seq(seqSpec):
-            return Sequence(root, seqSpec, labelFolder=self.labelFolder)
-
         pool = Pool(multiprocessing.cpu_count())
-        self.sequences = list(pool.map(_load_seq, split))
+        self.sequences = list(pool.starmap(Sequence, ((root, s, self.labelFolder) for s in split)))
         self.sequences.sort(key=lambda x: x.ID)
 
         for seq in self.sequences:
