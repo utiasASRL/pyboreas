@@ -213,7 +213,7 @@ def get_stats(err, lengths):
     )
 
 
-def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err):
+def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err, err_2d_per_frame=None, err_stats_2d=None):
     """Outputs plots of calculated statistics to specified directory.
     Args:
         seq (List[string]): list of sequence file names
@@ -223,6 +223,8 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err):
         lengths (List[int]): list of lengths that odometry is evaluated at
         t_err (List[float]): list of average translation error corresponding to lengths
         r_err (List[float]): list of average rotation error corresponding to lengths
+        err_2d_per_frame (Dict): dictionary of average 2D translation and rotation errors per frame
+        err_stats_2d (Dict): is a dictionary with key as the first frame of the sequence and value as a list of [r_err, t_err, count, err_per_length]
     """
     path_odom, path_gt = get_path_from_Tvi_list(T_odom, T_gt)
 
@@ -267,6 +269,133 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err):
         os.path.join(dir, seq[:-4] + "_rl.pdf"), pad_inches=0, bbox_inches="tight"
     )
     plt.close()
+
+    if err_2d_per_frame is not None:
+        err_2d_per_frame = dict(sorted(err_2d_per_frame.items()))
+        path_odom = path_odom[list(err_2d_per_frame.keys())]
+        path_gt = path_gt[list(err_2d_per_frame.keys())]
+        # plot the gt trajectory and the estimated trajectory, but the estimated trajectory is colored by the rotation error
+        plt.figure(figsize=(6, 6))
+        plt.plot(path_odom[:, 0], path_odom[:, 1], "b", linewidth=0.5, label="Estimate")
+        plt.plot(path_gt[:, 0], path_gt[:, 1], "--r", linewidth=0.5, label="Groundtruth")
+        plt.plot(
+            path_gt[0, 0],
+            path_gt[0, 1],
+            "ks",
+            markerfacecolor="none",
+            label="Sequence Start",
+        )
+        sc = plt.scatter(
+            path_odom[:len(err_2d_per_frame.keys()), 0],
+            path_odom[:len(err_2d_per_frame.keys()), 1],
+            c=[r_err for r_err, _ in err_2d_per_frame.values()],
+            cmap="viridis",
+            label="Rotation Error",
+            s=5  # reduce the size of points
+        )
+        plt.colorbar(sc, label="Rotation Error [deg/m]")
+        plt.xlabel("x [m]")
+        plt.ylabel("y [m]")
+        plt.axis("equal")
+        plt.legend(loc="upper right")
+        plt.savefig(
+            os.path.join(dir, seq[:-4] + "_path_r_err.pdf"),
+            pad_inches=0,
+            bbox_inches="tight",
+        )
+        plt.close()
+
+        # plot the gt trajectory and the estimated trajectory, but the estimated trajectory is colored by the translation error
+        plt.figure(figsize=(6, 6))
+        plt.plot(path_odom[:, 0], path_odom[:, 1], "b", linewidth=0.5, label="Estimate")
+        plt.plot(path_gt[:, 0], path_gt[:, 1], "--r", linewidth=0.5, label="Groundtruth")
+        plt.plot(
+            path_gt[0, 0],
+            path_gt[0, 1],
+            "ks",
+            markerfacecolor="none",
+            label="Sequence Start",
+        )
+        sc = plt.scatter(
+            path_odom[:len(err_2d_per_frame.keys()), 0],
+            path_odom[:len(err_2d_per_frame.keys()), 1],
+            c=[t_err for _, t_err in err_2d_per_frame.values()],
+            cmap="viridis",
+            label="Translation Error",
+            s=5 # reduce the size of points
+        )
+        plt.colorbar(sc, label="Translation Error [%]")
+        plt.xlabel("x [m]")
+        plt.ylabel("y [m]")
+        plt.axis("equal")
+        plt.legend(loc="upper right")
+        plt.savefig(
+            os.path.join(dir, seq[:-4] + "_path_t_err.pdf"),
+            pad_inches=0,
+            bbox_inches="tight",
+        )
+        plt.close()
+
+        # plot of translation error per frame
+        plt.figure(figsize=(6, 3))
+        # plt.plot(err_2d_per_frame.keys(), [v[1] for v in err_2d_per_frame.values()], "bs", markerfacecolor="none")
+        plt.plot(err_2d_per_frame.keys(), [v[1] for v in err_2d_per_frame.values()], "b")
+        plt.xlabel("Frame")
+        plt.ylabel("Translation Error [%]")
+        plt.savefig(
+            os.path.join(dir, seq[:-4] + "_tl_frame.pdf"), pad_inches=0, bbox_inches="tight"
+        )
+        plt.close()
+
+        # plot of rotation error per frame
+        plt.figure(figsize=(6, 3))
+        # plt.plot(err_2d_per_frame.keys(), [v[0] for v in err_2d_per_frame.values()], "bs", markerfacecolor="none")
+        plt.plot(err_2d_per_frame.keys(), [v[0] for v in err_2d_per_frame.values()], "b")
+        plt.xlabel("Frame")
+        plt.ylabel("Rotation Error [deg/m]")
+        plt.savefig(
+            os.path.join(dir, seq[:-4] + "_rl_frame.pdf"), pad_inches=0, bbox_inches="tight"
+        )
+        plt.close()
+
+    if err_stats_2d is not None:
+        # err_stats_2d is a dictionary with key as the first frame of the sequence and value as a list of [r_err, t_err, count, err_per_length]
+        # plot rotational error per length
+        plt.figure(figsize=(10, 5))
+        for i, length in enumerate(lengths):
+            plt.plot(
+                list(err_stats_2d.keys()),
+                [v[3][i] for v in err_stats_2d.values()],
+                label=f"Rotational Error {length}m",
+            )
+        plt.xlabel("Frame")
+        plt.ylabel("Rotational Error")
+        plt.legend(loc="upper right")
+        plt.savefig(
+            os.path.join(dir, seq[:-4] + "_rotational_error_per_length.pdf"),
+            pad_inches=0,
+            bbox_inches="tight",
+        )
+        plt.close()
+
+        # plot translational error per length
+        plt.figure(figsize=(10, 5))
+        for i, length in enumerate(lengths):
+            plt.plot(
+                list(err_stats_2d.keys()),
+                [v[3][len(lengths) + i] for v in err_stats_2d.values()],
+                label=f"Translational Error {length}m",
+            )
+        plt.xlabel("Frame")
+        plt.ylabel("Translational Error")
+        plt.legend(loc="upper right")
+        plt.savefig(
+            os.path.join(dir, seq[:-4] + "_translational_error_per_length.pdf"),
+            pad_inches=0,
+            bbox_inches="tight",
+        )
+        plt.close()
+    
 
 
 def plot_loc_stats(
@@ -506,6 +635,34 @@ def compute_interpolation(
     return
 
 
+def get_stats_per_frame(err, lengths) :
+    """Computes the average translation and rotation within a sequence (across subsequences of diff lengths) per each frame.
+    Args:
+        err (List[Tuple]): each entry in list is [first_frame, r_err, t_err, length, speed]
+        lengths (List[int]): list of lengths that odometry is evaluated at
+    Returns:
+        average translation (%) and rotation (deg/m) errors
+    """
+
+    err_dict = {}
+    for e in err:
+        first_frame = e[0]
+        r_err = e[1]
+        t_err = e[2]
+        l_id = e[3]
+        if first_frame not in err_dict:
+            err_dict[first_frame] = [r_err, t_err, 1, np.zeros(len(lengths)*2)]
+        else:
+            err_dict[first_frame][0] += r_err
+            err_dict[first_frame][1] += t_err
+            err_dict[first_frame][2] += 1
+        err_dict[first_frame][3][lengths.index(l_id)] = r_err *100
+        err_dict[first_frame][3][len(lengths) + lengths.index(l_id)] = t_err *100
+
+    avg_err_dict = {k: (v[0] / v[2] * 100, v[1] / v[2] * 100) for k, v in err_dict.items()}
+    return avg_err_dict, err_dict
+
+
 def compute_kitti_metrics(
     T_gt, T_pred, seq_lens_gt, seq_lens_pred, seq, plot_dir, dim, crop
 ):
@@ -561,9 +718,13 @@ def compute_kitti_metrics(
         err, path_lengths = calc_sequence_errors(T_gt_seq, T_pred_seq, step_size, 2)
         t_err_2d, r_err_2d, _, _ = get_stats(err, path_lengths)
 
+        err_2d_per_frame, err_stats_2d = get_stats_per_frame(err, path_lengths)
+
         # 3d
         err, path_lengths = calc_sequence_errors(T_gt_seq, T_pred_seq, step_size)
         t_err, r_err, t_err_len, r_err_len = get_stats(err, path_lengths)
+
+        err_3d_per_frame, err_stats_3d = get_stats_per_frame(err, path_lengths)
 
         print(seq[i], "took", str(time() - ts), " seconds")
         # print('Error: ', t_err, ' %, ', r_err, ' deg/m \n')
@@ -581,7 +742,9 @@ def compute_kitti_metrics(
                 T_gt_seq,
                 path_lengths,
                 t_err_len,
-                r_err_len
+                r_err_len,
+                err_2d_per_frame,
+                err_stats_2d
             )
 
     err_list = np.asarray(err_list)
