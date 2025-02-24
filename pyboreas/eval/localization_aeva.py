@@ -16,6 +16,7 @@ from pyboreas.utils.utils import (
     rotToRollPitchYaw,
 )
 from pyboreas.eval.odometry_aeva import get_aeva_hq_groundtruth
+import csv
 import pyboreas.utils.se3_utils_numpy as se3
 
 
@@ -66,7 +67,6 @@ def compute_errors(Te):
         y * 180 / np.pi,
     ]
 
-
 def root_mean_square(errs):
     return np.sqrt(np.mean(np.power(np.array(errs), 2), axis=0)).squeeze()
 
@@ -82,6 +82,109 @@ def adjust_length(gt_poses, gt_times, target_len):
         raise Exception("gt_poses is shorter than pred_poses, try regenerating the gt data")
     return gt_poses, gt_times
 
+def plot_loc_with_rmse(T_pred, T_gt, rmse, save_loc_name, plot_dir):
+    fig, ax = plt.subplots(1, 3, figsize=(13, 9))
+    # xy
+    ax[0].plot(T_pred[:, 0], T_pred[:, 1], label='pred')
+    ax[0].plot(T_gt[:, 0], T_gt[:, 1], linestyle='dashed', label = 'gt')
+    ax[0].grid()
+    ax[0].legend()
+    ax[0].set_xlabel('x [m]')
+    ax[0].set_ylabel('y [m]')
+    ax[0].axis('equal')
+
+    # xz
+    ax[1].plot(T_pred[:, 0], T_pred[:, 2], label='pred')
+    ax[1].plot(T_gt[:, 0], T_gt[:, 2], linestyle='dashed', label = 'gt')
+    ax[1].grid()
+    ax[1].legend()
+    ax[1].set_xlabel('x [m]')
+    ax[1].set_ylabel('z [m]')
+    ax[1].axis('equal')
+
+    # yz
+    ax[2].plot(T_pred[:, 1], T_pred[:, 2], label='pred')
+    ax[2].plot(T_gt[:, 1], T_gt[:, 2], linestyle='dashed', label = 'gt')
+    ax[2].grid()
+    ax[2].legend()
+    ax[2].set_xlabel('y [m]')
+    ax[2].set_ylabel('z [m]')
+    ax[2].axis('equal')   
+
+    fig.suptitle("RMSE: x: {} m y: {} m z: {} m\nroll: {} deg pitch: {} deg yaw: {} deg".format(
+        rmse[0], rmse[1], rmse[2], rmse[3], rmse[4], rmse[5]))
+    fig.tight_layout()
+    save_path = os.path.join(plot_dir, save_loc_name + '_path.png')
+    print('Path saved to ', save_path)
+    plt.savefig(save_path)
+    plt.close()
+
+def plot_3d_loc(T_pred, T_gt, save_loc_name, plot_dir):
+    # 3D plot
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot(T_pred[:, 0], T_pred[:, 1], T_pred[:, 2], label='pred')
+    ax.plot(T_gt[:, 0], T_gt[:, 1], T_gt[:, 2], linestyle='dashed', label='gt')
+    ax.set_xlabel('X [m]')
+    ax.set_ylabel('Y [m]')
+    ax.set_zlabel('Z [m]')
+    ax.legend()
+    ax.grid()
+    ax.set_title('3D Trajectory')
+    save_path_3d = os.path.join(plot_dir, save_loc_name + '_path_3D.png')
+    print('3D Path saved to ', save_path_3d)
+    plt.savefig(save_path_3d)
+
+def plot_errs_with_time(errs, timestamps, save_loc_name, plot_dir):
+    fig, ax = plt.subplots(2, 3, figsize=(18, 12))
+        
+    ax[0, 0].plot(timestamps, errs[:, 0], label='x error')
+    ax[0, 0].set_xlabel('Time [s]')
+    ax[0, 0].set_ylabel('Error [m]')
+    ax[0, 0].set_title('X Error')
+    ax[0, 0].grid()
+    
+    ax[0, 1].plot(timestamps, errs[:, 1], label='y error')
+    ax[0, 1].set_xlabel('Time [s]')
+    ax[0, 1].set_ylabel('Error [m]')
+    ax[0, 1].set_title('Y Error')
+    ax[0, 1].grid()
+    
+    ax[0, 2].plot(timestamps, errs[:, 2], label='z error')
+    ax[0, 2].set_xlabel('Time [s]')
+    ax[0, 2].set_ylabel('Error [m]')
+    ax[0, 2].set_title('Z Error')
+    ax[0, 2].grid()
+    
+    ax[1, 0].plot(timestamps, errs[:, 3], label='roll error')
+    ax[1, 0].set_xlabel('Time [s]')
+    ax[1, 0].set_ylabel('Error [deg]')
+    ax[1, 0].set_title('Roll Error')
+    ax[1, 0].grid()
+    
+    ax[1, 1].plot(timestamps, errs[:, 4], label='pitch error')
+    ax[1, 1].set_xlabel('Time [s]')
+    ax[1, 1].set_ylabel('Error [deg]')
+    ax[1, 1].set_title('Pitch Error')
+    ax[1, 1].grid()
+    
+    ax[1, 2].plot(timestamps, errs[:, 5], label='yaw error')
+    ax[1, 2].set_xlabel('Time [s]')
+    ax[1, 2].set_ylabel('Error [deg]')
+    ax[1, 2].set_title('Yaw Error')
+    ax[1, 2].grid()
+    
+    fig.suptitle('Errors as a function of timestamps')
+    fig.tight_layout()
+    for i in range(2):
+        for j in range(3):
+            mean = np.mean(errs[:, i * 3 + j])
+            stddev = np.std(errs[:, i * 3 + j])
+            ax[i, j].legend(title=f"mean: {mean:.2f}, stddev: {stddev:.2f}")
+    save_path_errors = os.path.join(plot_dir, save_loc_name + '_errors.png')
+    plt.savefig(save_path_errors)
+    plt.close()
+
 def eval_boreas_local(
     predpath,
     gtpath,
@@ -90,7 +193,8 @@ def eval_boreas_local(
     test_sensor="aeva",
     sensor_type="aevaii_boreas",
     dim=3,
-    plot_dir=None):
+    plot_dir=None,
+    loc_dir=None):
     
     if sensor_type == "aevaii_boreas":
         T_s_v = np.array([[ 0.99982945,  0.01750912,  0.00567659, -1.03971349],
@@ -110,8 +214,21 @@ def eval_boreas_local(
             if f.startswith("20") and f.endswith(".txt") and "err" not in f
         ]
     )
+
+    loc_name = sorted(
+        [
+            f.split('_threshold_')[0] + '.txt' if '_threshold_' in f else f
+            for f in os.listdir(predpath)
+            if f.startswith("20") and f.endswith(".txt") and "err" not in f
+        ]
+    )
+
+    if loc_dir is not None:
+        pred_files = [loc_dir + '.txt']
+        loc_name = [loc_dir.split('_threshold_')[0] if '_threshold_' in loc_dir else loc_dir]
+
     gt_seqs = []
-    for predfile in pred_files:
+    for predfile in loc_name:
         if Path(predfile).stem.split(".")[0] not in os.listdir(gtpath):
             raise Exception(
                 f"prediction file {predfile} doesn't match ground truth sequence list"
@@ -126,6 +243,8 @@ def eval_boreas_local(
     seqs_have_cov = True
     for predfile, seq in zip(pred_files, gt_seqs):
         print("Processing {}...".format(seq))
+        save_loc_name = predfile.replace('.txt', '')
+
         T_as = get_Tas(gtpath, seq, ref_sensor) # T_applanix_sensor
         T_sa = get_inverse_tf(T_as)             # T_sensor_applanix
         pred_poses, pred_times, ref_times, cov_matrices, has_cov = read_traj_file2(
@@ -136,15 +255,22 @@ def eval_boreas_local(
             osp.join(gtpath, seq, "applanix", test_sensor + "_poses.csv"), dim=dim
         )
         
-        cutoff = len(pred_poses) # 2139
+        cutoff = len(pred_poses)
         print(len(gt_poses), len(pred_poses))
+
+        # Iterate through gt_times and pred_times, remove missing timestamps in gt_times
+        i = 0
+        while i < len(pred_times):
+            if pred_times[i] != gt_times[i]:
+                print("Removing timestamp: ", gt_times[i])
+                gt_times = np.delete(gt_times, i)
+                gt_poses = np.delete(gt_poses, i, axis=0)
+            else:
+                i += 1
        
         # adjust the length of T_gt and seq_lens_gt
-        gt_poses, gt_times = adjust_length(gt_poses, gt_times, cutoff)
-        pred_poses = pred_poses[:cutoff]
-        pred_times = pred_times[:cutoff]
-        
-        
+        gt_poses, gt_times = adjust_length(gt_poses, gt_times, cutoff) 
+
         # Compare pred times to gt times and list the indices where they differ
         differing_indices = np.where(np.array(pred_times) != np.array(gt_times))[0]
         if len(differing_indices) > 0:
@@ -190,11 +316,11 @@ def eval_boreas_local(
         Xi = np.array(Xi)
         Cov = np.array(Cov)
         if plot_dir is not None:
-            plot_err_file = osp.join(plot_dir, seq + "-err.txt")
+            plot_err_file = osp.join(plot_dir, save_loc_name + "_err.txt")
             print("Saving errs to {}...".format(plot_err_file))
             np.savetxt(plot_err_file, np.array(errs))
             plot_loc_stats(
-                seq, plot_dir, T_pred_seq, T_gt_seq, errs, consist, Xi, Cov, has_cov
+                save_loc_name, plot_dir, T_pred_seq, T_gt_seq, errs, consist, Xi, Cov, has_cov
             )
         rmse = root_mean_square(errs)
         seq_rmse.append(rmse)
@@ -205,68 +331,71 @@ def eval_boreas_local(
         T_gt = np.array(
             [np.linalg.inv(T_i_vk)[:3, 3] for T_i_vk in T_gt_seq], dtype=np.float64
         )
-        fig, ax = plt.subplots(1, 3, figsize=(13, 9))
         
-        # xy
-        ax[0].plot(T_pred[:, 0], T_pred[:, 1], label='pred')
-        ax[0].plot(T_gt[:, 0], T_gt[:, 1], linestyle='dashed', label = 'gt')
-        ax[0].grid()
-        ax[0].legend()
-        ax[0].set_xlabel('x [m]')
-        ax[0].set_ylabel('y [m]')
-        ax[0].axis('equal')
+        plot_loc_with_rmse(T_pred, T_gt, rmse, save_loc_name, plot_dir)
+        plot_3d_loc(T_pred, T_gt, save_loc_name, plot_dir)
 
-        # xz
-        ax[1].plot(T_pred[:, 0], T_pred[:, 2], label='pred')
-        ax[1].plot(T_gt[:, 0], T_gt[:, 2], linestyle='dashed', label = 'gt')
-        ax[1].grid()
-        ax[1].legend()
-        ax[1].set_xlabel('x [m]')
-        ax[1].set_ylabel('z [m]')
-        ax[1].axis('equal')
+        if 'threshold' in save_loc_name:
+            print("\033[91mSequence: {}\033[0m \033[91mThreshold: {}\033[0m".format(save_loc_name.split('_threshold_')[0], save_loc_name.split('_threshold_')[1]))
 
-        # yz
-        ax[2].plot(T_pred[:, 1], T_pred[:, 2], label='pred')
-        ax[2].plot(T_gt[:, 1], T_gt[:, 2], linestyle='dashed', label = 'gt')
-        ax[2].grid()
-        ax[2].legend()
-        ax[2].set_xlabel('y [m]')
-        ax[2].set_ylabel('z [m]')
-        ax[2].axis('equal')   
+            log_dir = os.path.join(os.path.dirname(predpath), save_loc_name)
+            
+            # Get the last .log file in the directory
+            log_files = sorted([f for f in os.listdir(log_dir) if f.endswith('.log')])
+            if log_files:
+                last_log_file = log_files[-1]
+                log_file_path = osp.join(log_dir, last_log_file)
+                
+                # third last line has time
+                with open(log_file_path, 'r') as file:
+                    lines = file.readlines()
+                    if len(lines) >= 3:
+                        print(lines[-3].strip().split("[tactic.module]")[-1])
+                    else:
+                        print("Log file has less than 3 lines.")
 
-        fig.suptitle("RMSE: x: {} m y: {} m z: {} m\nroll: {} deg pitch: {} deg yaw: {} deg".format(
-            rmse[0], rmse[1], rmse[2], rmse[3], rmse[4], rmse[5]))
-        fig.tight_layout()
-        save_path = os.path.join(plot_dir, seq + '_path.png')
-        print('Path saved to ', save_path)
-        plt.savefig(save_path)
-        plt.close()
+                    type = "icp"
+                    for line in lines[-22:]:
+                        if "odometry_doppler" in line:
+                            type = "doppler"
+                            break
+
+            csv_file = os.path.join(plot_dir, '../../..', 'results.csv')
+            file_exists = os.path.isfile(csv_file)
+
+            with open(csv_file, 'a', newline='') as csvfile:
+                fieldnames = ['seq', 'type', 'thresh', 'time', 'x_rmse', 'y_rmse', 'z_rmse', 'roll_rmse', 'pitch_rmse', 'yaw_rmse']
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                
+                if not file_exists:
+                    writer.writeheader()
+                
+                writer.writerow({
+                    'seq': save_loc_name.split('_threshold_')[0],
+                    'type': type,
+                    'thresh': save_loc_name.split('_threshold_')[1],
+                    'time': lines[-3].strip().split("per frame: ")[-1].split(" ms")[0],
+                    'x_rmse': rmse[0],
+                    'y_rmse': rmse[1],
+                    'z_rmse': rmse[2],
+                    'roll_rmse': rmse[3],
+                    'pitch_rmse': rmse[4],
+                    'yaw_rmse': rmse[5]
+                })
+
+        print("\033[91mRMSE: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg\033[0m".format(
+            rmse[0], rmse[1], rmse[2], rmse[3], rmse[4], rmse[5]
+        ))
+           
+        # Plot errors as a function of timestamps
+        timestamps = (np.array(pred_times) - pred_times[0]) / 1e6
+        errs = np.array(errs)
+        plot_errs_with_time(errs, timestamps, save_loc_name, plot_dir)
         
-        # 3D plot
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        ax.plot(T_pred[:, 0], T_pred[:, 1], T_pred[:, 2], label='pred')
-        ax.plot(T_gt[:, 0], T_gt[:, 1], T_gt[:, 2], linestyle='dashed', label='gt')
-        ax.set_xlabel('X [m]')
-        ax.set_ylabel('Y [m]')
-        ax.set_zlabel('Z [m]')
-        ax.legend()
-        ax.grid()
-        ax.set_title('3D Trajectory')
-        save_path_3d = os.path.join(plot_dir, seq + '_path_3D.png')
-        print('3D Path saved to ', save_path_3d)
-        plt.savefig(save_path_3d)
-        plt.show()
-        
-        print(
-            "RMSE: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg".format(
-                rmse[0], rmse[1], rmse[2], rmse[3], rmse[4], rmse[5]
-            )
-        )
         mean_err = take_mean(errs)
         print(
-            "mean: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg".format(
-                mean_err[0], mean_err[1], mean_err[2], mean_err[3], mean_err[4], mean_err[5]
+            "\033[91mmean: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg\033[0m".format(
+            mean_err[0], mean_err[1], mean_err[2], mean_err[3], mean_err[4], mean_err[5]
             )
         )
         c = -1
@@ -280,10 +409,11 @@ def eval_boreas_local(
     seq_rmse = np.array(seq_rmse)
     rmse = np.mean(seq_rmse, axis=0).squeeze()
     print(
-        "Overall RMSE: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg".format(
+        "\033[94mOverall RMSE: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg\033[0m".format(
             rmse[0], rmse[1], rmse[2], rmse[3], rmse[4], rmse[5]
         )
     )
+    print("")
     c = -1
     if seqs_have_cov:
         c = np.mean(seq_consist)
@@ -460,6 +590,7 @@ if __name__ == "__main__":
     parser.add_argument("--dim", default=3, type=int, help="SE(3) or SE(2)")
     parser.add_argument("--plot", type=str, help="path to save plots")
     parser.add_argument("--data_type", type=str, help="dataset name (aeva_boreas, aevaii_boreas, aeva_hq)")
+    parser.add_argument("--loc_dir", type=str, help="select a loc sequence")
     args = parser.parse_args()
     assert args.ref_sensor in ["camera", "lidar", "radar", "aeva"]
     assert args.test_sensor in ["camera", "lidar", "radar", "aeva"]
@@ -477,7 +608,9 @@ if __name__ == "__main__":
             args.test_sensor,
             args.data_type,
             args.dim,
-            args.plot)
+            args.plot,
+            args.loc_dir
+        )
     elif args.data_type == "aeva_hq":
         eval_aevahq_local(
             args.pred,
