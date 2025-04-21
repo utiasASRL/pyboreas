@@ -53,6 +53,7 @@ class Sequence:
         print("camera frames: {}".format(len(self.camera_frames)))
         print("lidar frames: {}".format(len(self.lidar_frames)))
         print("radar frames: {}".format(len(self.radar_frames)))
+        print("aeva frames: {}".format(len(self.aeva_frames)))
         print("-------------------------------")
 
     def get_camera(self, idx):
@@ -96,6 +97,20 @@ class Sequence:
     def get_radar_iter(self):
         """Retrieves an iterator on radar frames"""
         return iter(self.radar)
+    
+    def get_aeva(self, idx):
+        self.aeva_frames[idx].load_data()
+        return self.aeva_frames[idx]
+    
+    @property
+    def aeva(self):
+        for aeva_frame in self.aeva_frames:
+            aeva_frame.load_data()
+            yield aeva_frame
+
+    def get_aeva_iter(self):
+        """Retrieves an iterator on aeva frames"""
+        return iter(self.aeva)
 
     def _check_dataroot_valid(self):
         """Checks if the sequence folder structure is valid"""
@@ -122,6 +137,10 @@ class Sequence:
             self.radar_frames
         ):
             print("WARNING: radar scans are not all downloaded: {}".format(self.ID))
+        if osp.isdir(self.aeva_root) and len(os.listdir(self.aeva_root)) < len(
+            self.aeva_frames
+        ):
+            print("WARNING: aeva frames are not all downloaded: {}".format(self.ID))
         gtfile = osp.join(self.applanix_root, "gps_post_process.csv")
         if not osp.exists(gtfile):
             print(

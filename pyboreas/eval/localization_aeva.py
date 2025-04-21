@@ -15,22 +15,12 @@ from pyboreas.utils.utils import (
     get_inverse_tf,
     rotToRollPitchYaw,
 )
-from pyboreas.eval.odometry_aeva import get_aeva_hq_groundtruth
 import csv
 import pyboreas.utils.se3_utils_numpy as se3
 
 
 def get_Tas(gtpath, seq, sensor="aeva"):
     T_applanix_aeva = np.loadtxt(osp.join(gtpath, seq, 'calib', 'T_applanix_aeva.txt'))
-    if sensor == "camera":
-        T_camera_lidar = np.loadtxt(osp.join(gtpath, seq, "calib", "T_camera_lidar.txt"))
-        return np.matmul(T_applanix_lidar, get_inverse_tf(T_camera_lidar))
-    elif sensor == "radar":
-        T_radar_lidar = np.loadtxt(osp.join(gtpath, seq, "calib", "T_radar_lidar.txt"))
-        return np.matmul(T_applanix_lidar, get_inverse_tf(T_radar_lidar))
-    elif sensor == "lidar":
-        T_applanix_lidar = np.loadtxt(osp.join(gtpath, seq, "calib", "T_applanix_lidar.txt"))
-        return T_applanix_lidar
     return T_applanix_aeva
 
 
@@ -191,27 +181,15 @@ def eval_boreas_local(
     gt_ref_seq,
     ref_sensor="aeva",
     test_sensor="aeva",
-    sensor_type="aevaii_boreas",
     dim=3,
     plot_dir=None,
     loc_dir=None):
-    
-    if sensor_type == "aevaii_boreas":
-        T_s_v = np.array([[ 0.99982945,  0.01750912,  0.00567659, -1.03971349],
-                          [-0.01754661,  0.99973757,  0.01034526, -0.38788971],
-                          [-0.00549427, -0.01044368,  0.99993037, -1.69798033],
-                          [ 0, 0, 0, 1]]).astype(np.float64)
-    elif sensor_type == "aeva_boreas":
-        T_s_v = np.array([[0.9999366830849237, 0.008341717781538466, 0.0075534496251198685, -1.0119098938516395],
-                          [-0.008341717774127972, 0.9999652112886684, -3.150635091210066e-05, -0.3965882433517194],
-                          [-0.007553449599178521, -3.1504388681967066e-05, 0.9999714717963843, -1.697000000000001],
-                          [0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]]).astype(np.float64)
     
     pred_files = sorted(
         [
             f
             for f in os.listdir(predpath)
-            if f.startswith("20") and f.endswith(".txt") and "err" not in f
+            if f.startswith("boreas") and f.endswith(".txt") and "err" not in f 
         ]
     )
 
@@ -219,7 +197,7 @@ def eval_boreas_local(
         [
             f.split('_threshold_')[0] + '.txt' if '_threshold_' in f else f
             for f in os.listdir(predpath)
-            if f.startswith("20") and f.endswith(".txt") and "err" not in f
+            if f.startswith("boreas") and f.endswith(".txt") and "err" not in f
         ]
     )
 
@@ -247,6 +225,12 @@ def eval_boreas_local(
 
         T_as = get_Tas(gtpath, seq, ref_sensor) # T_applanix_sensor
         T_sa = get_inverse_tf(T_as)             # T_sensor_applanix
+        T_ax_app = np.array([[ 0.0299955,  0.99955003,  0, 0.51],
+                             [-0.99955003,  0.0299955,  0, 0.0],
+                             [ 0, 0, 1, 1.45],
+                             [ 0, 0, 0, 1]]).astype(np.float64) # known extrinsic between applanix and vehicle
+        T_rs = T_ax_app @ T_as                  # T_rear_axle_sensor
+        T_sr = get_inverse_tf(T_rs)             # T_sensor_rear_axle
         pred_poses, pred_times, ref_times, cov_matrices, has_cov = read_traj_file2(
             osp.join(predpath, predfile)
         )
@@ -425,146 +409,6 @@ def eval_boreas_local(
 
     return errs, gt_seqs
 
-def eval_aevahq_local(
-    predpath,
-    gtpath,
-    gt_ref_seq,
-    ref_sensor="aeva",
-    test_sensor="aeva",
-    dim=3,
-    plot_dir=None):
-    
-    pred_files = sorted(
-        [
-            f
-            for f in os.listdir(predpath)
-            if f.startswith("route") and f.endswith(".txt") and "err" not in f
-        ]
-    )
-    gt_seqs = []
-    for predfile in pred_files:
-        if Path(predfile).stem.split(".")[0] not in os.listdir(gtpath):
-            raise Exception(
-                f"prediction file {predfile} doesn't match ground truth sequence list"
-            )
-        gt_seqs.append(Path(predfile).stem.split(".")[0])
-
-    seq_rmse = []
-    seq_consist = []
-    seqs_have_cov = True
-    for predfile, seq in zip(pred_files, gt_seqs):
-        print("Processing {}...".format(seq))
-        
-        T_lidar_robot = np.array([[ 0.9999366830849237  , 0.008341717781538466 , 0.0075534496251198685,-1.0119098938516395],
-                                  [-0.008341717774127972, 0.9999652112886684   ,-3.150635091210066e-05,-0.3965882433517194],
-                                  [-0.007553449599178521,-3.150438868196706e-05, 0.9999714717963843   ,-1.697000000000001 ],
-                                  [ 0.00000000e+00      , 0.00000000e+00       , 0.00000000e+00       , 1.00000000e+00    ]]).astype(np.float64)
-        
-        T_r_app = np.array([[ 9.99960818e-01,-1.40913767e-03, 8.73943838e-03, 0.00000000e+00],
-                            [ 1.40913767e-03, 9.99999007e-01, 6.15750237e-06, 0.00000000e+00],
-                            [-8.73943838e-03, 6.15781076e-06, 9.99961810e-01, 0.00000000e+00],
-                            [ 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]).astype(np.float64)
-        T_sa = T_lidar_robot @ T_r_app          # T_sensor_applanix 
-        T_as = get_inverse_tf(T_sa)             # T_applanix_sensor
-        pred_poses, pred_times, ref_times, cov_matrices, has_cov = read_traj_file2(
-            osp.join(predpath, predfile)
-        )
-        seqs_have_cov *= has_cov
-        
-        query_times = np.array(pred_times) / 1000
-        quert_ref_times = np.array(ref_times) / 1000       
-        
-        pdcsv = pd.read_csv(osp.join(gtpath, gt_ref_seq, "processed_sbet.csv"))
-        gt_ref_poses, gt_ref_times, _ = get_aeva_hq_groundtruth(pdcsv, quert_ref_times) # T_vi
-        gt_ref_poses = se3.se3_inv(T_lidar_robot @ gt_ref_poses)            # T_is
-        
-        pdcsv = pd.read_csv(osp.join(gtpath, seq, "processed_sbet.csv"))
-        gt_poses, gt_times, _ = get_aeva_hq_groundtruth(pdcsv, query_times) # T_vi
-        gt_poses = se3.se3_inv(T_lidar_robot @ gt_poses)                    # T_is
-        
-        print(len(gt_poses), len(pred_poses))
-        
-        # # commented out because these should be the same in aevaHQ -- we are interpolating GT at pred times
-        # check that pred_times is a 1-to-1 match with gt_times
-        # check_time_match(pred_times, gt_times)
-        # check that each ref time matches to one gps_ref_time
-        # check_ref_time_match(ref_times, gt_ref_times)
-        
-        errs = []
-        consist = []
-        T_gt_seq = []
-        T_pred_seq = []
-        Xi = []
-        Cov = []
-        for j, pred_T_s1_s2 in enumerate(pred_poses):
-            gt_T_enu_s2 = gt_poses[j]
-            T_gt_seq.append(get_inverse_tf(gt_T_enu_s2))
-            gt_T_enu_s1 = get_T_enu_s1(ref_times[j], gt_ref_times * 1000, gt_ref_poses)
-            T_pred_seq.append(get_inverse_tf(gt_T_enu_s1 @ pred_T_s1_s2))
-
-            gt_T_s1_s2 = get_inverse_tf(gt_T_enu_s1) @ gt_T_enu_s2
-            T = pred_T_s1_s2 @ get_inverse_tf(gt_T_s1_s2)
-            Te = T_as @ T @ T_sa # error is reported with x lateral, y longitudinal
-            errs.append(compute_errors(Te))
-            # If the user submitted a covariance matrix, calculate consistency
-            if has_cov:
-                if abs(np.sum(cov_matrices[j] - np.identity(6))) < 1e-3:
-                    consist.append(1)
-                xi = SE3Tose3(T)
-                Xi.append(xi.squeeze())
-                c = xi.T @ cov_matrices[j] @ xi
-                consist.append(
-                    c[0, 0]
-                )  # assumes user has uploaded inverse covariance matrices
-                Cov.append(1 / cov_matrices[j].diagonal())
-        Xi = np.array(Xi)
-        Cov = np.array(Cov)
-        if plot_dir is not None:
-            plot_err_file = osp.join(plot_dir, seq + "-err.txt")
-            print("Saving errs to {}...".format(plot_err_file))
-            np.savetxt(plot_err_file, np.array(errs))
-            plot_loc_stats(
-                seq, plot_dir, T_pred_seq, T_gt_seq, errs, consist, Xi, Cov, has_cov
-            )
-        rmse = root_mean_square(errs)
-        seq_rmse.append(rmse)
-        print(
-            "RMSE: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg".format(
-                rmse[0], rmse[1], rmse[2], rmse[3], rmse[4], rmse[5]
-            )
-        )
-        mean_err = take_mean(errs)
-        print(
-            "mean: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg".format(
-                mean_err[0], mean_err[1], mean_err[2], mean_err[3], mean_err[4], mean_err[5]
-            )
-        )
-        c = -1
-        if has_cov:
-            c = np.sqrt(max(0, np.mean(consist) / 6.0))
-            # c = np.mean(np.sqrt(np.array(consist) / 6.0))
-            print("Consistency: {}".format(c))
-        seq_consist.append(c)
-        print(" ")
-
-    seq_rmse = np.array(seq_rmse)
-    rmse = np.mean(seq_rmse, axis=0).squeeze()
-    print(
-        "Overall RMSE: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg".format(
-            rmse[0], rmse[1], rmse[2], rmse[3], rmse[4], rmse[5]
-        )
-    )
-    c = -1
-    if seqs_have_cov:
-        c = np.mean(seq_consist)
-        print("Overall Consistency: {}".format(c))
-        con = np.array(seq_consist).reshape(-1, 1)
-        errs = np.concatenate((seq_rmse, con), -1)
-    else:
-        errs = seq_rmse
-
-    return errs, gt_seqs
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--pred", type=str, help="path to prediction files")
@@ -577,47 +421,29 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--ref_sensor",
-        default="lidar",
+        default="aeva",
         type=str,
-        help="Which sensor to use as a reference (camera|lidar|radar|aeva)",
     )
     parser.add_argument(
         "--test_sensor",
-        default="lidar",
+        default="aeva",
         type=str,
-        help="Which sensor to use as the test sensor (camera|lidar|radar|aeva)",
     )
     parser.add_argument("--dim", default=3, type=int, help="SE(3) or SE(2)")
     parser.add_argument("--plot", type=str, help="path to save plots")
-    parser.add_argument("--data_type", type=str, help="dataset name (aeva_boreas, aevaii_boreas, aeva_hq)")
     parser.add_argument("--loc_dir", type=str, help="select a loc sequence")
     args = parser.parse_args()
-    assert args.ref_sensor in ["camera", "lidar", "radar", "aeva"]
-    assert args.test_sensor in ["camera", "lidar", "radar", "aeva"]
-    assert args.data_type in ["aeva_boreas", "aevaii_boreas", "aeva_hq"]
+    assert args.ref_sensor in ["aeva"]
+    assert args.test_sensor in ["aeva"]
     assert args.dim in [2, 3]
-    if args.ref_sensor == "radar" or args.test_sensor == "radar":
-        assert args.dim == 2
     os.makedirs(args.plot, exist_ok=True)
-    if args.data_type == "aeva_boreas" or args.data_type == "aevaii_boreas":
-        eval_boreas_local(
-            args.pred,
-            args.gt,
-            args.ref_seq,
-            args.ref_sensor,
-            args.test_sensor,
-            args.data_type,
-            args.dim,
-            args.plot,
-            args.loc_dir
-        )
-    elif args.data_type == "aeva_hq":
-        eval_aevahq_local(
-            args.pred,
-            args.gt,
-            args.ref_seq,
-            args.ref_sensor,
-            args.test_sensor,
-            args.dim,
-            args.plot,
-        )
+    eval_boreas_local(
+        args.pred,
+        args.gt,
+        args.ref_seq,
+        args.ref_sensor,
+        args.test_sensor,
+        args.dim,
+        args.plot,
+        args.loc_dir
+    )

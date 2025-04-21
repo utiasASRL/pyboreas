@@ -43,6 +43,7 @@ class BoreasDataset:
             self.camera_frames += seq.camera_frames
             self.lidar_frames += seq.lidar_frames
             self.radar_frames += seq.radar_frames
+            self.aeva_frames += seq.aeva_frames
             self.seqDict[seq.ID] = len(self.seqDict)
             if verbose:
                 seq.print()
@@ -51,6 +52,7 @@ class BoreasDataset:
             print("total camera frames: {}".format(len(self.camera_frames)))
             print("total lidar frames: {}".format(len(self.lidar_frames)))
             print("total radar frames: {}".format(len(self.radar_frames)))
+            print("total aeva frames: {}".format(len(self.aeva_frames)))
 
     def get_seq_from_ID(self, ID):
         return self.sequences[self.seqDict[ID]]
@@ -69,3 +71,7 @@ class BoreasDataset:
     def get_radar(self, idx):
         self.radar_frames[idx].load_data()
         return self.radar_frames[idx]
+    
+    def get_aeva(self, idx):
+        self.aeva_frames[idx].load_data()
+        return self.aeva_frames[idx]

@@ -143,10 +143,9 @@ def calc_sequence_errors(poses_gt, poses_pred, step_size, dim=3):
         err (List[Tuple]): each entry in list is [first_frame, r_err, t_err, length, speed]
         lengths (List[int]): list of lengths that odometry is evaluated at
     """
-    # temp modification for testing - remove before merge!
+    # throw a warning if the pred sequence is shorter than a set threshold. if you want to evaluate on shorter sequences, remove this check
     if len(poses_pred) < 2000:
-        # temp case -- used in testing 
-        print("\n***WARNING***: provided prediction sequence is too short! Using placeholder values in KITTI evaluation. Error metrics will be incorrect.")
+        print("\033[91m\n***WARNING***: provided prediction sequence is shorter than expected! Is this what you want to do? Error results will be incorrect.\n\033[0m")
         lengths = [1, 2, 3, 4, 5, 6, 7, 8]
     else:
         lengths = [100, 200, 300, 400, 500, 600, 700, 800]
@@ -1285,8 +1284,3 @@ def plot_vel_stats(seq, dir, vel_pred, vel_gt, v_err, times_ii):
 
     plt.savefig(os.path.join(dir, seq[:-4] + "_vel_err_vs_gt_vel.pdf"), pad_inches=0, bbox_inches='tight')
     plt.close()
-
-
-
-
-    
