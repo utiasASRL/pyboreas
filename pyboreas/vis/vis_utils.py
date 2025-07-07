@@ -172,14 +172,14 @@ def draw_box(img, uv, color, line_width, draw_corners=False, draw_box=True):
         box.append(tuple(uv[i, :].astype(np.int32)))
 
     corner_map = {
-        "ftr": 0,
-        "ftl": 1,
-        "btl": 2,
-        "btr": 3,
-        "fbr": 4,
-        "fbl": 5,
-        "bbl": 6,
-        "bbr": 7,
+        "ftl": 0,
+        "btl": 1,
+        "btr": 2,
+        "ftr": 3,
+        "fbl": 4,
+        "bbl": 5,
+        "bbr": 6,
+        "fbr": 7,
     }
     if draw_corners:
         draw_point(img, box[corner_map["ftl"]], [0, 0, 255], 3, 4)  # [b,g,r]
