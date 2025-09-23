@@ -28,7 +28,9 @@ computer: Intel Xeon CPU E3-1505M v6 @ 3.00GHz
 - `2d` if True, evaluate using SE(2) or BEV for object detections, otherwise submissions are evaluated in SE(3) or 3D for object detections.
 - `author, papertitle, paperurl, venue` are optional tags which can be left blank for an anonymous submission and may be updated via the website later.
 
-For the localization benchmark, an additional metadata tag is required: `reference` which can be one of: `lidar, radar, camera`. This is used to determine which sensor is being used as a reference for ground truth poses.
+For the localization benchmark, two additional metadata tags are required: 
+`ref_sensor` which can be one of: `lidar, radar, camera`. This is used to determine which sensor is being used as a reference for ground truth poses.
+`test_sensor` which can be one of: `lidar, radar, camera`. This is used to determine which sensor acts as the "test" sensor.
 
 `author` is a comma-separated list of author names.
 
