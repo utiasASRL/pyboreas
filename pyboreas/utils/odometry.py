@@ -213,7 +213,7 @@ def get_stats(err, lengths):
     )
 
 
-def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err, err_2d_per_frame=None, err_stats_2d=None):
+def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err, t_err_len, r_err_len, err_2d_per_frame=None, err_stats_2d=None):
     """Outputs plots of calculated statistics to specified directory.
     Args:
         seq (List[string]): list of sequence file names
@@ -221,14 +221,19 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err, err_2d_per_frame=N
         T_odom (List[np.ndarray]): list of 4x4 estimated poses T_vk_i (vehicle frame at time k and fixed frame i)
         T_gt (List[np.ndarray]): List of 4x4 groundtruth poses T_vk_i (vehicle frame at time k and fixed frame i)
         lengths (List[int]): list of lengths that odometry is evaluated at
-        t_err (List[float]): list of average translation error corresponding to lengths
-        r_err (List[float]): list of average rotation error corresponding to lengths
+        t_err (List[float]): list of average translation error 
+        r_err (List[float]): list of average rotation error 
+        t_err_len (List[float]): list of average translation error corresponding to lengths
+        r_err_len (List[float]): list of average rotation error corresponding to lengths
         err_2d_per_frame (Dict): dictionary of average 2D translation and rotation errors per frame
         err_stats_2d (Dict): is a dictionary with key as the first frame of the sequence and value as a list of [r_err, t_err, count, err_per_length]
     """
     path_odom, path_gt = get_path_from_Tvi_list(T_odom, T_gt)
 
-    # plot of path
+    tran_err = t_err
+    rot_err = r_err * 100
+
+    # plot of path (xy view)
     plt.figure(figsize=(6, 6))
     plt.plot(path_odom[:, 0], path_odom[:, 1], "b", linewidth=0.5, label="Estimate")
     plt.plot(path_gt[:, 0], path_gt[:, 1], "--r", linewidth=0.5, label="Groundtruth")
@@ -243,15 +248,36 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err, err_2d_per_frame=N
     plt.ylabel("y [m]")
     plt.axis("equal")
     plt.legend(loc="upper right")
+    plt.title(f"Path (t_err: {tran_err:.2f}%, r_err: {rot_err:.4f} deg/100m)")
     plt.savefig(
         os.path.join(dir, seq[:-4] + "_path.pdf"), pad_inches=0, bbox_inches="tight"
     )
     plt.close()
 
+    # plot of path (xz view)
+    plt.figure(figsize=(6, 6))
+    plt.plot(path_odom[:, 0], path_odom[:, 2], "b", linewidth=0.5, label="Estimate")
+    plt.plot(path_gt[:, 0], path_gt[:, 2], "--r", linewidth=0.5, label="Groundtruth")
+    plt.plot(
+        path_gt[0, 0],
+        path_gt[0, 2],
+        "ks",
+        markerfacecolor="none",
+        label="Sequence Start",
+    )
+    plt.xlabel("x [m]")
+    plt.ylabel("z [m]")
+    plt.axis("equal")
+    plt.legend(loc="upper right")
+    plt.savefig(
+        os.path.join(dir, seq[:-4] + "_path_xz.pdf"), pad_inches=0, bbox_inches="tight"
+    )
+    plt.close()
+
     # plot of translation error along path length
     plt.figure(figsize=(6, 3))
-    plt.plot(lengths, t_err, "bs", markerfacecolor="none")
-    plt.plot(lengths, t_err, "b")
+    plt.plot(lengths, t_err_len, "bs", markerfacecolor="none")
+    plt.plot(lengths, t_err_len, "b")
     plt.xlabel("Path Length [m]")
     plt.ylabel("Translation Error [%]")
     plt.savefig(
@@ -261,8 +287,8 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err, err_2d_per_frame=N
 
     # plot of rotation error along path length
     plt.figure(figsize=(6, 3))
-    plt.plot(lengths, r_err, "bs", markerfacecolor="none")
-    plt.plot(lengths, r_err, "b")
+    plt.plot(lengths, r_err_len, "bs", markerfacecolor="none")
+    plt.plot(lengths, r_err_len, "b")
     plt.xlabel("Path Length [m]")
     plt.ylabel("Rotation Error [deg/m]")
     plt.savefig(
@@ -288,7 +314,7 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err, err_2d_per_frame=N
         sc = plt.scatter(
             path_odom[:len(err_2d_per_frame.keys()), 0],
             path_odom[:len(err_2d_per_frame.keys()), 1],
-            c=[r_err for r_err, _ in err_2d_per_frame.values()],
+            c=[r_err_len for r_err_len, _ in err_2d_per_frame.values()],
             cmap="viridis",
             label="Rotation Error",
             s=5  # reduce the size of points
@@ -319,7 +345,7 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err, err_2d_per_frame=N
         sc = plt.scatter(
             path_odom[:len(err_2d_per_frame.keys()), 0],
             path_odom[:len(err_2d_per_frame.keys()), 1],
-            c=[t_err for _, t_err in err_2d_per_frame.values()],
+            c=[t_err_len for _, t_err_len in err_2d_per_frame.values()],
             cmap="viridis",
             label="Translation Error",
             s=5 # reduce the size of points
@@ -493,10 +519,13 @@ def plot_loc_stats(
     fig, axs = plt.subplots(1, 3, figsize=(12, 4))
     axs[0].hist(e[:, 0], bins=20)
     axs[0].set_title("Lateral Error (m)")
+    axs[0].legend([f"median: {np.median(e[:, 0]):.2f} m"], loc="upper right")
     axs[1].hist(e[:, 1], bins=20)
     axs[1].set_title("Longitudinal Error (m)")
+    axs[1].legend([f"median: {np.median(e[:, 1]):.2f} m"], loc="upper right")
     axs[2].hist(e[:, 5], bins=20)
     axs[2].set_title("Yaw Error (deg)")
+    axs[2].legend([f"median: {np.median(e[:, 5]):.2f} deg"], loc="upper right")
     plt.savefig(
         os.path.join(plot_dir, seq[:-4] + "_hist.pdf"),
         pad_inches=0,
@@ -504,6 +533,103 @@ def plot_loc_stats(
     )
     plt.close()
 
+    # Calculate RMSE of errors
+    rmse = root_mean_square(errs)
+    rmse_x = rmse[0]
+    rmse_y = rmse[1]
+
+    # Plot path colored by x RMSE error
+    plt.figure(figsize=(6, 6))
+    sc = plt.scatter(
+        path_loc[:, 0],
+        path_loc[:, 1],
+        c=np.abs(e[:, 0]),
+        cmap="viridis",
+        label=f"X RMSE: {rmse_x:.2f} m",
+        s=5  # reduce the size of points
+    )
+    plt.colorbar(sc, label="X Error [m]")
+    plt.plot(path_gt[:, 0], path_gt[:, 1], "--r", linewidth=0.5, label="Groundtruth")
+    plt.plot(
+        path_gt[0, 0],
+        path_gt[0, 1],
+        "ks",
+        markerfacecolor="none",
+        label="Sequence Start",
+    )
+    plt.xlabel("x [m]")
+    plt.ylabel("y [m]")
+    plt.axis("equal")
+    plt.legend(loc="upper right")
+    plt.savefig(
+        os.path.join(plot_dir, seq[:-4] + "_path_x_rmse.pdf"),
+        pad_inches=0,
+        bbox_inches="tight",
+    )
+    plt.close()
+
+    # Plot path colored by y RMSE error
+    plt.figure(figsize=(6, 6))
+    sc = plt.scatter(
+        path_loc[:, 0],
+        path_loc[:, 1],
+        c=np.abs(e[:, 1]),
+        cmap="viridis",
+        label=f"Y RMSE: {rmse_y:.2f} m",
+        s=5  # reduce the size of points
+    )
+    plt.colorbar(sc, label="Y Error [m]")
+    plt.plot(path_gt[:, 0], path_gt[:, 1], "--r", linewidth=0.5, label="Groundtruth")
+    plt.plot(
+        path_gt[0, 0],
+        path_gt[0, 1],
+        "ks",
+        markerfacecolor="none",
+        label="Sequence Start",
+    )
+    plt.xlabel("x [m]")
+    plt.ylabel("y [m]")
+    plt.axis("equal")
+    plt.legend(loc="upper right")
+    plt.savefig(
+        os.path.join(plot_dir, seq[:-4] + "_path_y_rmse.pdf"),
+        pad_inches=0,
+        bbox_inches="tight",
+    )
+    plt.close()
+
+    # Plot path colored by yaw RMSE
+    plt.figure(figsize=(6, 6))
+    sc = plt.scatter(
+        path_loc[:, 0],
+        path_loc[:, 1],
+        c=np.abs(e[:, 5]),
+        cmap="viridis",
+        label=f"Yaw RMSE: {rmse[5]:.2f} deg",
+        s=5  # reduce the size of points
+    )
+    plt.colorbar(sc, label="Yaw Error [deg]")
+    plt.plot(path_gt[:, 0], path_gt[:, 1], "--r", linewidth=0.5, label="Groundtruth")
+    plt.plot(
+        path_gt[0, 0],
+        path_gt[0, 1],
+        "ks",
+        markerfacecolor="none",
+        label="Sequence Start",
+    )
+    plt.xlabel("x [m]")
+    plt.ylabel("y [m]")
+    plt.axis("equal")
+    plt.legend(loc="upper right")
+    plt.savefig(
+        os.path.join(plot_dir, seq[:-4] + "_path_yaw_rmse.pdf"),
+        pad_inches=0,
+        bbox_inches="tight",
+    )
+    plt.close()
+
+def root_mean_square(errs):
+    return np.sqrt(np.mean(np.power(np.array(errs), 2), axis=0)).squeeze()
 
 def get_path_from_Tvi_list(T_vi_odom, T_vi_gt):
     """Gets 3D path (xyz) from list of poses T_vk_i (transform between vehicle frame at time k and fixed frame i) and
@@ -741,6 +867,8 @@ def compute_kitti_metrics(
                 T_pred_seq,
                 T_gt_seq,
                 path_lengths,
+                t_err,
+                r_err,
                 t_err_len,
                 r_err_len,
                 err_2d_per_frame,
@@ -793,7 +921,7 @@ def get_sequence_poses(path, seq):
     return all_poses, all_times, seq_lens
 
 
-def get_sequence_poses_gt(path, seq, dim):
+def get_sequence_poses_gt(path, seq, dim, aeva):
     """Retrieves a list of the poses corresponding to the given sequences in the given file path with the Boreas dataset
     directory structure.
     Args:
@@ -816,10 +944,17 @@ def get_sequence_poses_gt(path, seq, dim):
         # determine path to gt file
         dir = filename[:-4]  # assumes last four characters are '.txt'
         if dim == 3:
-            filepath = os.path.join(
-                path, dir, "applanix/lidar_poses.csv"
-            )  # use 'lidar_poses.csv' for groundtruth
-            T_calib = np.loadtxt(os.path.join(path, dir, "calib/T_applanix_lidar.txt"))
+            if aeva:
+                print("Using AEVA poses for 3D evaluation")
+                filepath = os.path.join(
+                    path, dir, "applanix/aeva_poses.csv"
+                ) # use 'aeva_poses.csv' for groundtruth
+                T_calib = np.loadtxt(os.path.join(path, dir, "calib/T_applanix_aeva.txt"))
+            else:
+                filepath = os.path.join(
+                    path, dir, "applanix/lidar_poses.csv"
+                )  # use 'lidar_poses.csv' for groundtruth
+                T_calib = np.loadtxt(os.path.join(path, dir, "calib/T_applanix_lidar.txt"))
             poses, times = read_traj_file_gt(filepath, T_calib, dim)
             times_np = np.stack(times)
 
@@ -1116,7 +1251,7 @@ def read_vel_file(path, dim=3):
 
     return velocities, times
 
-def get_sequence_velocities_gt(path, seq, dim):
+def get_sequence_velocities_gt(path, seq, dim, aeva=False):
     """Retrieves a list of the velocities corresponding to the given sequences in the given file path with the Boreas dataset
     directory structure.
     Args:
@@ -1137,12 +1272,22 @@ def get_sequence_velocities_gt(path, seq, dim):
     crop = []
     for filename in seq:
         # determine path to gt file
-        dir = filename[:-4]  # assumes last four characters are '.txt'
+        dir = filename
+        if dir.endswith('.txt'): 
+            dir = dir[:-4]  # assumes last four characters are '.txt'
+        print("dir", dir)
         if dim == 3:
-            filepath = os.path.join(
-                path, dir, "applanix/lidar_poses.csv"
-            )  # use 'lidar_poses.csv' for groundtruth
-            T_calib = np.loadtxt(os.path.join(path, dir, "calib/T_applanix_lidar.txt"))
+            if aeva:
+                print("Using AEVA velocities for 3D evaluation")
+                filepath = os.path.join(
+                    path, dir, "applanix/aeva_poses.csv"
+                ) # use 'aeva_poses.csv' for groundtruth
+                T_calib = np.loadtxt(os.path.join(path, dir, "calib/T_applanix_aeva.txt"))
+            else:
+                filepath = os.path.join(
+                    path, dir, "applanix/lidar_poses.csv"
+                )  # use 'lidar_poses.csv' for groundtruth
+                T_calib = np.loadtxt(os.path.join(path, dir, "calib/T_applanix_lidar.txt"))
             velocities, times = read_vel_file_gt(filepath, T_calib, dim)
             times_np = np.stack(times)
 
@@ -1339,25 +1484,54 @@ def plot_vel_stats(seq, dir, vel_pred, vel_gt, v_err, times_ii):
         vel_gt (List[np.ndarray]): List of 6x1 groundtruth velocities
         v_err (List[np.ndarray]): List of 6x1 velocity errors
     """
-    # Plot superimposed velocities
-    fig, axs = plt.subplots(1, 3, figsize=(18, 3))
-    axs[0].plot(times_ii, vel_gt[:,0], label="gt")
-    axs[0].plot(times_ii, vel_pred[:,0], label="pred")
-    axs[0].set_xlabel("Time (s)")
-    axs[0].set_ylabel("Forward Velocity [m/s]")
-    axs[0].legend(loc = 'upper right')
+    # Plot superimposed velocities in a 2x3 grid: linear velocities (vx, vy, vz) in first row, angular velocities (wx, wy, wz) in second row
+    fig, axs = plt.subplots(2, 3, figsize=(18, 6))
 
-    axs[1].plot(times_ii, vel_gt[:,1], label="gt")
-    axs[1].plot(times_ii, vel_pred[:,1], label="pred")
-    axs[1].set_xlabel("Time (s)")
-    axs[1].set_ylabel("Side Velocity [m/s]")
-    axs[1].legend(loc = 'upper right')
+    # Linear velocities
+    axs[0, 0].plot(times_ii, vel_gt[:, 0], label="gt")
+    axs[0, 0].plot(times_ii, vel_pred[:, 0], label="pred")
+    axs[0, 0].set_xlabel("Time (s)")
+    axs[0, 0].set_ylabel("Forward Velocity [m/s]")
+    axs[0, 0].legend(loc='upper right')
+    axs[0, 0].set_title("vx")
 
-    axs[2].plot(times_ii, vel_gt[:,5], label="gt")
-    axs[2].plot(times_ii, vel_pred[:,5], label="pred")
-    axs[2].set_xlabel("Time (s)")
-    axs[2].set_ylabel("Yaw Velocity [deg/s]")
-    axs[2].legend(loc = 'upper right')
+    axs[0, 1].plot(times_ii, vel_gt[:, 1], label="gt")
+    axs[0, 1].plot(times_ii, vel_pred[:, 1], label="pred")
+    axs[0, 1].set_xlabel("Time (s)")
+    axs[0, 1].set_ylabel("Side Velocity [m/s]")
+    axs[0, 1].legend(loc='upper right')
+    axs[0, 1].set_title("vy")
+
+    axs[0, 2].plot(times_ii, vel_gt[:, 2], label="gt")
+    axs[0, 2].plot(times_ii, vel_pred[:, 2], label="pred")
+    axs[0, 2].set_xlabel("Time (s)")
+    axs[0, 2].set_ylabel("Vertical Velocity [m/s]")
+    axs[0, 2].legend(loc='upper right')
+    axs[0, 2].set_title("vz")
+
+    # Angular velocities
+    axs[1, 0].plot(times_ii, vel_gt[:, 3], label="gt")
+    axs[1, 0].plot(times_ii, vel_pred[:, 3], label="pred")
+    axs[1, 0].set_xlabel("Time (s)")
+    axs[1, 0].set_ylabel("Roll Rate [deg/s]")
+    axs[1, 0].legend(loc='upper right')
+    axs[1, 0].set_title("wx")
+
+    axs[1, 1].plot(times_ii, vel_gt[:, 4], label="gt")
+    axs[1, 1].plot(times_ii, vel_pred[:, 4], label="pred")
+    axs[1, 1].set_xlabel("Time (s)")
+    axs[1, 1].set_ylabel("Pitch Rate [deg/s]")
+    axs[1, 1].legend(loc='upper right')
+    axs[1, 1].set_title("wy")
+
+    axs[1, 2].plot(times_ii, vel_gt[:, 5], label="gt")
+    axs[1, 2].plot(times_ii, vel_pred[:, 5], label="pred")
+    axs[1, 2].set_xlabel("Time (s)")
+    axs[1, 2].set_ylabel("Yaw Rate [deg/s]")
+    axs[1, 2].legend(loc='upper right')
+    axs[1, 2].set_title("wz")
+
+    plt.tight_layout()
 
     plt.savefig(os.path.join(dir, seq[:-4] + "_vel.pdf"), pad_inches=0, bbox_inches='tight')
     plt.close()
