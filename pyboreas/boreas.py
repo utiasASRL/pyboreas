@@ -40,6 +40,8 @@ class BoreasDataset:
         self.sequences.sort(key=lambda x: x.ID)
 
         for seq in self.sequences:
+            if seq.aeva_frames:
+                self.aeva_frames += seq.aeva_frames
             self.camera_frames += seq.camera_frames
             self.lidar_frames += seq.lidar_frames
             self.radar_frames += seq.radar_frames
@@ -48,6 +50,7 @@ class BoreasDataset:
                 seq.print()
 
         if verbose:
+            print("total aeva frames: {}".format(len(self.aeva_frames)))
             print("total camera frames: {}".format(len(self.camera_frames)))
             print("total lidar frames: {}".format(len(self.lidar_frames)))
             print("total radar frames: {}".format(len(self.radar_frames)))
@@ -69,3 +72,7 @@ class BoreasDataset:
     def get_radar(self, idx):
         self.radar_frames[idx].load_data()
         return self.radar_frames[idx]
+
+    def get_aeva(self, idx):
+        self.aeva_frames[idx].load_data()
+        return self.aeva_frames[idx]
