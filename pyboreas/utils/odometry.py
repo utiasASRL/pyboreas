@@ -212,8 +212,7 @@ def get_stats(err, lengths):
         [a / float(b) * 180 / np.pi for a, b in zip(r_err_len, len_count)],
     )
 
-
-def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err, t_err_len, r_err_len, err_2d_per_frame=None, err_stats_2d=None):
+def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err_len, r_err_len, t_err=None, r_err=None, err_2d_per_frame=None, err_stats_2d=None):
     """Outputs plots of calculated statistics to specified directory.
     Args:
         seq (List[string]): list of sequence file names
@@ -221,17 +220,14 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err, t_err_len, r_err_l
         T_odom (List[np.ndarray]): list of 4x4 estimated poses T_vk_i (vehicle frame at time k and fixed frame i)
         T_gt (List[np.ndarray]): List of 4x4 groundtruth poses T_vk_i (vehicle frame at time k and fixed frame i)
         lengths (List[int]): list of lengths that odometry is evaluated at
-        t_err (List[float]): list of average translation error 
-        r_err (List[float]): list of average rotation error 
         t_err_len (List[float]): list of average translation error corresponding to lengths
         r_err_len (List[float]): list of average rotation error corresponding to lengths
+        t_err (float): translation error
+        r_err (float): rotation error
         err_2d_per_frame (Dict): dictionary of average 2D translation and rotation errors per frame
         err_stats_2d (Dict): is a dictionary with key as the first frame of the sequence and value as a list of [r_err, t_err, count, err_per_length]
     """
     path_odom, path_gt = get_path_from_Tvi_list(T_odom, T_gt)
-
-    tran_err = t_err
-    rot_err = r_err * 100
 
     # plot of path (xy view)
     plt.figure(figsize=(6, 6))
@@ -248,7 +244,10 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err, r_err, t_err_len, r_err_l
     plt.ylabel("y [m]")
     plt.axis("equal")
     plt.legend(loc="upper right")
-    plt.title(f"Path (t_err: {tran_err:.2f}%, r_err: {rot_err:.4f} deg/100m)")
+    if t_err is not None and r_err is not None:
+        plt.title(f"Path\nTranslation Error: {t_err:.2f}% | Rotation Error: {r_err*100:.4f} deg/100m")
+    else:
+        plt.title("Path")
     plt.savefig(
         os.path.join(dir, seq[:-4] + "_path.pdf"), pad_inches=0, bbox_inches="tight"
     )
@@ -867,10 +866,10 @@ def compute_kitti_metrics(
                 T_pred_seq,
                 T_gt_seq,
                 path_lengths,
-                t_err,
-                r_err,
                 t_err_len,
                 r_err_len,
+                t_err,
+                r_err,
                 err_2d_per_frame,
                 err_stats_2d
             )
