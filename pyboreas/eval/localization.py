@@ -6,12 +6,12 @@ from pathlib import Path
 import numpy as np
 
 from pyboreas.data.splits import loc_reference
-from pyboreas.utils.odometry import plot_loc_stats, read_traj_file2, read_traj_file_gt2
+from pyboreas.utils.odometry import plot_loc_stats, read_traj_file2, read_traj_file_gt2, get_sequence_velocities_gt
 from pyboreas.utils.utils import (
     SE3Tose3,
     get_closest_index,
     get_inverse_tf,
-    rotToRollPitchYaw,
+    rotToRollPitchYaw
 )
 
 
@@ -25,8 +25,15 @@ def get_Tas(gtpath, seq, sensor="lidar"):
         )
         return np.matmul(T_applanix_lidar, get_inverse_tf(T_camera_lidar))
     elif sensor == "radar":
-        T_radar_lidar = np.loadtxt(osp.join(gtpath, seq, "calib", "T_radar_lidar.txt"))
+        T_radar_lidar = np.loadtxt(
+            osp.join(gtpath, seq, "calib", "T_radar_lidar.txt")
+        )
         return np.matmul(T_applanix_lidar, get_inverse_tf(T_radar_lidar))
+    elif sensor == "aeva":
+        T_applanix_aeva = np.loadtxt(
+            osp.join(gtpath, seq, "calib", "T_applanix_aeva.txt")
+        )
+        return T_applanix_aeva
     return T_applanix_lidar
 
 
@@ -209,8 +216,8 @@ if __name__ == "__main__":
     parser.add_argument("--dim", default=3, type=int, help="SE(3) or SE(2)")
     parser.add_argument("--plot", type=str, help="path to save plots")
     args = parser.parse_args()
-    assert args.ref_sensor in ["camera", "lidar", "radar"]
-    assert args.test_sensor in ["camera", "lidar", "radar"]
+    assert args.ref_sensor in ["camera", "lidar", "radar", "aeva"]
+    assert args.test_sensor in ["camera", "lidar", "radar", "aeva"]
     assert args.dim in [2, 3]
     if args.ref_sensor == "radar" or args.test_sensor == "radar":
         assert args.dim == 2
