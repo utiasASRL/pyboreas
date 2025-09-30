@@ -533,12 +533,12 @@ def plot_loc_stats(
     )
     plt.close()
 
-    # Calculate RMSE of errors
+    # Calculate RMSE
     rmse = root_mean_square(errs)
     rmse_x = rmse[0]
     rmse_y = rmse[1]
 
-    # Plot path colored by x RMSE error
+    # Plot path colored by x RMSE
     plt.figure(figsize=(6, 6))
     sc = plt.scatter(
         path_loc[:, 0],
@@ -568,7 +568,7 @@ def plot_loc_stats(
     )
     plt.close()
 
-    # Plot path colored by y RMSE error
+    # Plot path colored by y RMSE
     plt.figure(figsize=(6, 6))
     sc = plt.scatter(
         path_loc[:, 0],
