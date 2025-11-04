@@ -129,7 +129,7 @@ class Lidar(Sensor, PointCloud):
 class Aeva(Lidar):
     def __init__(self, path):
         Lidar.__init__(self, path)
-        self._dim = 7
+        self._dim = 10
     
     def load_data(self):
         self.points = load_lidar(self.path, dim=self._dim)
