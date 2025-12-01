@@ -1,4 +1,5 @@
 import os
+import os.path as osp
 from itertools import accumulate, repeat
 from multiprocessing import Pool
 from pathlib import Path
@@ -249,7 +250,7 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err_len, r_err_len, t_err=None
     else:
         plt.title("Path")
     plt.savefig(
-        os.path.join(dir, seq[:-4] + "_path.pdf"), pad_inches=0, bbox_inches="tight"
+        osp.join(dir, seq[:-4] + "_path.pdf"), pad_inches=0, bbox_inches="tight"
     )
     plt.close()
 
@@ -269,7 +270,7 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err_len, r_err_len, t_err=None
     plt.axis("equal")
     plt.legend(loc="upper right")
     plt.savefig(
-        os.path.join(dir, seq[:-4] + "_path_xz.pdf"), pad_inches=0, bbox_inches="tight"
+        osp.join(dir, seq[:-4] + "_path_xz.pdf"), pad_inches=0, bbox_inches="tight"
     )
     plt.close()
 
@@ -280,7 +281,7 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err_len, r_err_len, t_err=None
     plt.xlabel("Path Length [m]")
     plt.ylabel("Translation Error [%]")
     plt.savefig(
-        os.path.join(dir, seq[:-4] + "_tl.pdf"), pad_inches=0, bbox_inches="tight"
+        osp.join(dir, seq[:-4] + "_tl.pdf"), pad_inches=0, bbox_inches="tight"
     )
     plt.close()
 
@@ -291,7 +292,7 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err_len, r_err_len, t_err=None
     plt.xlabel("Path Length [m]")
     plt.ylabel("Rotation Error [deg/m]")
     plt.savefig(
-        os.path.join(dir, seq[:-4] + "_rl.pdf"), pad_inches=0, bbox_inches="tight"
+        osp.join(dir, seq[:-4] + "_rl.pdf"), pad_inches=0, bbox_inches="tight"
     )
     plt.close()
 
@@ -324,7 +325,7 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err_len, r_err_len, t_err=None
         plt.axis("equal")
         plt.legend(loc="upper right")
         plt.savefig(
-            os.path.join(dir, seq[:-4] + "_path_r_err.pdf"),
+            osp.join(dir, seq[:-4] + "_path_r_err.pdf"),
             pad_inches=0,
             bbox_inches="tight",
         )
@@ -355,7 +356,7 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err_len, r_err_len, t_err=None
         plt.axis("equal")
         plt.legend(loc="upper right")
         plt.savefig(
-            os.path.join(dir, seq[:-4] + "_path_t_err.pdf"),
+            osp.join(dir, seq[:-4] + "_path_t_err.pdf"),
             pad_inches=0,
             bbox_inches="tight",
         )
@@ -368,7 +369,7 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err_len, r_err_len, t_err=None
         plt.xlabel("Frame")
         plt.ylabel("Translation Error [%]")
         plt.savefig(
-            os.path.join(dir, seq[:-4] + "_tl_frame.pdf"), pad_inches=0, bbox_inches="tight"
+            osp.join(dir, seq[:-4] + "_tl_frame.pdf"), pad_inches=0, bbox_inches="tight"
         )
         plt.close()
 
@@ -379,7 +380,7 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err_len, r_err_len, t_err=None
         plt.xlabel("Frame")
         plt.ylabel("Rotation Error [deg/m]")
         plt.savefig(
-            os.path.join(dir, seq[:-4] + "_rl_frame.pdf"), pad_inches=0, bbox_inches="tight"
+            osp.join(dir, seq[:-4] + "_rl_frame.pdf"), pad_inches=0, bbox_inches="tight"
         )
         plt.close()
 
@@ -397,7 +398,7 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err_len, r_err_len, t_err=None
         plt.ylabel("Rotational Error")
         plt.legend(loc="upper right")
         plt.savefig(
-            os.path.join(dir, seq[:-4] + "_rotational_error_per_length.pdf"),
+            osp.join(dir, seq[:-4] + "_rotational_error_per_length.pdf"),
             pad_inches=0,
             bbox_inches="tight",
         )
@@ -415,7 +416,7 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err_len, r_err_len, t_err=None
         plt.ylabel("Translational Error")
         plt.legend(loc="upper right")
         plt.savefig(
-            os.path.join(dir, seq[:-4] + "_translational_error_per_length.pdf"),
+            osp.join(dir, seq[:-4] + "_translational_error_per_length.pdf"),
             pad_inches=0,
             bbox_inches="tight",
         )
@@ -426,6 +427,7 @@ def plot_stats(seq, dir, T_odom, T_gt, lengths, t_err_len, r_err_len, t_err=None
 def plot_loc_stats(
     seq, plot_dir, T_loc, T_gt, errs, consist=[], Xi=[], Cov=[], has_cov=False
 ):
+    print(f"Plotting localization results for {seq}...")
     path_loc = np.array(
         [np.linalg.inv(T_i_vk)[:3, 3] for T_i_vk in T_loc], dtype=np.float64
     )
@@ -449,7 +451,7 @@ def plot_loc_stats(
     plt.axis("equal")
     plt.legend(loc="upper right")
     plt.savefig(
-        os.path.join(plot_dir, seq[:-4] + "_path.pdf"),
+        osp.join(plot_dir, seq + "_path.pdf"),
         pad_inches=0,
         bbox_inches="tight",
     )
@@ -491,7 +493,7 @@ def plot_loc_stats(
         axs[5].set_ylabel("psi_3")
         axs[5].set_xlabel("time (s)")
         plt.savefig(
-            os.path.join(plot_dir, seq[:-4] + "_errs.pdf"),
+            osp.join(plot_dir, seq + "_errs.pdf"),
             pad_inches=0,
             bbox_inches="tight",
         )
@@ -508,14 +510,14 @@ def plot_loc_stats(
         axs[1, 1].hist(e[:, 3], bins=20)
         axs[1, 1].set_title("Orientation Error (deg)")
         plt.savefig(
-            os.path.join(plot_dir, seq[:-4] + "_hist.pdf"),
+            osp.join(plot_dir, seq + "_hist.pdf"),
             pad_inches=0,
             bbox_inches="tight",
         )
         plt.close()
 
     e = np.array(errs)
-    fig, axs = plt.subplots(1, 3, figsize=(12, 4))
+    fig, axs = plt.subplots(1, 6, figsize=(12, 4))
     axs[0].hist(e[:, 0], bins=20)
     axs[0].set_title("Lateral Error (m)")
     axs[0].legend([f"median: {np.median(e[:, 0]):.2f} m"], loc="upper right")
@@ -526,7 +528,7 @@ def plot_loc_stats(
     axs[2].set_title("Yaw Error (deg)")
     axs[2].legend([f"median: {np.median(e[:, 5]):.2f} deg"], loc="upper right")
     plt.savefig(
-        os.path.join(plot_dir, seq[:-4] + "_hist.pdf"),
+        osp.join(plot_dir, seq + "_hist.pdf"),
         pad_inches=0,
         bbox_inches="tight",
     )
@@ -561,7 +563,7 @@ def plot_loc_stats(
     plt.axis("equal")
     plt.legend(loc="upper right")
     plt.savefig(
-        os.path.join(plot_dir, seq[:-4] + "_path_x_rmse.pdf"),
+        osp.join(plot_dir, seq + "_path_x_rmse.pdf"),
         pad_inches=0,
         bbox_inches="tight",
     )
@@ -591,7 +593,37 @@ def plot_loc_stats(
     plt.axis("equal")
     plt.legend(loc="upper right")
     plt.savefig(
-        os.path.join(plot_dir, seq[:-4] + "_path_y_rmse.pdf"),
+        osp.join(plot_dir, seq + "_path_y_rmse.pdf"),
+        pad_inches=0,
+        bbox_inches="tight",
+    )
+    plt.close()
+
+    # Plot path colored by z RMSE
+    plt.figure(figsize=(6, 6))
+    sc = plt.scatter(
+        path_loc[:, 0],
+        path_loc[:, 1],
+        c=np.abs(e[:, 2]),
+        cmap="viridis",
+        label=f"Z RMSE: {rmse[2]:.2f} m",
+        s=5  # reduce the size of points
+    )
+    plt.colorbar(sc, label="Z Error [m]")
+    plt.plot(path_gt[:, 0], path_gt[:, 1], "--r", linewidth=0.5, label="Groundtruth")
+    plt.plot(
+        path_gt[0, 0],
+        path_gt[0, 1],
+        "ks",
+        markerfacecolor="none",
+        label="Sequence Start",
+    )
+    plt.xlabel("x [m]")
+    plt.ylabel("y [m]")
+    plt.axis("equal")
+    plt.legend(loc="upper right")
+    plt.savefig(
+        osp.join(plot_dir, seq + "_path_z_rmse.pdf"),
         pad_inches=0,
         bbox_inches="tight",
     )
@@ -621,7 +653,7 @@ def plot_loc_stats(
     plt.axis("equal")
     plt.legend(loc="upper right")
     plt.savefig(
-        os.path.join(plot_dir, seq[:-4] + "_path_yaw_rmse.pdf"),
+        osp.join(plot_dir, seq + "_path_yaw_rmse.pdf"),
         pad_inches=0,
         bbox_inches="tight",
     )
@@ -640,7 +672,7 @@ def get_path_from_Tvi_list(T_vi_odom, T_vi_gt):
         path_odom (np.ndarray): K x 3 numpy array of estimated xyz coordinates in (0'd position) groundtruth inertial frame
         path_gt (np.ndarray): K x 3 numpy array of groundtruth xyz coordinates in (0'd position) groundtruth inertial frame
     """
-    assert len(T_vi_odom) == len(T_vi_gt)  # assume 1:1 correspondence
+    # assert len(T_vi_odom) == len(T_vi_gt)  # assume 1:1 correspondence
     T_iv_odom = [np.linalg.inv(T_vk_i_odom) for T_vk_i_odom in T_vi_odom]
     T_iv_gt = [np.linalg.inv(T_vk_i_gt) for T_vk_i_gt in T_vi_gt]
 
@@ -673,7 +705,7 @@ def compute_interpolation_one_seq(T_pred, times_gt, times_pred, out_fname, solve
     T_query = interpolate_poses(T_pred, times_pred, times_gt, solver)  # interpolate
     write_traj_file(out_fname, T_query, times_gt)  # write out
     print(
-        f"interpolated sequence {os.path.basename(out_fname)}, output file: {out_fname}"
+        f"interpolated sequence {osp.basename(out_fname)}, output file: {out_fname}"
     )
 
     return
@@ -718,7 +750,7 @@ def compute_interpolation(
         times_pred[indices_pred[i] : indices_pred[i + 1]]
         for i in range(len(seq_lens_pred))
     )
-    out_fname_seq = (os.path.join(out_dir, seq[i]) for i in range(len(seq_lens_pred)))
+    out_fname_seq = (osp.join(out_dir, seq[i]) for i in range(len(seq_lens_pred)))
     solver_seq = repeat(solver, len(seq_lens_pred))
 
     if processes == 1:
@@ -737,10 +769,10 @@ def compute_interpolation(
                 T_pred_i, times_pred_i, times_gt_i, solver
             )  # interpolate
             write_traj_file(
-                os.path.join(out_dir, seq[i]), T_query, times_gt_i
+                osp.join(out_dir, seq[i]), T_query, times_gt_i
             )  # write out
             print(seq[i], "took", str(time() - ts), " seconds")
-            print("output file:", os.path.join(out_dir, seq[i]), "\n")
+            print("output file:", osp.join(out_dir, seq[i]), "\n")
     else:
         # compute interpolation for each sequence in parallel
         with Pool(processes) as p:
@@ -912,7 +944,7 @@ def get_sequence_poses(path, seq):
     seq_lens = []
     for filename in seq:
         # parse file for list of poses and times
-        poses, times = read_traj_file(os.path.join(path, filename))
+        poses, times = read_traj_file(osp.join(path, filename))
         seq_lens.append(len(times))
         all_poses.extend(poses)
         all_times.extend(times)
@@ -945,20 +977,23 @@ def get_sequence_poses_gt(path, seq, dim, aeva):
         if dim == 3:
             if aeva:
                 print("Using AEVA poses for 3D evaluation")
-                filepath = os.path.join(
+                filepath = osp.join(
                     path, dir, "applanix/aeva_poses.csv"
                 ) # use 'aeva_poses.csv' for groundtruth
-                T_calib = np.loadtxt(os.path.join(path, dir, "calib/T_applanix_aeva.txt"))
+                T_calib = np.loadtxt(osp.join(path, dir, "calib/T_applanix_aeva.txt"))
             else:
-                filepath = os.path.join(
+                filepath = osp.join(
                     path, dir, "applanix/lidar_poses.csv"
                 )  # use 'lidar_poses.csv' for groundtruth
-                T_calib = np.loadtxt(os.path.join(path, dir, "calib/T_applanix_lidar.txt"))
+                T_calib = np.loadtxt(osp.join(path, dir, "calib/T_applanix_lidar.txt"))
             poses, times = read_traj_file_gt(filepath, T_calib, dim)
             times_np = np.stack(times)
 
-            filepath = os.path.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
+            filepath = osp.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
             _, ctimes = read_traj_file_gt(filepath, np.identity(4), dim)
+            if len(ctimes) == 0:
+                # Something went wrong with loading camera timestamps, throw error
+                raise ValueError(f"No camera timestamps found for sequence {dir}.")
             istart = np.searchsorted(times_np, ctimes[0])
             iend = np.searchsorted(times_np, ctimes[-1])
             poses = poses[istart:iend]
@@ -966,7 +1001,7 @@ def get_sequence_poses_gt(path, seq, dim, aeva):
             crop += [(istart, iend)]
 
         elif dim == 2:
-            filepath = os.path.join(
+            filepath = osp.join(
                 path, dir, "applanix/radar_poses.csv"
             )  # use 'radar_poses.csv' for groundtruth
             T_calib = np.identity(4)
@@ -1000,25 +1035,25 @@ def get_sequence_times_gt(path, seq):
     for filename in seq:
         # determine path to gt file
         dir = filename[:-4]  # assumes last four characters are '.txt'
-        lfilepath = os.path.join(
+        lfilepath = osp.join(
             path, dir, "applanix/lidar_poses.csv"
         )  # use 'lidar_poses.csv' for groundtruth
-        cfilepath = os.path.join(
+        cfilepath = osp.join(
             path, dir, "applanix/camera_poses.csv"
         )  # read in timestamps of camera groundtruth
-        if os.path.isfile(lfilepath) and os.path.isfile(cfilepath):
+        if osp.isfile(lfilepath) and osp.isfile(cfilepath):
             # csv files exist, use them
             _, times = read_traj_file_gt(lfilepath, np.identity(4), dim=3)
             times_np = np.stack(times)
             _, ctimes = read_traj_file_gt(cfilepath, np.identity(4), dim=3)
         else:
             # read timestamps from data
-            lpath = os.path.join(path, dir, "lidar")  # read lidar data filenames
+            lpath = osp.join(path, dir, "lidar")  # read lidar data filenames
             times = [int(Path(f).stem) for f in os.listdir(lpath) if ".bin" in f]
             times.sort()
             times_np = np.stack(times)
 
-            cpath = os.path.join(path, dir, "camera")  # read camera data filenames
+            cpath = osp.join(path, dir, "camera")  # read camera data filenames
             ctimes = [int(Path(f).stem) for f in os.listdir(cpath) if ".png" in f]
             ctimes.sort()
 
@@ -1181,8 +1216,6 @@ def convert_line_to_pose(line, dim=3):
     T = np.eye(4, dtype=np.float64)
     T[0, 3] = line[1]  # x
     T[1, 3] = line[2]  # y
-    # Note, yawPitchRollToRot returns C_v_i, where v is vehicle/sensor frame and i is stationary frame
-    # For SE(3) state, we want C_i_v (to match r_i loaded above), and so we take transpose
     if dim == 3:
         T[2, 3] = line[3]  # z
         T[:3, :3] = yawPitchRollToRot(line[9], line[8], line[7])
@@ -1216,7 +1249,7 @@ def get_sequence_velocities(path, seq, dim):
     seq_lens = []
     for filename in seq:
         # parse file for list of poses and times
-        vel, times = read_vel_file(os.path.join(path, filename), dim)
+        vel, times = read_vel_file(osp.join(path, filename), dim)
         seq_lens.append(len(times))
         all_velocities.extend(vel)
         all_times.extend(times)
@@ -1278,20 +1311,23 @@ def get_sequence_velocities_gt(path, seq, dim, aeva=False):
         if dim == 3:
             if aeva:
                 print("Using AEVA velocities for 3D evaluation")
-                filepath = os.path.join(
+                filepath = osp.join(
                     path, dir, "applanix/aeva_poses.csv"
                 ) # use 'aeva_poses.csv' for groundtruth
-                T_calib = np.loadtxt(os.path.join(path, dir, "calib/T_applanix_aeva.txt"))
+                T_calib = np.loadtxt(osp.join(path, dir, "calib/T_applanix_aeva.txt"))
             else:
-                filepath = os.path.join(
+                filepath = osp.join(
                     path, dir, "applanix/lidar_poses.csv"
                 )  # use 'lidar_poses.csv' for groundtruth
-                T_calib = np.loadtxt(os.path.join(path, dir, "calib/T_applanix_lidar.txt"))
+                T_calib = np.loadtxt(osp.join(path, dir, "calib/T_applanix_lidar.txt"))
             velocities, times = read_vel_file_gt(filepath, T_calib, dim)
             times_np = np.stack(times)
 
-            filepath = os.path.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
+            filepath = osp.join(path, dir, 'applanix/camera_poses.csv')  # read in timestamps of camera groundtruth
             _, ctimes = read_vel_file_gt(filepath, np.identity(4), dim)
+            if len(ctimes) == 0:
+                # Something went wrong with loading camera timestamps, throw error
+                raise ValueError(f"No camera timestamps found for sequence {dir}.")
             istart = np.searchsorted(times_np, ctimes[0])
             iend = np.searchsorted(times_np, ctimes[-1])
             velocities = velocities[istart:iend]
@@ -1299,7 +1335,7 @@ def get_sequence_velocities_gt(path, seq, dim, aeva=False):
             crop += [(istart, iend)]
 
         elif dim == 2:
-            filepath = os.path.join(
+            filepath = osp.join(
                 path, dir, "applanix/radar_poses.csv"
             )  # use 'radar_poses.csv' for groundtruth
             T_calib = np.identity(4)
@@ -1318,10 +1354,10 @@ def get_sequence_velocities_gt(path, seq, dim, aeva=False):
 
 
 def read_vel_file_gt(path, T_ab, dim):
-    """Reads trajectory from a comma-separated file, see Boreas documentation for format
+    """Reads velocity from a comma-separated file, see Boreas documentation for format
     Args:
         path (string): file path including file name
-        T_ab (np.ndarray): 4x4 transformation matrix for calibration. Poses read are in frame 'b', output in frame 'a'
+        T_ab (np.ndarray): 4x4 transformation matrix for calibration. Velocities read are in frame 'b', output in frame 'a'
         dim (int): dimension for evaluation. Set to '3' for 3D or '2' for 2D
     Returns:
         (List[np.ndarray]): list of 4x4 poses (from world to sensor frame)
@@ -1367,8 +1403,6 @@ def convert_line_to_vel(line, dim=3):
     T = np.eye(4, dtype=np.float64)
     T[0, 3] = line[1]  # x
     T[1, 3] = line[2]  # y
-    # Note, yawPitchRollToRot returns C_v_i, where v is vehicle/sensor frame and i is stationary frame
-    # For SE(3) state, we want C_i_v (to match r_i loaded above), and so we take transpose
     if dim == 3:
         T[2, 3] = line[3]  # z
         T[:3, :3] = yawPitchRollToRot(line[9], line[8], line[7])
@@ -1383,17 +1417,6 @@ def convert_line_to_vel(line, dim=3):
             "Invalid dim value in convert_line_to_pose. Use either 2 or 3."
         )
 
-    # Get velocity in body frame
-    # vel_x, vel_y, vel_z -> 4, 5, 6
-    # omega_x, omega_y, omega_z -> 10, 11, 12
-    vel = np.zeros((6, 1), dtype=np.float64)
-
-
-    wbar = np.array([line[12], line[11], line[10]]).reshape(3, 1)
-    wbar = np.matmul(T[:3, :3], wbar).squeeze()
-    vel = np.array(
-        [line[4], line[5], line[6], wbar[0], wbar[1], wbar[2]]
-    ).reshape(6, 1)
     vbar = np.array([line[4], line[5], line[6]]).reshape(3, 1)
     vbar = np.matmul(T[:3, :3].T, vbar).squeeze()
     body_rate = np.array(
@@ -1532,7 +1555,7 @@ def plot_vel_stats(seq, dir, vel_pred, vel_gt, v_err, times_ii):
 
     plt.tight_layout()
 
-    plt.savefig(os.path.join(dir, seq[:-4] + "_vel.pdf"), pad_inches=0, bbox_inches='tight')
+    plt.savefig(osp.join(dir, seq[:-4] + "_vel.pdf"), pad_inches=0, bbox_inches='tight')
     plt.close()
 
     # Plot errors
@@ -1549,7 +1572,7 @@ def plot_vel_stats(seq, dir, vel_pred, vel_gt, v_err, times_ii):
     axs[2].set_xlabel("Time (s)")
     axs[2].set_ylabel("Yaw Velocity [deg/s]")
 
-    plt.savefig(os.path.join(dir, seq[:-4] + "_vel_err.pdf"), pad_inches=0, bbox_inches='tight')
+    plt.savefig(osp.join(dir, seq[:-4] + "_vel_err.pdf"), pad_inches=0, bbox_inches='tight')
     plt.close()
 
     # Plot error histograms
@@ -1569,7 +1592,7 @@ def plot_vel_stats(seq, dir, vel_pred, vel_gt, v_err, times_ii):
     axs[2].set_ylabel("Frequency")
     axs[2].set_title("Yaw Velocity Error Histogram")
 
-    plt.savefig(os.path.join(dir, seq[:-4] + "_vel_err_hist.pdf"), pad_inches=0, bbox_inches='tight')
+    plt.savefig(osp.join(dir, seq[:-4] + "_vel_err_hist.pdf"), pad_inches=0, bbox_inches='tight')
     plt.close()
 
     # Plot error as a function of ground truth yaw
@@ -1585,7 +1608,7 @@ def plot_vel_stats(seq, dir, vel_pred, vel_gt, v_err, times_ii):
     axs[1].set_title("Side Velocity Error vs. Ground Truth Angular velocity")
 
 
-    plt.savefig(os.path.join(dir, seq[:-4] + "_vel_err_vs_gt_yaw.pdf"), pad_inches=0, bbox_inches='tight')
+    plt.savefig(osp.join(dir, seq[:-4] + "_vel_err_vs_gt_yaw.pdf"), pad_inches=0, bbox_inches='tight')
     plt.close()
 
     # Plot error as a function of ground truth velocity
@@ -1605,7 +1628,7 @@ def plot_vel_stats(seq, dir, vel_pred, vel_gt, v_err, times_ii):
     axs[2].set_ylabel("Error")
     axs[2].set_title("Yaw Velocity Error vs. Ground Truth Yaw Velocity")
 
-    plt.savefig(os.path.join(dir, seq[:-4] + "_vel_err_vs_gt_vel.pdf"), pad_inches=0, bbox_inches='tight')
+    plt.savefig(osp.join(dir, seq[:-4] + "_vel_err_vs_gt_vel.pdf"), pad_inches=0, bbox_inches='tight')
     plt.close()
 
 
