@@ -498,23 +498,6 @@ def plot_loc_stats(
         )
         plt.close()
 
-        e = np.array(errs)
-        fig, axs = plt.subplots(2, 2, figsize=(8, 7))
-        axs[0, 0].hist(e[:, 0], bins=20)
-        axs[0, 0].set_title("Lateral Error (m)")
-        axs[0, 1].hist(e[:, 1], bins=20)
-        axs[0, 1].set_title("Longitudinal Error (m)")
-        axs[1, 0].hist(e[:, 2], bins=20)
-        axs[1, 0].set_title("Vertical Error (m)")
-        axs[1, 1].hist(e[:, 3], bins=20)
-        axs[1, 1].set_title("Orientation Error (deg)")
-        plt.savefig(
-            osp.join(plot_dir, seq + "_hist.pdf"),
-            pad_inches=0,
-            bbox_inches="tight",
-        )
-        plt.close()
-
     e = np.array(errs)
     fig, axs = plt.subplots(2, 3, figsize=(12, 8))
     axs[0,0].hist(e[:, 0], bins=20)
