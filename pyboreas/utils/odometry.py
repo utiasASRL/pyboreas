@@ -434,7 +434,6 @@ def plot_loc_stats(
     path_gt = np.array(
         [np.linalg.inv(T_i_vk)[:3, 3] for T_i_vk in T_gt], dtype=np.float64
     )
-    # path_loc, path_gt = get_path_from_Tvi_list(T_loc, T_gt)
     # plot of path
     plt.figure(figsize=(6, 6))
     plt.plot(path_loc[:, 0], path_loc[:, 1], "b", linewidth=0.5, label="Estimate")
@@ -517,16 +516,25 @@ def plot_loc_stats(
         plt.close()
 
     e = np.array(errs)
-    fig, axs = plt.subplots(1, 6, figsize=(12, 4))
-    axs[0].hist(e[:, 0], bins=20)
-    axs[0].set_title("Lateral Error (m)")
-    axs[0].legend([f"median: {np.median(e[:, 0]):.2f} m"], loc="upper right")
-    axs[1].hist(e[:, 1], bins=20)
-    axs[1].set_title("Longitudinal Error (m)")
-    axs[1].legend([f"median: {np.median(e[:, 1]):.2f} m"], loc="upper right")
-    axs[2].hist(e[:, 5], bins=20)
-    axs[2].set_title("Yaw Error (deg)")
-    axs[2].legend([f"median: {np.median(e[:, 5]):.2f} deg"], loc="upper right")
+    fig, axs = plt.subplots(2, 3, figsize=(12, 8))
+    axs[0,0].hist(e[:, 0], bins=20)
+    axs[0,0].set_title("Lateral Error (m)")
+    axs[0,0].legend([f"median: {np.median(e[:, 0]):.2f} m"], loc="upper right")
+    axs[0,1].hist(e[:, 1], bins=20)
+    axs[0,1].set_title("Longitudinal Error (m)")
+    axs[0,1].legend([f"median: {np.median(e[:, 1]):.2f} m"], loc="upper right")
+    axs[0,2].hist(e[:, 2], bins=20)
+    axs[0,2].set_title("Vertical Error (m)")
+    axs[0,2].legend([f"median: {np.median(e[:, 2]):.2f} m"], loc="upper right")
+    axs[1,0].hist(e[:, 3], bins=20)
+    axs[1,0].set_title("Roll Error (deg)")
+    axs[1,0].legend([f"median: {np.median(e[:, 3]):.2f} deg"], loc="upper right")
+    axs[1,1].hist(e[:, 4], bins=20)
+    axs[1,1].set_title("Pitch Error (deg)")
+    axs[1,1].legend([f"median: {np.median(e[:, 4]):.2f} deg"], loc="upper right")
+    axs[1,2].hist(e[:, 5], bins=20)
+    axs[1,2].set_title("Yaw Error (deg)")
+    axs[1,2].legend([f"median: {np.median(e[:, 5]):.2f} deg"], loc="upper right")
     plt.savefig(
         osp.join(plot_dir, seq + "_hist.pdf"),
         pad_inches=0,
@@ -672,7 +680,7 @@ def get_path_from_Tvi_list(T_vi_odom, T_vi_gt):
         path_odom (np.ndarray): K x 3 numpy array of estimated xyz coordinates in (0'd position) groundtruth inertial frame
         path_gt (np.ndarray): K x 3 numpy array of groundtruth xyz coordinates in (0'd position) groundtruth inertial frame
     """
-    # assert len(T_vi_odom) == len(T_vi_gt)  # assume 1:1 correspondence
+    assert len(T_vi_odom) == len(T_vi_gt)  # assume 1:1 correspondence
     T_iv_odom = [np.linalg.inv(T_vk_i_odom) for T_vk_i_odom in T_vi_odom]
     T_iv_gt = [np.linalg.inv(T_vk_i_gt) for T_vk_i_gt in T_vi_gt]
 
@@ -1606,7 +1614,6 @@ def plot_vel_stats(seq, dir, vel_pred, vel_gt, v_err, times_ii):
     axs[1].set_xlabel("Linear Velocity [m/s]")
     axs[1].set_ylabel("Error")
     axs[1].set_title("Side Velocity Error vs. Ground Truth Angular velocity")
-
 
     plt.savefig(osp.join(dir, seq[:-4] + "_vel_err_vs_gt_yaw.pdf"), pad_inches=0, bbox_inches='tight')
     plt.close()
