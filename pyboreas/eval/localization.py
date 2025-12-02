@@ -160,8 +160,8 @@ def eval_local(
         rmse = root_mean_square(errs)
         seq_rmse.append(rmse)
         print(
-            "RMSE: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg".format(
-                rmse[0], rmse[1], rmse[2], rmse[3], rmse[4], rmse[5]
+            "RMSE: long.: {} m lat.: {} m vert.: {} m roll: {} deg pitch: {} deg yaw: {} deg".format(
+                rmse[1], rmse[0], rmse[2], rmse[4], rmse[3], rmse[5]
             )
         )
         c = -1
@@ -175,8 +175,8 @@ def eval_local(
     seq_rmse = np.array(seq_rmse)
     rmse = np.mean(seq_rmse, axis=0).squeeze()
     print(
-        "Overall RMSE: x: {} m y: {} m z: {} m roll: {} deg pitch: {} deg yaw: {} deg".format(
-            rmse[0], rmse[1], rmse[2], rmse[3], rmse[4], rmse[5]
+        "Overall RMSE: long.: {} m lat.: {} m vert.: {} m roll: {} deg pitch: {} deg yaw: {} deg".format(
+            rmse[1], rmse[0], rmse[2], rmse[4], rmse[3], rmse[5]
         )
     )
     c = -1
