@@ -944,7 +944,7 @@ def get_sequence_poses(path, seq):
     return all_poses, all_times, seq_lens
 
 
-def get_sequence_poses_gt(path, seq, dim, aeva):
+def get_sequence_poses_gt(path, seq, dim, aeva=False):
     """Retrieves a list of the poses corresponding to the given sequences in the given file path with the Boreas dataset
     directory structure.
     Args:
