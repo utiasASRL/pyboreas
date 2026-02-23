@@ -1,5 +1,6 @@
 import os
 import os.path as osp
+import numpy as np
 
 from pyboreas.data.calib import Calib
 from pyboreas.data.sensors import Camera, Lidar, Radar, Aeva
@@ -239,7 +240,7 @@ class Sequence:
         timestamps_micro = csv.get_all_timestamps_micro()
 
         for ts_micro in timestamps_micro:
-            if float(self.start_ts) * 1e3 <= ts_micro and ts_micro <= float(self.end_ts) * 1e3:
+            if float(self.start_ts) <= ts_micro and ts_micro <= float(self.end_ts):
                 frame = AuxSensorType(csv_path, ts_micro)
                 frames.append(frame)
         return frames
