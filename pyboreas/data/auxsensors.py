@@ -184,7 +184,7 @@ class Encoder(AuxSensor):
         self.pulse_count = None
 
     def load_data(self):
-        csv = AuxCSV.get_instance(self.csv_path)
+        csv = AuxCSV.get_instance(self.csv_path, timestamp_multiplier=1)  # Encoder uses seconds
         line = csv.get_at_timestamp_micro(self.timestamp_micro)
 
         _, pulse_count = line
