@@ -27,8 +27,13 @@ def load_radar(example_path):
     Returns:
         timestamps (np.ndarray): Timestamp for each azimuth in int64 (UNIX time)
         azimuths (np.ndarray): Rotation for each polar radar azimuth (radians)
+        If Boreas data:
         valid (np.ndarray) Mask of whether azimuth data is an original sensor reading or interpolated from adjacent
             azimuths
+        If Boreas-RT data:
+        chirp_type (np.ndarray): Returns 1 for 'up-chirp' azimuths and 0 for 'down-chirp' azimuths.
+            The 'up' vs 'down' communicates whether the signal was modulated up or down.
+            Only returned if return_chirp is True.
         fft_data (np.ndarray): Radar power readings along each azimuth
     """
     # Hard coded configuration to simplify parsing code
@@ -48,12 +53,12 @@ def load_radar(example_path):
         * 2
         * np.pi
     ).astype(np.float32)
-    valid = raw_example_data[:, 10:11] == 255
+    valid_or_chirp_type = raw_example_data[:, 10:11] / 255.0
     fft_data = raw_example_data[:, 11:].astype(np.float32)[:, :, np.newaxis] / 255.0
     min_range = int(round(2.5 / resolution))
     fft_data[:, :min_range] = 0
     fft_data = np.squeeze(fft_data)
-    return timestamps, azimuths, valid, fft_data, resolution
+    return timestamps, azimuths, valid_or_chirp_type, fft_data, resolution
 
 def radar_polar_to_cartesian(
     azimuths,
