@@ -10,21 +10,38 @@ class Calib:
 
     def __init__(self, calib_root):
         self.P0 = np.loadtxt(osp.join(calib_root, "P_camera.txt"))
-        self.T_applanix_aeva = np.eye(4)
-        if osp.exists(osp.join(calib_root, "T_applanix_aeva.txt")):
-            self.T_applanix_aeva = np.loadtxt(osp.join(calib_root, "T_applanix_aeva.txt"))
         self.T_applanix_lidar = np.loadtxt(osp.join(calib_root, "T_applanix_lidar.txt"))
         self.T_camera_lidar = np.loadtxt(osp.join(calib_root, "T_camera_lidar.txt"))
         self.T_radar_lidar = np.loadtxt(osp.join(calib_root, "T_radar_lidar.txt"))
+        # Load in optional calibrations for Boreas-RT data if they exist
+        self.T_applanix_wheel = np.eye(4)
+        self.T_applanix_dmu = np.eye(4)
+        self.T_aeva_lidar = np.eye(4)
+        self.T_imu_aeva = np.eye(4)
+
+        if osp.exists(osp.join(calib_root, "T_applanix_wheel.txt")):
+            self.T_applanix_wheel = np.loadtxt(osp.join(calib_root, "T_applanix_wheel.txt"))
+        if osp.exists(osp.join(calib_root, "T_applanix_dmu.txt")):
+            self.T_applanix_dmu = np.loadtxt(osp.join(calib_root, "T_applanix_dmu.txt"))
+        if osp.exists(osp.join(calib_root, "T_aeva_lidar.txt")):
+            self.T_aeva_lidar = np.loadtxt(osp.join(calib_root, "T_aeva_lidar.txt"))
+        if osp.exists(osp.join(calib_root, "T_imu_aeva.txt")):
+            self.T_imu_aeva = np.loadtxt(osp.join(calib_root, "T_imu_aeva.txt"))
 
     def print_calibration(self):
         print("P0:")
         print(self.P0)
-        print("T_applanix_aeva:")
-        print(self.T_applanix_aeva)
         print("T_applanix_lidar:")
         print(self.T_applanix_lidar)
         print("T_camera_lidar:")
         print(self.T_camera_lidar)
         print("T_radar_lidar:")
         print(self.T_radar_lidar)
+        print("T_applanix_wheel:")
+        print(self.T_applanix_wheel)
+        print("T_applanix_dmu:")
+        print(self.T_applanix_dmu)
+        print("T_aeva_lidar:")
+        print(self.T_aeva_lidar)
+        print("T_imu_aeva:")
+        print(self.T_imu_aeva)
