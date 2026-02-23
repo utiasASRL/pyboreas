@@ -53,7 +53,7 @@ def load_radar(example_path):
         * 2
         * np.pi
     ).astype(np.float32)
-    valid_or_chirp_type = raw_example_data[:, 10:11] / 255.0
+    valid_or_chirp_type = raw_example_data[:, 10:11] == 255
     fft_data = raw_example_data[:, 11:].astype(np.float32)[:, :, np.newaxis] / 255.0
     min_range = int(round(2.5 / resolution))
     fft_data[:, :min_range] = 0
