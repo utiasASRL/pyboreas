@@ -7,10 +7,12 @@ from pathlib import Path
 
 import yaml
 
-from pyboreas.data.splits import loc_test, odom_test
+from pyboreas.data.splits import loc_test, odom_test, loc_test_rt, odom_test_rt
 
 
 def check_yaml(yml):
+    print("Checking metadata.yaml formatting...")
+
     keys = [
         "benchmark",
         "methodname",
@@ -77,33 +79,56 @@ def check_yaml(yml):
         return False
 
     # check length of metadata
-    if (
-        len(yml["author"]) > 100
-        or len(yml["email"]) > 100
-        or len(yml["papertitle"]) > 150
-        or len(yml["paperurl"]) > 500
-        or len(yml["venue"]) > 10
-        or len(str(yml["year"])) > 4
-        or len(str(yml["runtimeseconds"])) > 10
-        or len(yml["computer"]) > 50
-    ):
-        print("metadata too long")
+    limits = {
+        "author": 100,
+        "email": 100,
+        "papertitle": 150,
+        "paperurl": 500,
+        "venue": 10,
+        "year": 4,
+        "runtimeseconds": 10,
+        "computer": 50,
+    }
+    too_long = []
+    for key, max_len in limits.items():
+        value = yml.get(key)
+        if key in ["year", "runtimeseconds"]:
+            value_str = str(value)
+        else:
+            value_str = "" if value is None else str(value)
+        if len(value_str) > max_len:
+            too_long.append((key, len(value_str), max_len, value_str))
+
+    if too_long:
+        print("metadata too long:")
+        for key, actual_len, max_len, value_str in too_long:
+            preview = value_str if len(value_str) <= 80 else value_str[:77] + "..."
+            print("  - {}: length {} > {} (value: {})".format(key, actual_len, max_len, preview))
         return False
+    
+    print("\033[92mmetadata.yaml check PASSED\033[0m")
+    # make this blue
+    print("Ensure the email address in metadata.yaml \033[94m{}\033[0m matches the address used for your account/login.".format(yml["email"]))
 
     return True
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--file", default="test-odometry.zip")
+    parser.add_argument("--file", default="boreas-test-odometry.zip")
     parser.add_argument("--test_times", default="detection_test_times.txt")
     args = parser.parse_args()
+
+    datasets = ["boreas", "boreasrt"]
+    dataset = Path(args.file).stem.split("-")[0]
+    if dataset.lower() not in datasets:
+        raise Exception("{} not one of: {}. Change filename to format <dataset>-<methodname>-<benchmark>.zip".format(dataset, datasets))
 
     benchmarks = ["odometry", "localization", "detection"]
 
     bench = Path(args.file).stem.split("-")[-1].split(".")[0]
     if bench not in benchmarks:
-        raise Exception("{} not one of : {}".format(bench, benchmarks))
+        raise Exception("{} not one of: {}. Change filename to format <dataset>-<methodname>-<benchmark>.zip".format(bench, benchmarks))
 
     tmp = "tmp_results"
     if not osp.exists(tmp):
@@ -124,37 +149,61 @@ if __name__ == "__main__":
 
     if not check_yaml(meta):
         raise Exception("metadata.yaml not correctly formatted")
+    
+    if dataset.lower() != meta["dataset"].lower():
+        raise Exception("filename dataset {} != metadata dataset tag {}".format(dataset, meta["dataset"]))
 
     if bench != meta["benchmark"]:
-        raise Exception("{} != {}".format(bench, meta["benchmark"]))
+        raise Exception("filename benchmark {} != metadata benchmark {}".format(bench, meta["benchmark"]))
 
-    if bench == "odometry":
-        gt_seqs = [x[0] for x in odom_test]
-        pred_seqs = [f.split(".")[0] for f in files]
-        if len(gt_seqs) != len(pred_seqs):
-            raise Exception("number of predictions does not match number of gt seqs")
-        for pred in pred_seqs:
-            if pred not in gt_seqs:
-                raise Exception("pred: {} does not match gt seqs".format(pred))
-    elif bench == "localization":
-        gt_seqs = [x[0] for x in loc_test]
-        pred_seqs = [f.split(".")[0] for f in files]
-        if len(gt_seqs) != len(pred_seqs):
-            raise Exception("number of predictions does not match number of gt seqs")
-        for pred in pred_seqs:
-            if pred not in gt_seqs:
-                raise Exception("pred: {} does not match gt seqs".format(pred))
-    elif bench == "detection":
-        if not osp.exists(args.test_times):
-            raise Exception("{} not found".format(args.test_times))
-        with open(args.test_times) as f:
-            gt_times = sorted([line.strip() for line in f.readlines()])
-        preds = sorted([f.split(".")[0] for f in files])
-        if len(preds) != len(gt_times):
-            raise Exception("number of predictions does not match number of gt times")
-        for pred in preds:
-            if pred not in gt_times:
-                raise Exception("pred: {} does not match a gt time".format(pred))
+    if dataset.lower() == "boreas":
+        print("Branch: boreas -> {}".format(bench))
+        if bench == "odometry":
+            gt_seqs = [x[0] for x in odom_test]
+            pred_seqs = [f.split(".")[0] for f in files]
+            if len(gt_seqs) != len(pred_seqs):
+                raise Exception("number of predictions does not match number of gt seqs")
+            for pred in pred_seqs:
+                if pred not in gt_seqs:
+                    raise Exception("pred: {} does not match gt seqs".format(pred))
+        elif bench == "localization":
+            gt_seqs = [x[0] for x in loc_test]
+            pred_seqs = [f.split(".")[0] for f in files]
+            if len(gt_seqs) != len(pred_seqs):
+                raise Exception("number of predictions does not match number of gt seqs")
+            for pred in pred_seqs:
+                if pred not in gt_seqs:
+                    raise Exception("pred: {} does not match gt seqs".format(pred))
+        elif bench == "detection":
+            if not osp.exists(args.test_times):
+                raise Exception("{} not found".format(args.test_times))
+            with open(args.test_times) as f:
+                gt_times = sorted([line.strip() for line in f.readlines()])
+            preds = sorted([f.split(".")[0] for f in files])
+            if len(preds) != len(gt_times):
+                raise Exception("number of predictions does not match number of gt times")
+            for pred in preds:
+                if pred not in gt_times:
+                    raise Exception("pred: {} does not match a gt time".format(pred))
+                
+    if dataset.lower() == "boreasrt":
+        print("Branch: boreasrt -> {}".format(bench))
+        if bench == "odometry":
+            gt_seqs = [x[0] for x in odom_test_rt]
+            pred_seqs = [f.split(".")[0] for f in files]
+            if len(gt_seqs) != len(pred_seqs):
+                raise Exception("number of predictions does not match number of gt seqs")
+            for pred in pred_seqs:
+                if pred not in gt_seqs:
+                    raise Exception("pred: {} does not match gt seqs".format(pred))
+        elif bench == "localization":
+            gt_seqs = [x[0] for x in loc_test_rt]
+            pred_seqs = [f.split(".")[0] for f in files]
+            if len(gt_seqs) != len(pred_seqs):
+                raise Exception("number of predictions does not match number of gt seqs")
+            for pred in pred_seqs:
+                if pred not in gt_seqs:
+                    raise Exception("pred: {} does not match gt seqs".format(pred))
 
     shutil.rmtree(tmp)
-    print("Submission checker PASSED")
+    print("\033[92mSubmission checker PASSED\033[0m")
