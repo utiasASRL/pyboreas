@@ -228,15 +228,8 @@ class Sequence:
         if not osp.exists(csv_path):
             return []
 
-        if (AuxSensorType == DMU):
-            timestamp_multiplier = 1e-9  # DMU timestamps are in nanoseconds
-        elif (AuxSensorType == AevaIMU):
-            timestamp_multiplier = 1e-6  # Aeva IMU timestamps are in microseconds
-        elif (AuxSensorType == Encoder):
-            timestamp_multiplier = 1  # Encoder timestamps are in seconds
-
         frames = []
-        csv = AuxCSV.get_instance(csv_path, timestamp_multiplier=timestamp_multiplier)
+        csv = AuxCSV.get_instance(csv_path, timestamp_multiplier=AuxSensorType.timestamp_multiplier)
         timestamps_micro = csv.get_all_timestamps_micro()
 
         for ts_micro in timestamps_micro:

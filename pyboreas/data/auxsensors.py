@@ -137,7 +137,6 @@ class IMU(AuxSensor):
         AuxSensor.__init__(self, csv_path, timestamp_micro)
         self.body_angvel = None
         self.body_acc = None
-        self.timestamp_multiplier = None  # To be set by child class, depending on timestamp units in csv (e.g., 1 for seconds, 1e6 for microseconds)
 
     # Can change this within individual instances if the column layout differs
     def _parse_line(self, line):
@@ -162,15 +161,17 @@ class IMU(AuxSensor):
 
 class DMU(IMU):
     """DMU data, identical to IMU."""
+    timestamp_multiplier = 1e-9  # DMU uses nanoseconds
+
     def __init__(self, csv_path, timestamp_micro):
         super().__init__(csv_path, timestamp_micro)
-        self.timestamp_multiplier = 1e-9  # DMU uses nanoseconds
 
 class AevaIMU(IMU):
     """Aeva IMU data, identical to IMU."""
+    timestamp_multiplier = 1e-6  # Aeva IMU uses microseconds
+
     def __init__(self, csv_path, timestamp_micro):
         super().__init__(csv_path, timestamp_micro)
-        self.timestamp_multiplier = 1e-6  # Aeva IMU uses microseconds
 
 class Encoder(AuxSensor):
     """Encoder data
@@ -178,11 +179,11 @@ class Encoder(AuxSensor):
     Attributes:
         pulse_count (int): cumulative pulse count
     """
+    timestamp_multiplier = 1  # Encoder uses seconds
 
     def __init__(self, csv_path, timestamp_micro):
         AuxSensor.__init__(self, csv_path, timestamp_micro)
         self.pulse_count = None
-        self.timestamp_multiplier = 1  # Encoder uses seconds
 
     def load_data(self):
         csv = AuxCSV.get_instance(self.csv_path, timestamp_multiplier=self.timestamp_multiplier)  # Encoder uses seconds
