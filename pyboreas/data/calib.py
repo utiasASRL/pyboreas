@@ -1,6 +1,7 @@
 import os.path as osp
 
 import numpy as np
+import yaml
 
 
 class Calib:
@@ -18,6 +19,8 @@ class Calib:
         self.T_applanix_dmu = np.eye(4)
         self.T_aeva_lidar = np.eye(4)
         self.T_imu_aeva = np.eye(4)
+        self.wheel_radius = 0.34    # [m], default internal wheel radius for converting encoder ticks to distance
+        self.radar_offset = -0.31   # [m], default internal radar range offset
 
         if osp.exists(osp.join(calib_root, "T_applanix_wheel.txt")):
             self.T_applanix_wheel = np.loadtxt(osp.join(calib_root, "T_applanix_wheel.txt"))
@@ -27,6 +30,11 @@ class Calib:
             self.T_aeva_lidar = np.loadtxt(osp.join(calib_root, "T_aeva_lidar.txt"))
         if osp.exists(osp.join(calib_root, "T_imu_aeva.txt")):
             self.T_imu_aeva = np.loadtxt(osp.join(calib_root, "T_imu_aeva.txt"))
+        if osp.exists(osp.join(calib_root, "misc_calibrations.yaml")):
+            with open(osp.join(calib_root, "misc_calibrations.yaml"), 'r') as f:
+                misc_calib = yaml.safe_load(f)
+                self.wheel_radius = misc_calib.get('wheel_radius')
+                self.radar_offset = misc_calib.get('radar_offset')
 
     def print_calibration(self):
         print("P0:")
