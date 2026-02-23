@@ -23,5 +23,6 @@ setuptools.setup(
 		"opencv-python>=4.5.3.56",
 		"matplotlib>=3.4.2",
 		"asrl-pysteam>=1.1.0",
+		"PyYAML>=5.4.1",
 	]
 )
