@@ -33,8 +33,8 @@ class Calib:
         if osp.exists(osp.join(calib_root, "misc_calibrations.yaml")):
             with open(osp.join(calib_root, "misc_calibrations.yaml"), 'r') as f:
                 misc_calib = yaml.safe_load(f)
-                self.wheel_radius = misc_calib.get('wheel_radius')
-                self.radar_offset = misc_calib.get('radar_offset')
+                self.wheel_radius = misc_calib.get('wheel_radius', self.wheel_radius)
+                self.radar_offset = misc_calib.get('radar_offset', self.radar_offset)
 
     def print_calibration(self):
         print("P0:")

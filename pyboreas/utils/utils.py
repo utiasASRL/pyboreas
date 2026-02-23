@@ -7,7 +7,7 @@ import numpy as np
 from pyboreas.utils.lgmath import _tran2vec, _vec2tran, carrot
 
 def sec_to_micro(sec):
-    return np.round(sec * 1e6)
+    return np.int64(np.round(sec * 1e6))
 
 
 def micro_to_sec(micro):

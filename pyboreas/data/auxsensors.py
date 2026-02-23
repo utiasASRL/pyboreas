@@ -7,7 +7,7 @@ from pyboreas.utils.utils import micro_to_sec, get_closest_index
 # File adapted from pycanoe repository developed by Mia Thomas.
 
 class AuxSensor:
-    """Class for auxillary sensors.
+    """Class for auxiliary sensors.
 
     Sensor data stored in csv (instead of individual timestamped files as in regular Sensors). Missing some fields compared to main Sensors (e.g., pose, body rate, velocity).
     """
@@ -40,7 +40,7 @@ class AuxSensor:
 
 
 class AuxCSV:
-    """Singleton class for managing the CSVs that hold the auxillary sensor data.
+    """Singleton class for managing the CSVs that hold the auxiliary sensor data.
 
     Assumes first row is header and first column is timestamp.
     Default timestamp is converted to seconds by the specified timestamp_multiplier (e.g., 1 for seconds, 1e6 for microseconds).
@@ -170,7 +170,7 @@ class AevaIMU(IMU):
     """Aeva IMU data, identical to IMU."""
     def __init__(self, csv_path, timestamp_micro):
         super().__init__(csv_path, timestamp_micro)
-        self.timestamp_multiplier = 1e-6 # Aeva IMU uses microseconds
+        self.timestamp_multiplier = 1e-6  # Aeva IMU uses microseconds
 
 class Encoder(AuxSensor):
     """Encoder data
@@ -182,9 +182,10 @@ class Encoder(AuxSensor):
     def __init__(self, csv_path, timestamp_micro):
         AuxSensor.__init__(self, csv_path, timestamp_micro)
         self.pulse_count = None
+        self.timestamp_multiplier = 1  # Encoder uses seconds
 
     def load_data(self):
-        csv = AuxCSV.get_instance(self.csv_path, timestamp_multiplier=1)  # Encoder uses seconds
+        csv = AuxCSV.get_instance(self.csv_path, timestamp_multiplier=self.timestamp_multiplier)  # Encoder uses seconds
         line = csv.get_at_timestamp_micro(self.timestamp_micro)
 
         _, pulse_count = line

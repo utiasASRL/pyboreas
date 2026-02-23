@@ -118,19 +118,19 @@ class Sequence:
             yield dmu_frame
 
     def get_dmu_iter(self):
-        """Retrieves an iterator on imu frames"""
+        """Retrieves an iterator on dmu frames"""
         return iter(self.dmu)
 
     def get_aeva_imu(self, idx):
         self.aeva_imu_frames[idx].load_data()
         return self.aeva_imu_frames[idx]
-    
+
     @property
     def aeva_imu(self):
         for imu_frame in self.aeva_imu_frames:
             imu_frame.load_data()
             yield imu_frame
-    
+
     def get_aeva_imu_iter(self):
         """Retrieves an iterator on aeva imu frames"""
         return iter(self.aeva_imu)
@@ -138,13 +138,13 @@ class Sequence:
     def get_encoder(self, idx):
         self.encoder_frames[idx].load_data()
         return self.encoder_frames[idx]
-    
+
     @property
     def encoder(self):
         for encoder_frame in self.encoder_frames:
             encoder_frame.load_data()
             yield encoder_frame
-    
+
     def get_encoder_iter(self):
         """Retrieves an iterator on encoder frames"""
         return iter(self.encoder)
