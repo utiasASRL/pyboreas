@@ -3,6 +3,7 @@ import os.path as osp
 
 from pyboreas.data.calib import Calib
 from pyboreas.data.sensors import Camera, Lidar, Radar, Aeva
+from pyboreas.data.auxsensors import AuxCSV, DMU, AevaIMU, Encoder
 from pyboreas.utils.utils import get_closest_frame
 
 
@@ -35,6 +36,11 @@ class Sequence:
         self.camera_root = osp.join(self.seq_root, "camera")
         self.lidar_root = osp.join(self.seq_root, "lidar")
         self.radar_root = osp.join(self.seq_root, "radar")
+        self.imu_root = osp.join(self.seq_root, "imu")
+        self.dmu_csv_path = osp.join(self.imu_root, "dmu_imu.csv")
+        self.infilled_dmu_csv_path = osp.join(self.imu_root, "dmu_imu_infilled.csv")
+        self.aeva_imu_csv_path = osp.join(self.imu_root, "aeva_imu.csv")
+        self.encoder_csv_path = osp.join(self.applanix_root, "dmi.csv")
 
         self._check_dataroot_valid()  # Check if folder structure correct
 
@@ -53,6 +59,10 @@ class Sequence:
         print("camera frames: {}".format(len(self.camera_frames)))
         print("lidar frames: {}".format(len(self.lidar_frames)))
         print("radar frames: {}".format(len(self.radar_frames)))
+        print("aeva frames: {}".format(len(self.aeva_frames)))
+        print("dmu frames: {}".format(len(self.dmu_frames)))
+        print("aeva imu frames: {}".format(len(self.aeva_imu_frames)))
+        print("encoder frames: {}".format(len(self.encoder_frames)))
         print("-------------------------------")
 
     def get_camera(self, idx):
@@ -96,6 +106,48 @@ class Sequence:
     def get_radar_iter(self):
         """Retrieves an iterator on radar frames"""
         return iter(self.radar)
+
+    def get_dmu(self, idx):
+        self.dmu_frames[idx].load_data()
+        return self.dmu_frames[idx]
+
+    @property
+    def dmu(self):
+        for dmu_frame in self.dmu_frames:
+            dmu_frame.load_data()
+            yield dmu_frame
+
+    def get_dmu_iter(self):
+        """Retrieves an iterator on imu frames"""
+        return iter(self.dmu)
+
+    def get_aeva_imu(self, idx):
+        self.aeva_imu_frames[idx].load_data()
+        return self.aeva_imu_frames[idx]
+    
+    @property
+    def aeva_imu(self):
+        for imu_frame in self.aeva_imu_frames:
+            imu_frame.load_data()
+            yield imu_frame
+    
+    def get_aeva_imu_iter(self):
+        """Retrieves an iterator on aeva imu frames"""
+        return iter(self.aeva_imu)
+
+    def get_encoder(self, idx):
+        self.encoder_frames[idx].load_data()
+        return self.encoder_frames[idx]
+    
+    @property
+    def encoder(self):
+        for encoder_frame in self.encoder_frames:
+            encoder_frame.load_data()
+            yield encoder_frame
+    
+    def get_encoder_iter(self):
+        """Retrieves an iterator on encoder frames"""
+        return iter(self.encoder)
 
     def _check_dataroot_valid(self):
         """Checks if the sequence folder structure is valid"""
@@ -162,6 +214,36 @@ class Sequence:
                     frames.append(frame)
         return frames
 
+    def _get_aux_frames(self, csv_path, AuxSensorType):
+        """Initializes aux sensor frame objects using the csv file
+
+        Args:
+            csv_path (str): path to <sensor>.csv
+            AuxSensorType (cls): aux sensor class specific to this sensor
+
+        Returns:
+            frames (list): list of aux sensor frame objects
+        """
+        if not osp.exists(csv_path):
+            return []
+
+        if (AuxSensorType == DMU):
+            timestamp_multiplier = 1e-9  # DMU timestamps are in nanoseconds
+        elif (AuxSensorType == AevaIMU):
+            timestamp_multiplier = 1e-6  # Aeva IMU timestamps are in microseconds
+        elif (AuxSensorType == Encoder):
+            timestamp_multiplier = 1  # Encoder timestamps are in seconds
+
+        frames = []
+        csv = AuxCSV.get_instance(csv_path, timestamp_multiplier=timestamp_multiplier)
+        timestamps_micro = csv.get_all_timestamps_micro()
+
+        for ts_micro in timestamps_micro:
+            if float(self.start_ts) * 1e3 <= ts_micro and ts_micro <= float(self.end_ts) * 1e3:
+                frame = AuxSensorType(csv_path, ts_micro)
+                frames.append(frame)
+        return frames
+
     def get_all_frames(self):
         """Convenience method for retrieving sensor frames of all types"""
         afile = osp.join(self.applanix_root, "aeva_poses.csv")
@@ -172,6 +254,9 @@ class Sequence:
         self.camera_frames = self._get_frames(cfile, self.camera_root, ".png", Camera)
         self.lidar_frames = self._get_frames(lfile, self.lidar_root, ".bin", Lidar)
         self.radar_frames = self._get_frames(rfile, self.radar_root, ".png", Radar)
+        self.dmu_frames = self._get_aux_frames(self.dmu_csv_path, DMU)
+        self.aeva_imu_frames = self._get_aux_frames(self.aeva_imu_csv_path, AevaIMU)
+        self.encoder_frames = self._get_aux_frames(self.encoder_csv_path, Encoder)
 
     def reset_frames(self):
         """Resets all frames, removes downloaded data"""
