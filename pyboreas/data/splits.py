@@ -166,33 +166,33 @@ obj_test = [
 
 # Boreas Road Trip (BoreasRT) splits for odometry and localization benchmarks.
 odom_test_rt = [
-    "boreas-2024-12-03-12-54", # suburbs (glen shields) mapping + odometry
-    "boreas-2025-01-08-11-22", # suburbs (glen shields) odometry
-    "boreas-2025-02-15-17-19", # suburbs (glen shields) odometry
-    "boreas-2024-12-05-14-12", # industrial mapping + odometry
-    "boreas-2024-12-23-16-27", # industrial odometry
-    "boreas-2024-12-23-16-44", # industrial odometry
-    "boreas-2024-12-04-11-45", # skyway mapping + odometry
-    "boreas-2024-12-04-12-08", # skyway odometry
-    "boreas-2024-12-04-12-34", # skyway odometry
-    "boreas-2024-12-04-14-28", # tunnel east mapping + odometry
-    "boreas-2024-12-04-14-50", # tunnel east odometry
-    "boreas-2024-12-04-15-19", # tunnel east odometry
-    "boreas-2025-07-18-14-55", # farm mapping + odometry
-    "boreas-2025-07-18-15-30", # farm odometry
-    "boreas-2025-07-18-16-05", # farm odometry
+    ["boreas-2024-12-03-12-54"], # suburbs (glen shields) mapping + odometry
+    ["boreas-2025-01-08-11-22"], # suburbs (glen shields) odometry
+    ["boreas-2025-02-15-17-19"], # suburbs (glen shields) odometry
+    ["boreas-2024-12-05-14-12"], # industrial mapping + odometry
+    ["boreas-2024-12-23-16-27"], # industrial odometry
+    ["boreas-2024-12-23-16-44"], # industrial odometry
+    ["boreas-2024-12-04-11-45"], # skyway mapping + odometry
+    ["boreas-2024-12-04-12-08"], # skyway odometry
+    ["boreas-2024-12-04-12-34"], # skyway odometry
+    ["boreas-2024-12-04-14-28"], # tunnel east mapping + odometry
+    ["boreas-2024-12-04-14-50"], # tunnel east odometry
+    ["boreas-2024-12-04-15-19"], # tunnel east odometry
+    ["boreas-2025-07-18-14-55"], # farm mapping + odometry
+    ["boreas-2025-07-18-15-30"], # farm odometry
+    ["boreas-2025-07-18-16-05"], # farm odometry
 ]
 
 
 loc_test_rt = [
-    "boreas-2025-01-08-11-22", # suburbs (glen shields)
-    "boreas-2025-02-15-17-19", # suburbs (glen shields)
-    "boreas-2024-12-23-16-27", # industrial
-    "boreas-2024-12-23-16-44", # industrial
-    "boreas-2024-12-04-12-08", # skyway
-    "boreas-2024-12-04-12-34", # skyway
-    "boreas-2024-12-04-14-50", # tunnel east
-    "boreas-2024-12-04-15-19", # tunnel east
-    "boreas-2025-07-18-15-30", # farm
-    "boreas-2025-07-18-16-05", # farm
+    ["boreas-2025-01-08-11-22"], # suburbs (glen shields)
+    ["boreas-2025-02-15-17-19"], # suburbs (glen shields)
+    ["boreas-2024-12-23-16-27"], # industrial
+    ["boreas-2024-12-23-16-44"], # industrial
+    ["boreas-2024-12-04-12-08"], # skyway
+    ["boreas-2024-12-04-12-34"], # skyway
+    ["boreas-2024-12-04-14-50"], # tunnel east
+    ["boreas-2024-12-04-15-19"], # tunnel east
+    ["boreas-2025-07-18-15-30"], # farm
+    ["boreas-2025-07-18-16-05"], # farm
 ]
