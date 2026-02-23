@@ -972,7 +972,9 @@ def get_sequence_poses_gt(path, seq, dim, aeva=False):
                 filepath = osp.join(
                     path, dir, "applanix/aeva_poses.csv"
                 ) # use 'aeva_poses.csv' for groundtruth
-                T_calib = np.loadtxt(osp.join(path, dir, "calib/T_applanix_aeva.txt"))
+                T_applanix_lidar = np.loadtxt(osp.join(path, dir, "calib/T_applanix_lidar.txt"))
+                T_aeva_lidar = np.loadtxt(osp.join(path, dir, "calib/T_aeva_lidar.txt"))
+                T_calib = T_applanix_lidar @ np.linalg.inv(T_aeva_lidar) # transform from aeva frame to applanix frame
             else:
                 filepath = osp.join(
                     path, dir, "applanix/lidar_poses.csv"
@@ -1306,7 +1308,9 @@ def get_sequence_velocities_gt(path, seq, dim, aeva=False):
                 filepath = osp.join(
                     path, dir, "applanix/aeva_poses.csv"
                 ) # use 'aeva_poses.csv' for groundtruth
-                T_calib = np.loadtxt(osp.join(path, dir, "calib/T_applanix_aeva.txt"))
+                T_applanix_lidar = np.loadtxt(osp.join(path, dir, "calib/T_applanix_lidar.txt"))
+                T_aeva_lidar = np.loadtxt(osp.join(path, dir, "calib/T_aeva_lidar.txt"))
+                T_calib = T_applanix_lidar @ np.linalg.inv(T_aeva_lidar) # transform from aeva frame to applanix frame
             else:
                 filepath = osp.join(
                     path, dir, "applanix/lidar_poses.csv"
