@@ -8,7 +8,7 @@ Users are free to create their own train/validation splits from the available tr
 ### Boreas Dataset Benchmark Sequences
 
 All sequences below are the **odometry benchmarks**. 
-For **localization**, use `boreas-2020-11-26-13-58` as the reference sequence and submit results only for sequences marked with ✅.
+For **localization**, use `boreas-2020-11-26-13-58` as the mapping sequence and submit results only for sequences marked with ✅.
 
 | Sequence | Localization|
 |----------|-------------|
@@ -29,23 +29,23 @@ For **localization**, use `boreas-2020-11-26-13-58` as the reference sequence an
 ### Boreas Road Trip Dataset Benchmark Sequences
 
 All sequences below are the **odometry benchmarks**. 
-For **localization**, use the first sequence of each route as the reference sequence and submit results only for sequences marked with ✅.
+For **localization**, use the first sequence of each route as the mapping sequence and submit results only for sequences marked with ✅.
 
 | Route            | Sequence               | Localization |
 |-----------------|----------------------|-------------|
-| Suburbs Route    | boreas-2024-12-03-12-54 | ❌ (use as reference)|
+| Suburbs Route    | boreas-2024-12-03-12-54 | ❌ (use for mapping)|
 | Suburbs Route    | boreas-2025-01-08-11-22 | ✅ |
 |  Suburbs Route   | boreas-2025-02-15-17-19 | ✅ |
-| Industrial Route | boreas-2024-12-05-14-12 | ❌ (use as reference) |
+| Industrial Route | boreas-2024-12-05-14-12 | ❌ (use for mapping) |
 | Industrial Route | boreas-2024-12-23-16-27 | ✅ |
 | Industrial Route | boreas-2024-12-23-16-44 | ✅ |
-| Skyway Route     | boreas-2024-12-04-11-45 | ❌ (use as reference) |
+| Skyway Route     | boreas-2024-12-04-11-45 | ❌ (use for mapping) |
 | Skyway Route     | boreas-2024-12-04-12-08 | ✅ |
 | Skyway Route     | boreas-2024-12-04-12-34 | ✅ |
-| Tunnel East      | boreas-2024-12-04-14-28 | ❌ (use as reference) |
+| Tunnel East      | boreas-2024-12-04-14-28 | ❌ (use for mapping) |
 | Tunnel East      | boreas-2024-12-04-14-50 | ✅ |
 | Tunnel East      | boreas-2024-12-04-15-19 | ✅ |
-| Farm             | boreas-2025-07-18-14-55 | ❌ (use as reference) |
+| Farm             | boreas-2025-07-18-14-55 | ❌ (use for mapping) |
 | Farm             | boreas-2025-07-18-15-30 | ✅ |
 | Farm             | boreas-2025-07-18-16-05 | ✅ |
 
@@ -63,7 +63,7 @@ benchmark: odometry
 # options: [boreas, boreasrt]
 dataset: boreas
 
-# free text (example)
+# free text
 methodname: RoBoDoMeTrY
 
 # the email used for your account/login
@@ -72,14 +72,14 @@ email: your.email@example.com
 # bool
 2d: False
 
-# free text (example)
+# free text
 author: First Last, First1 Last1
 papertitle: Our Wondrous Algorithm
 
-# link to paper (example) if not applicable, prefer N/A
+# link to paper ("N/A" if not applicable)
 paperurl: https://www.website/paperURL
 
-# conference or journal name (example) if not applicable, prefer N/A
+# conference or journal name ("N/A" if not applicable)
 venue: ICRA
 
 # 4-digit year
@@ -88,7 +88,7 @@ year: 2077
 # runtime in seconds (number)
 runtimeseconds: 0.1
 
-# computer specs (example)
+# computer specs
 computer: Intel i7-1370p
 
 # sensor options for odometry: ['lidar', 'radar', 'IMU', 'camera']
@@ -111,6 +111,7 @@ For the localization benchmark, two additional metadata tags are required:
 `ref_sensor` which can be one of: `lidar, radar, camera`. This is used to determine which sensor is being used as a reference for ground truth poses.
 `test_sensor` which can be one of: `lidar, radar, camera`. This is used to determine which sensor acts as the "test" sensor.
 
+<u>FMCW lidar results are not supported. Submit Velodyne lidar results only.</u>
 
 Note that submissions are hidden by default and that we provide the ability for users to "publish" or un-hide their results using the website. Submissions may also be hidden after they are published if desired.
 
@@ -124,7 +125,9 @@ Detailed results will be sent to the `email` provided in the yaml file. <u>Note 
 
 ## Submission Policy
 
-The submission page of our website should only be used for reporting final results for comparison with other methods on our website. Our expectation is that users will iterate their algorithms on a validation set based on the provided training data and only submit their best results on the test set once. Users are prohibited from tuning their algorithms to achieve better results on the test set. If users desire to compare the performance of multiple versions of the same algorithm, the provided training data should be used for this purpose.
+The submission page of our website should only be used for reporting final results for comparison with other methods on our website. 
+
+For the Boreas dataset benchmark, our expectation is that users will iterate their algorithms on a validation set based on the provided training data and only submit their best results on the test set once. Users are prohibited from tuning their algorithms to achieve better results on the test set. If users desire to compare the performance of multiple versions of the same algorithm, the provided training data should be used for this purpose.
 
 Incorrect submission formatting resulting in erroneous or failed benchmark results does not count as a proper submission.
 
