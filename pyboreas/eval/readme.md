@@ -2,54 +2,55 @@
 
 Submissions are zip files which contain the result txt files along with a metadata.yaml file.
 
-#### Test sequences
-
 Note that train/test splits are contained in `pyboreas.data.splits.py`
-Users are free to c
-reate their own train/validation splits from the available training data. 
+Users are free to create their own train/validation splits from the available training data. 
 
-##### The benchmark sequences for the *Boreas dataset* are:
- - boreas-2020-12-04-14-00 **
- - boreas-2021-01-26-10-59 **
- - boreas-2021-02-09-12-55 **
- - boreas-2021-03-09-14-23 **
- - boreas-2021-04-22-15-00
- - boreas-2021-06-29-18-53 **
- - boreas-2021-06-29-20-43
- - boreas-2021-09-08-21-00 **
- - boreas-2021-09-09-15-28
- - boreas-2021-10-05-15-35 **
- - boreas-2021-10-26-12-35 **
- - boreas-2021-11-06-18-55
- - boreas-2021-11-28-09-18 **
+### Boreas Dataset Benchmark Sequences
 
-Results for all sequences must be submitted to the odometry benchmark. For localization, use `boreas-2020-11-26-13-58` as the reference sequence and submit results for each sequence marked with `**` in the list above.
+All sequences below are the **odometry benchmarks**. 
+For **localization**, use `boreas-2020-11-26-13-58` as the reference sequence and submit results only for sequences marked with ✅.
 
-##### The benchmark sequences for the *Boreas Road Trip* dataset are:
-- **Suburbs Route:**
-  - boreas-2024-12-03-12-54
-  - boreas-2025-01-08-11-22 **
-  - boreas-2025-02-15-17-19 **
-- **Industrial Route:**
-  - boreas-2024-12-05-14-12
-  - boreas-2024-12-23-16-27 **
-  - boreas-2024-12-23-16-44 **
-- **Skyway Route:**
-  - boreas-2024-12-04-11-45
-  - boreas-2024-12-04-12-08 **
-  - boreas-2024-12-04-12-34 **
-- **Tunnel East:**
-  - boreas-2024-12-04-14-28
-  - boreas-2024-12-04-14-50 **
-  - boreas-2024-12-04-15-19 **
-- **Farm:**
-  - boreas-2025-07-18-14-55
-  - boreas-2025-07-18-15-30 **
-  - boreas-2025-07-18-16-05 **
+| Sequence | Localization|
+|----------|-------------|
+| boreas-2020-12-04-14-00 | ✅ |
+| boreas-2021-01-26-10-59 | ✅ |
+| boreas-2021-02-09-12-55 | ✅ |
+| boreas-2021-03-09-14-23 | ✅ |
+| boreas-2021-04-22-15-00 | ❌ |
+| boreas-2021-06-29-18-53 | ✅ |
+| boreas-2021-06-29-20-43 | ❌ |
+| boreas-2021-09-08-21-00 | ✅ |
+| boreas-2021-09-09-15-28 | ❌ |
+| boreas-2021-10-05-15-35 | ✅ |
+| boreas-2021-10-26-12-35 | ✅ |
+| boreas-2021-11-06-18-55 | ❌ |
+| boreas-2021-11-28-09-18 | ✅ |
 
-Results for all sequences must be submitted to the odometry benchmark. For localization, use the first sequence of each route as the reference sequence and submit results for each sequence marked with `**` in the list above.
+### Boreas Road Trip Dataset Benchmark Sequences
 
-#### Submission Formatting
+All sequences below are the **odometry benchmarks**. 
+For **localization**, use the first sequence of each route as the reference sequence and submit results only for sequences marked with ✅.
+
+| Route            | Sequence               | Localization |
+|-----------------|----------------------|-------------|
+| Suburbs Route    | boreas-2024-12-03-12-54 | ❌ (use as reference)|
+| Suburbs Route    | boreas-2025-01-08-11-22 | ✅ |
+|  Suburbs Route   | boreas-2025-02-15-17-19 | ✅ |
+| Industrial Route | boreas-2024-12-05-14-12 | ❌ (use as reference) |
+| Industrial Route | boreas-2024-12-23-16-27 | ✅ |
+| Industrial Route | boreas-2024-12-23-16-44 | ✅ |
+| Skyway Route     | boreas-2024-12-04-11-45 | ❌ (use as reference) |
+| Skyway Route     | boreas-2024-12-04-12-08 | ✅ |
+| Skyway Route     | boreas-2024-12-04-12-34 | ✅ |
+| Tunnel East      | boreas-2024-12-04-14-28 | ❌ (use as reference) |
+| Tunnel East      | boreas-2024-12-04-14-50 | ✅ |
+| Tunnel East      | boreas-2024-12-04-15-19 | ✅ |
+| Farm             | boreas-2025-07-18-14-55 | ❌ (use as reference) |
+| Farm             | boreas-2025-07-18-15-30 | ✅ |
+| Farm             | boreas-2025-07-18-16-05 | ✅ |
+
+
+### Submission Formatting
 
 The name of the zip file must start with the desired dataset, which is one of `[boreas, boreasrt]`, then contain your method name, and end in the desired benchmark, which can be one of `[odometry, localization, detection]`. Example: `boreas-RoBoDoMeTrY-odometry.zip`. The dataset and benchmark specified in the file name must match their respecive fields specified in the yaml file.
 
