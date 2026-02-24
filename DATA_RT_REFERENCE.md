@@ -2,30 +2,119 @@
 
 ## Introduction
 
-Please refer to our paper for all the details:
-[Boreas Road Trip: A Multi-Sensor Autonomous Driving Dataset on Challenging Roads](https://arxiv.org/abs/2602.16870)
+Please refer to our paper for all details:
+[Boreas Road Trip: A Multi-Sensor Autonomous Driving Dataset on Challenging Roads](https://arxiv.org/abs/2602.16870). You can find a [promotional video summarizing the dataset](https://www.youtube.com/watch?v=zDQVhAOagcU) on our Youtube channel.
 
-The paper details will be available on this page soon.
-<!-- 
+
 ### Purpose
 
-This dataset and the associated benchmarks are intended to support odometry, and metric localization for lidar, radar, and vision. This dataset features repeated traversals of nine different routes spanning a variety of challenging road conditions.
-This dataset features repeated traversals over a long period and multiple weather conditions. These changing conditions may be used to benchmark long-term localization capabilities of different sensors or the robustness of various sensor types to adverse weather.
+The Boreas Road Trip (Boreas-RT) dataset and the associated benchmarks are intended to support odometry, metric localization, and perception algorithms for lidar, radar, and vision.
+Boreas-RT features repeated traversals of nine different routes spanning a variety of challenging road conditions, for a total of 643 kilometres of driving.
+We argue that state-of-the-art autonomous vehicle (AV) algorithms should be capable of handling all kinds of roads with, ideally, equal performance.
+This dataset aims to provide a unified, easy-to-access way for researchers to test their algorithms on both standard and challenging roads using any combination of sensing modalities found in modern AVs.
 
 ### Sensors
 
 - 128-beam Velodyne Alpha-Prime 3D lidar
+- Aeva Aeries II FMCW Doppler-enabled lidar
 - FLIR Blackfly S (5 MP) monocular camera
-- Navtech 360 degree radar
+- Navtech 360 degree RAS6 Doppler-enabled spinning radar
+- Silicon Sensing DMU41 IMU
+- Dynapar wheel encoder
 - Applanix POSLV GNSS
 
 ### Data Collection
 
-Data was collected during repeated traversals of several routes in Toronto, Canada, across several seasons and multiple weather conditions. Two of these routes are shown below:
+<table style="border-collapse: collapse; margin: auto;">
+  <!-- Row 1: images -->
+  <tr>
+    <td style="border:1px solid #ccc; border-bottom:none; text-align:center;">
+      <img src="figs/trajectories/suburbs_traj.png" style="height:180px;">
+    </td>
+    <td style="border:1px solid #ccc; border-bottom:none; text-align:center;">
+      <img src="figs/trajectories/industrial_traj.png" style="height:180px;">
+    </td>
+    <td style="border:1px solid #ccc; border-bottom:none; text-align:center;">
+      <img src="figs/trajectories/urban_traj.png" style="height:180px;">
+    </td>
+  </tr>
 
-| ![sat_dt.png](figs/glen_shields.png) | ![glen_shields.png](figs/st_george.png) |
-| --- | --- |
-| [Glen Shields](figs/glen_shields.html) [Video](https://youtu.be/Siu5gNOYqt4) | [St George](figs/st_george.html) [Video](https://youtu.be/ldNI4Qe8lIs) |
+  <!-- Row 1 captions -->
+  <tr>
+    <td style="border:1px solid #ccc; border-top:none; text-align:center;">
+      <a href="figs/glen_shields.html">Glen Shields</a>
+      <a href="https://youtu.be/Siu5gNOYqt4">Video</a>
+    </td>
+    <td style="border:1px solid #ccc; border-top:none; text-align:center;">
+      <a href="figs/st_george.html">St George</a>
+      <a href="https://youtu.be/ldNI4Qe8lIs">Video</a>
+    </td>
+    <td style="border:1px solid #ccc; border-top:none; text-align:center;">
+      <a href="figs/glen_shields.html">Glen Shields</a>
+      <a href="https://youtu.be/Siu5gNOYqt4">Video</a>
+    </td>
+  </tr>
+
+  <!-- Row 2: images -->
+  <tr>
+    <td style="border:1px solid #ccc; border-bottom:none; text-align:center;">
+      <img src="figs/trajectories/industrial_traj.png" style="height:180px;">
+    </td>
+    <td style="border:1px solid #ccc; border-bottom:none; text-align:center;">
+      <img src="figs/trajectories/suburbs_traj.png" style="height:180px;">
+    </td>
+    <td style="border:1px solid #ccc; border-bottom:none; text-align:center;">
+      <img src="figs/trajectories/industrial_traj.png" style="height:180px;">
+    </td>
+  </tr>
+
+  <!-- Row 2 captions -->
+  <tr>
+    <td style="border:1px solid #ccc; border-top:none; text-align:center;">
+      <a href="figs/st_george.html">St George</a>
+      <a href="https://youtu.be/ldNI4Qe8lIs">Video</a>
+    </td>
+    <td style="border:1px solid #ccc; border-top:none; text-align:center;">
+      <a href="figs/glen_shields.html">Glen Shields</a>
+      <a href="https://youtu.be/Siu5gNOYqt4">Video</a>
+    </td>
+    <td style="border:1px solid #ccc; border-top:none; text-align:center;">
+      <a href="figs/st_george.html">St George</a>
+      <a href="https://youtu.be/ldNI4Qe8lIs">Video</a>
+    </td>
+  </tr>
+
+  <!-- Row 3: images -->
+  <tr>
+    <td style="border:1px solid #ccc; border-bottom:none; text-align:center;">
+      <img src="figs/trajectories/suburbs_traj.png" style="height:180px;">
+    </td>
+    <td style="border:1px solid #ccc; border-bottom:none; text-align:center;">
+      <img src="figs/trajectories/industrial_traj.png" style="height:180px;">
+    </td>
+    <td style="border:1px solid #ccc; border-bottom:none; text-align:center;">
+      <img src="figs/trajectories/suburbs_traj.png" style="height:180px;">
+    </td>
+  </tr>
+
+  <!-- Row 3 captions -->
+  <tr>
+    <td style="border:1px solid #ccc; border-top:none; text-align:center;">
+      <a href="figs/glen_shields.html">Glen Shields</a>
+      <a href="https://youtu.be/Siu5gNOYqt4">Video</a>
+    </td>
+    <td style="border:1px solid #ccc; border-top:none; text-align:center;">
+      <a href="figs/st_george.html">St George</a>
+      <a href="https://youtu.be/ldNI4Qe8lIs">Video</a>
+    </td>
+    <td style="border:1px solid #ccc; border-top:none; text-align:center;">
+      <a href="figs/glen_shields.html">Glen Shields</a>
+      <a href="https://youtu.be/Siu5gNOYqt4">Video</a>
+    </td>
+  </tr>
+</table>
+
+
 
 ## Sensor Details
 
@@ -197,4 +286,4 @@ The extrinsics between the lidar and IMU (Applanix reference frame) were obtaine
 
 ## Applanix Data
 
-We use Applanix's proprietary POSPac suite to obtain post-processed results. The POSPac suite uses all available (GPS, IMU, wheel encoder) data and performs a batch optimization using an RTS smoother to obtain the most accurate orientation, and velocity information at each time step. The RMS position error is typically 2-4 cm. However, this accuracy can change depending on the atmospheric conditions and the visibility of satellites. The accuracy can also change throughout the course of a sequence. For detailed information on the position accuracy of each sequence, we have provided a script, `plot_processed_error.py`, which produces plots of position, orientation, and velocity residual error vs. time. -->
+We use Applanix's proprietary POSPac suite to obtain post-processed results. The POSPac suite uses all available (GPS, IMU, wheel encoder) data and performs a batch optimization using an RTS smoother to obtain the most accurate orientation, and velocity information at each time step. The RMS position error is typically 2-4 cm. However, this accuracy can change depending on the atmospheric conditions and the visibility of satellites. The accuracy can also change throughout the course of a sequence. For detailed information on the position accuracy of each sequence, we have provided a script, `plot_processed_error.py`, which produces plots of position, orientation, and velocity residual error vs. time. 
