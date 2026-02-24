@@ -1,6 +1,6 @@
 # pyboreas
 
-![Boreas](https://github.com/utiasASRL/pyboreas/blob/master/pyboreas/figs/pyboreas_all.png)
+![Boreas](https://github.com/utiasASRL/pyboreas/blob/brt_docs/pyboreas/figs/pyboreas_all.png)
 
 This devkit provides tools for working with the Boreas and Boreas Road Trip (Boreas-RT) datasets. Boreas is an all-weather autonomous driving dataset which includes a 128-beam Velodyne Alpha-Prime lidar, a 5MP Blackfly camera, a 360 degree Navtech radar, a wheel enoder, and post-processed Applanix POS LV GNSS data. Boreas-RT is an an `all-route' autonomous driving dataset, which additionall includes an Aeries II FMCW lidar and a stand-alone Silicon Sensing DMU41 IMU.
 Both datasets currently suports benchmarking odometry and localization, with Boreas also benchmarking 3D object detection.
