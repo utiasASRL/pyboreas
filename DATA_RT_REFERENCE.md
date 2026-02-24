@@ -43,13 +43,13 @@ Data was collected during repeated traversals of nine routes in southern Ontario
   <!-- Row 1 images -->
   <tr>
     <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/suburbs_traj.png" style="height:180px;">
+      <img src="figs/boreas_rt/trajectories/suburbs_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
     </td>
     <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/industrial_traj.png" style="height:180px;">
+      <img src="figs/boreas_rt/trajectories/industrial_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
     </td>
     <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/suburbs_traj.png" style="height:180px;">
+      <img src="figs/boreas_rt/trajectories/suburbs_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
     </td>
   </tr>
 
@@ -69,13 +69,13 @@ Data was collected during repeated traversals of nine routes in southern Ontario
   <!-- Row 2 images -->
   <tr>
     <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/forest_traj.png" style="height:180px;">
+      <img src="figs/boreas_rt/trajectories/forest_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
     </td>
     <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/farm_traj.png" style="height:180px;">
+      <img src="figs/boreas_rt/trajectories/farm_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
     </td>
     <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/tunnel_traj.png" style="height:180px;">
+      <img src="figs/boreas_rt/trajectories/tunnel_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
     </td>
   </tr>
 
@@ -95,13 +95,13 @@ Data was collected during repeated traversals of nine routes in southern Ontario
   <!-- Row 3 images -->
   <tr>
     <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/skyway_traj.png" style="height:180px;">
+      <img src="figs/boreas_rt/trajectories/skyway_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
     </td>
     <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/regional_traj.png" style="height:180px;">
+      <img src="figs/boreas_rt/trajectories/regional_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
     </td>
     <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/freeway_traj.png" style="height:180px;">
+      <img src="figs/boreas_rt/trajectories/freeway_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
     </td>
   </tr>
 </table>
