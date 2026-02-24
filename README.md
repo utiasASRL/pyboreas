@@ -1,12 +1,13 @@
 # pyboreas
 
-![Boreas](https://github.com/utiasASRL/pyboreas/blob/master/pyboreas/figs/pyboreas.png)
+![Boreas](https://github.com/utiasASRL/pyboreas/blob/master/pyboreas/figs/pyboreas_all.png)
 
-This devkit provides tools for working with the Boreas Dataset, an all-weather autonomous driving dataset which includes a 128-beam Velodyne Alpha-Prime lidar, a 5MP Blackfly camera, a 360 degree Navtech radar, and post-processed Applanix POS LV GNSS data. Our dataset currently suports benchmarking odometry, localization, and 3D object detection.
+This devkit provides tools for working with the Boreas and Boreas Road Trip (Boreas-RT) datasets. Boreas is an all-weather autonomous driving dataset which includes a 128-beam Velodyne Alpha-Prime lidar, a 5MP Blackfly camera, a 360 degree Navtech radar, a wheel enoder, and post-processed Applanix POS LV GNSS data. Boreas-RT is an an `all-route' autonomous driving dataset, which additionall includes an Aeries II FMCW lidar and a stand-alone Silicon Sensing DMU41 IMU.
+Both datasets currently suports benchmarking odometry and localization, with Boreas also benchmarking 3D object detection.
 
-Our leaderboard is now live! Baseline implementations for each leaderboard are coming soon.
+[A leaderboard for each dataset is now live](https://www.boreas.utias.utoronto.ca/#/leaderboard)!
 
-If you find our dataset useful in your research, please cite our dataset paper:
+If you find our datasets useful in your research, please cite our dataset papers:
 
 [Boreas: A Multi-Season Autonomous Driving Dataset](https://arxiv.org/abs/2203.10168)
 
@@ -20,6 +21,21 @@ number = {1-2},
 pages = {33-42},
 year = {2023},
 doi = {10.1177/02783649231160195},
+}
+
+```
+
+[Boreas Road Trip: A Multi-Sensor Autonomous Driving Dataset on Challenging Roads](https://arxiv.org/abs/2602.16870)
+
+```
+@misc{lisus_brrt26,
+author={Daniil Lisus and Katya M. Papais and Cedric Le Gentil and Elliot Preston-Krebs and Andrew Lambert and Keith Y. K. Leung and Timothy D. Barfoot},
+title={Boreas Road Trip: A Multi-Sensor Autonomous Driving Dataset on Challenging Roads}, 
+year={2026},
+eprint={2602.16870},
+archivePrefix={arXiv},
+primaryClass={cs.RO},
+url={https://arxiv.org/abs/2602.16870},
 }
 
 ```
@@ -62,7 +78,7 @@ root=/path/to/data/boreas/
 aws s3 ls s3://boreas
 ```
 
-Alternatively, [boreas.utias.utoronto.ca (Work In Progress)](https://www.boreas.utias.utoronto.ca/#/download) can be used to browse through sequences so as to pick and choose what data to download. The website will then generate a list of AWS CLI commands that can be run as a bash script. These commands will look something like:
+Alternatively, [boreas.utias.utoronto.ca](https://www.boreas.utias.utoronto.ca/#/download) can be used to browse through sequences so as to pick and choose what data to download. The website will then generate a list of AWS CLI commands that can be run as a bash script. These commands will look something like:
 
 ```text
 root=/path/to/data/boreas/
