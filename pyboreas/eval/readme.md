@@ -35,19 +35,19 @@ For **localization**, use the first sequence of each route as the mapping sequen
 |-----------------|----------------------|-------------|
 | Suburbs Route    | boreas-2024-12-03-12-54 | ❌ (use for mapping)|
 | Suburbs Route    | boreas-2025-01-08-11-22 | ✅ |
-|  Suburbs Route   | boreas-2025-02-15-17-19 | ✅ |
-| Industrial Route | boreas-2024-12-05-14-12 | ❌ (use for mapping) |
-| Industrial Route | boreas-2024-12-23-16-27 | ✅ |
-| Industrial Route | boreas-2024-12-23-16-44 | ✅ |
+| Suburbs Route    | boreas-2025-02-15-17-19 | ✅ |
 | Skyway Route     | boreas-2024-12-04-11-45 | ❌ (use for mapping) |
 | Skyway Route     | boreas-2024-12-04-12-08 | ✅ |
 | Skyway Route     | boreas-2024-12-04-12-34 | ✅ |
 | Tunnel East      | boreas-2024-12-04-14-28 | ❌ (use for mapping) |
 | Tunnel East      | boreas-2024-12-04-14-50 | ✅ |
 | Tunnel East      | boreas-2024-12-04-15-19 | ✅ |
+| Industrial Route | boreas-2024-12-05-14-12 | ❌ (use for mapping) |
+| Industrial Route | boreas-2024-12-23-16-27 | ✅ |
+| Industrial Route | boreas-2024-12-23-16-44 | ✅ |
 | Farm             | boreas-2025-07-18-14-55 | ❌ (use for mapping) |
 | Farm             | boreas-2025-07-18-15-30 | ✅ |
-| Farm             | boreas-2025-07-18-16-05 | ✅ |
+| Farm             | boreas-2025-08-13-09-01 | ✅ |
 
 
 ### Submission Formatting
