@@ -1,6 +1,6 @@
 # Evaluation
 
-Submissions are zip files which contain the result txt files along with a metadata.yaml file.
+Submissions are `.zip` files which contain the result `.txt` files along with a `metadata.yaml` file.
 
 Note that train/test splits are contained in `pyboreas.data.splits.py`
 Users are free to create their own train/validation splits from the available training data. 
@@ -52,7 +52,7 @@ For **localization**, use the first sequence of each route as the mapping sequen
 
 ### Submission Formatting
 
-The name of the zip file must start with the desired dataset, which is one of `[boreas, boreasrt]`, then contain your method name, and end in the desired benchmark, which can be one of `[odometry, localization, detection]`. Example: `boreas-RoBoDoMeTrY-odometry.zip`. The dataset and benchmark specified in the file name must match their respecive fields specified in the yaml file.
+The name of the `.zip` file must start with the desired dataset, which is one of `[boreas, boreasrt]`, then contain your method name, and end in the desired benchmark, which can be one of `[odometry, localization, detection]`. Example: `boreas-RoBoDoMeTrY-odometry.zip`. The dataset and benchmark specified in the file name must match their respecive fields specified in the yaml file.
 
 metadata.yaml uses the following format:
 
@@ -85,10 +85,10 @@ venue: ICRA
 # 4-digit year
 year: 2077
 
-# runtime in seconds (number)
+# compute per frame in seconds (number)
 runtimeseconds: 0.1
 
-# computer specs
+# computer specs (run `lscpu` in terminal and copy the output of "Model name")
 computer: Intel i7-1370p
 
 # sensor options for odometry: ['lidar', 'radar', 'IMU', 'camera']
@@ -113,15 +113,18 @@ For the localization benchmark, two additional metadata tags are required:
 
 <u>FMCW lidar results are not supported. Submit Velodyne lidar results only.</u>
 
+### Submission Management
+
+To create your submission `.zip`, put `metadata.yaml` and all of your result `.txt` files in the same directory, select them all, then compress them into a single zip archive (ensure the zip contains the files at its root, not an extra top-level folder).
+
+We provide a Python file to check the format of the submission `.zip` file: `pyboreas.eval.submission_checker.py`. Please use this script to check your submission before uploading to the website. Your submission may fail silently if this has not been done.
+
+See the other readme files for the format of the submission `.txt` files.
+
+Once your submission has been uploaded, it will take several minutes to process your submission. When processing is complete, a confirmation will be sent to the `email` provided in the yaml file. <u>Note that this `email` must match the one that was used to sign up for an account via our website.</u> Please wait for this confirmation before editing the metadata or attempting to publish your result.
+
+
 Note that submissions are hidden by default and that we provide the ability for users to "publish" or un-hide their results using the website. Submissions may also be hidden after they are published if desired.
-
-Note that we provide a Python file to check the format of the submission zip file: `pyboreas.eval.submission_checker.py`. Please use this script to check your submission before uploading to the website. Your submission may fail silently if this has not been done.
-
-See the other readme files for the format of the submission txt files.
-
-After uploading your submission, it will take several minutes before your results will apper in the "view / edit" section of the submission page.
-
-Detailed results will be sent to the `email` provided in the yaml file. <u>Note that this `email` must match the one that was used to sign up for an account via our website.</u>
 
 ## Submission Policy
 
