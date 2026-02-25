@@ -31,20 +31,20 @@ For **localization**, use `boreas-2020-11-26-13-58` as the mapping sequence and 
 All sequences below are the **odometry benchmarks**. 
 For **localization**, use the first sequence of each route as the mapping sequence and submit results only for sequences marked with ✅.
 
-| Route            | Sequence               | Localization |
-|-----------------|----------------------|-------------|
-| Suburbs Route    | boreas-2024-12-03-12-54 | ❌ (use for mapping)|
-| Suburbs Route    | boreas-2025-01-08-11-22 | ✅ |
-| Suburbs Route    | boreas-2025-02-15-17-19 | ✅ |
-| Skyway Route     | boreas-2024-12-04-11-45 | ❌ (use for mapping) |
-| Skyway Route     | boreas-2024-12-04-12-08 | ✅ |
-| Skyway Route     | boreas-2024-12-04-12-34 | ✅ |
+| Route            | Sequence                | Localization |
+|------------------|-------------------------|-------------|
+| Suburbs          | boreas-2024-12-03-12-54 | ❌ (use for mapping)|
+| Suburbs          | boreas-2025-01-08-11-22 | ✅ |
+| Suburbs          | boreas-2025-02-15-17-19 | ✅ |
+| Skyway           | boreas-2024-12-04-11-45 | ❌ (use for mapping) |
+| Skyway           | boreas-2024-12-04-12-08 | ✅ |
+| Skyway           | boreas-2024-12-04-12-34 | ✅ |
 | Tunnel East      | boreas-2024-12-04-14-28 | ❌ (use for mapping) |
 | Tunnel East      | boreas-2024-12-04-14-50 | ✅ |
 | Tunnel East      | boreas-2024-12-04-15-19 | ✅ |
-| Industrial Route | boreas-2024-12-05-14-12 | ❌ (use for mapping) |
-| Industrial Route | boreas-2024-12-23-16-27 | ✅ |
-| Industrial Route | boreas-2024-12-23-16-44 | ✅ |
+| Industrial       | boreas-2024-12-05-14-12 | ❌ (use for mapping) |
+| Industrial       | boreas-2024-12-23-16-27 | ✅ |
+| Industrial       | boreas-2024-12-23-16-44 | ✅ |
 | Farm             | boreas-2025-07-18-14-55 | ❌ (use for mapping) |
 | Farm             | boreas-2025-07-18-15-30 | ✅ |
 | Farm             | boreas-2025-08-13-09-01 | ✅ |
@@ -74,9 +74,11 @@ email: your.email@example.com
 
 # free text
 author: First Last, First1 Last1
+
+# paper name ("N/A" if not applicable)
 papertitle: Our Wondrous Algorithm
 
-# link to paper ("N/A" if not applicable)
+# link to paper (or repository if submission is not accociated with paper)
 paperurl: https://www.website/paperURL
 
 # conference or journal name ("N/A" if not applicable)
@@ -123,8 +125,10 @@ See the other readme files for the format of the submission `.txt` files.
 
 Once your submission has been uploaded, it will take several minutes to process your submission. When processing is complete, a confirmation will be sent to the `email` provided in the yaml file. <u>Note that this `email` must match the one that was used to sign up for an account via our website.</u> Please wait for this confirmation before editing the metadata or attempting to publish your result.
 
-
 Note that submissions are hidden by default and that we provide the ability for users to "publish" or un-hide their results using the website. Submissions may also be hidden after they are published if desired.
+
+## FAQ
+Coming soon!
 
 ## Submission Policy
 
