@@ -52,9 +52,26 @@ For **localization**, use the first sequence of each route as the mapping sequen
 
 ### Submission Formatting
 
+##### Filename
 The name of the `.zip` file must start with the desired dataset, which is one of `[boreas, boreasrt]`, then contain your method name, and end in the desired benchmark, which can be one of `[odometry, localization, detection]`. Example: `boreas-RoBoDoMeTrY-odometry.zip`. The dataset and benchmark specified in the file name must match their respecive fields specified in the yaml file.
 
-metadata.yaml uses the following format:
+##### Formatting the `.txt` Files
+`.txt` files must follow the format described in [odometry.md](https://github.com/utiasASRL/pyboreas/blob/master/pyboreas/eval/odometry.md) for odometry submissions and in [localization.md](https://github.com/utiasASRL/pyboreas/blob/master/pyboreas/eval/localization.md) for localization submissions. The devkit contains file formatting examples for odometry
+```bash
+ls -1 pyboreas/test/demo/pred/3d/
+boreas-2021-08-05-13-34.txt
+boreas-2021-09-02-11-42.txt
+```
+and for localization
+```bash
+ls -1 pyboreas/test/demo/pred/3d/loc/
+boreas-2025-01-08-11-22.txt
+```
+The length of the text files must match the length of the data with one row in the `.txt` file per timestamp. If your method fails, it must still populate the row for that timestamp (can be with 0s).
+<u>FMCW lidar results are not supported. Submit Velodyne lidar results only.</u>
+
+##### Formatting the `metadata.yaml` File
+`metadata.yaml` uses the following format:
 
 ```YAML
 # options: [odometry, localization, detection]
@@ -112,8 +129,6 @@ test_sensor: ['lidar']
 For the localization benchmark, two additional metadata tags are required: 
 `ref_sensor` which can be one of: `lidar, radar, camera`. This is used to determine which sensor is being used as a reference for ground truth poses.
 `test_sensor` which can be one of: `lidar, radar, camera`. This is used to determine which sensor acts as the "test" sensor.
-
-<u>FMCW lidar results are not supported. Submit Velodyne lidar results only.</u>
 
 ### Submission Management
 
