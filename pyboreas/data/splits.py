@@ -180,7 +180,7 @@ odom_test_rt = [
     ["boreas-2024-12-04-15-19"], # tunnel east odometry
     ["boreas-2025-07-18-14-55"], # farm mapping + odometry
     ["boreas-2025-07-18-15-30"], # farm odometry
-    ["boreas-2025-07-18-16-05"], # farm odometry
+    ["boreas-2025-08-13-09-01"], # farm odometry
 ]
 
 
@@ -194,5 +194,5 @@ loc_test_rt = [
     ["boreas-2024-12-04-14-50"], # tunnel east
     ["boreas-2024-12-04-15-19"], # tunnel east
     ["boreas-2025-07-18-15-30"], # farm
-    ["boreas-2025-07-18-16-05"], # farm
+    ["boreas-2025-08-13-09-01"], # farm
 ]
