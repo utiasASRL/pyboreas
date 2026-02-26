@@ -145,8 +145,17 @@ Once your submission has been uploaded, it will take several minutes to process 
 
 Note that submissions are hidden by default and that we provide the ability for users to "publish" or un-hide their results using the website. Submissions may also be hidden after they are published if desired.
 
+
 ## FAQ
-Coming soon!
+##### 1. Why does my submission say "Processing..."?
+- After submitting, wait for a confirmation email from boreas@robotics.utias.utoronto.ca. Processing may take several minutes—check your spam folder.
+    - If you receive a results email, click the Refresh button on the submission page to enable Editing/Publishing.
+    - If you receive a failure email, delete your submission and use the submission checker to fix formatting issues.
+    - If you do not receive any email, please contact us for assistance.
+
+##### 2. What does `Number of Successes` mean on the leaderboard?
+- This is the number of test set sequences where your method achieved a translation error below 3% (odometry) or a lateral/longitudinal RMSE below 5 m (localization).
+Full per-sequence results are included in the benchmark results email sent to you after submission. 
 
 ## Submission Policy
 
