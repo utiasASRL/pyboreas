@@ -42,18 +42,18 @@ def check_yaml(yml):
 
     if yml["benchmark"] == "localization":
         try:
-            yml["ref_sensor"]
-            if yml["ref_sensor"] not in ["camera", "lidar", "radar"]:
-                print("incorrect ref_sensor: {}".format(yml["ref_sensor"]))
+            sensor = yml["ref_sensor"][0]
+            if sensor not in ["camera", "lidar", "radar"]:
+                print("incorrect ref_sensor: {}".format(sensor))
                 return False
         except KeyError:
             print("missing key: ref_sensor, see localization.md for instructions")
             return False
 
         try:
-            yml["test_sensor"]
-            if yml["test_sensor"] not in ["camera", "lidar", "radar"]:
-                print("incorrect test_sensor: {}".format(yml["test_sensor"]))
+            sensor = yml["test_sensor"][0]
+            if sensor not in ["camera", "lidar", "radar"]:
+                print("incorrect test_sensor: {}".format(sensor))
                 return False
         except KeyError:
             print("missing key: test_sensor, see localization.md for instructions")
