@@ -113,8 +113,10 @@ computer: Intel i7-1370p
 # sensor options for odometry: ['lidar', 'radar', 'IMU', 'camera']
 sensors: ['lidar', 'IMU']
 
-# sensor options for localization: ['lidar', 'radar', 'camera']
-ref_sensor: ['lidar']
+# for localization evaluation, allowed sensors are: ['lidar', 'radar', 'camera']. you may append 'IMU' for display only (cannot be first sensor).
+# only the first sensor listed in each field will be used for evaluation; any additional sensors are for display only.
+# the test and reference evaluation sensors can be different.
+ref_sensor: ['lidar', 'IMU']
 test_sensor: ['lidar']
 ```
 
@@ -127,8 +129,9 @@ test_sensor: ['lidar']
 - `author, papertitle, paperurl, venue` are optional tags which can be left blank for an anonymous submission and may be updated via the website later
 
 For the localization benchmark, two additional metadata tags are required: 
-`ref_sensor` which can be one of: `lidar, radar, camera`. This is used to determine which sensor is being used as a reference for ground truth poses.
-`test_sensor` which can be one of: `lidar, radar, camera`. This is used to determine which sensor acts as the "test" sensor.
+`ref_sensor` the first sensor can be one of: `lidar, radar, camera`. This is used to determine which sensor is being used as a reference for ground truth poses.
+`test_sensor` the first sensor can be one of: `lidar, radar, camera`. This is used to determine which sensor acts as the "test" sensor.
+The first sensor listed will be used to evaluate. You may append additional sensors to these lists, but they will be display only. 
 
 ### Submission Management
 
