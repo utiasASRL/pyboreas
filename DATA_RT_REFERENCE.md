@@ -26,82 +26,91 @@ This dataset aims to provide a unified, easy-to-access way for researchers to te
 ### Data Collection
 Data was collected during repeated traversals of nine routes in southern Ontario, Canada, The trajectory and an example video per route can be found below:
 
-<table style="border-collapse: collapse; margin: auto;">
+<table style="border-collapse: collapse; margin: auto; width: 100%; max-width: 1000px; table-layout: fixed;">
   <!-- Row 1 titles -->
   <tr>
-    <td style="border:1px solid #ccc; border-bottom:none; text-align:center; font-weight:600;">
-      <a href="https://youtu.be/7PQ68cIlalY?si=gCCx-rnJZTCSJ-jl">Suburbs</a>
+    <td style="border:1px solid #ccc; border-bottom:none; padding:6px 8px;">
+      <a href="https://youtu.be/7PQ68cIlalY?si=gCCx-rnJZTCSJ-jl" style="display:block; text-align:center; font-weight:600;">Suburbs</a>
     </td>
-    <td style="border:1px solid #ccc; border-bottom:none; text-align:center; font-weight:600;">
-      <a href="https://youtu.be/-h8O2AdqILk?si=tPgS9cgWibJbxYZa">Industrial</a>
+    <td style="border:1px solid #ccc; border-bottom:none; padding:6px 8px;">
+      <a href="https://youtu.be/-h8O2AdqILk?si=tPgS9cgWibJbxYZa" style="display:block; text-align:center; font-weight:600;">Industrial</a>
     </td>
-    <td style="border:1px solid #ccc; border-bottom:none; text-align:center; font-weight:600;">
-      <a href="https://youtu.be/tNGdWuf9gM4?si=k4b3MtUMExgQKZT_">Urban</a>
+    <td style="border:1px solid #ccc; border-bottom:none; padding:6px 8px;">
+      <a href="https://youtu.be/tNGdWuf9gM4?si=k4b3MtUMExgQKZT_" style="display:block; text-align:center; font-weight:600;">Urban</a>
     </td>
   </tr>
 
   <!-- Row 1 images -->
   <tr>
-    <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/suburbs_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
+    <td style="border:1px solid #ccc; border-top:none; text-align:center; width:33.33%;">
+      <img src="figs/boreas_rt/trajectories/suburbs_traj.png"
+           style="width:100%; height:auto; max-height:240px; object-fit:contain;">
     </td>
-    <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/industrial_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
+    <td style="border:1px solid #ccc; border-top:none; text-align:center; width:33.33%;">
+      <img src="figs/boreas_rt/trajectories/industrial_traj.png"
+           style="width:100%; height:auto; max-height:240px; object-fit:contain;">
     </td>
-    <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/suburbs_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
+    <td style="border:1px solid #ccc; border-top:none; text-align:center; width:33.33%;">
+      <img src="figs/boreas_rt/trajectories/suburbs_traj.png"
+           style="width:100%; height:auto; max-height:240px; object-fit:contain;">
     </td>
   </tr>
 
   <!-- Row 2 titles -->
   <tr>
-    <td style="border:1px solid #ccc; border-bottom:none; text-align:center; font-weight:600;">
-      <a href="https://youtu.be/0W6LdoVtB7U?si=3rui7u_-bviXKZrG">Forest</a>
+    <td style="border:1px solid #ccc; border-bottom:none; padding:6px 8px;">
+      <a href="https://youtu.be/0W6LdoVtB7U?si=3rui7u_-bviXKZrG" style="display:block; text-align:center; font-weight:600;">Forest</a>
     </td>
-    <td style="border:1px solid #ccc; border-bottom:none; text-align:center; font-weight:600;">
-      <a href="https://youtu.be/xuyYu_tT9jo?si=hSoa_w71WIvd9Xan">Farm</a>
+    <td style="border:1px solid #ccc; border-bottom:none; padding:6px 8px;">
+      <a href="https://youtu.be/xuyYu_tT9jo?si=hSoa_w71WIvd9Xan" style="display:block; text-align:center; font-weight:600;">Farm</a>
     </td>
-    <td style="border:1px solid #ccc; border-bottom:none; text-align:center; font-weight:600;">
-      <a href="https://youtu.be/EbMWZushpig?si=IOEXxJYwQOm9xHgA">Tunnel</a>
+    <td style="border:1px solid #ccc; border-bottom:none; padding:6px 8px;">
+      <a href="https://youtu.be/EbMWZushpig?si=IOEXxJYwQOm9xHgA" style="display:block; text-align:center; font-weight:600;">Tunnel</a>
     </td>
   </tr>
 
   <!-- Row 2 images -->
   <tr>
     <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/forest_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
+      <img src="figs/boreas_rt/trajectories/forest_traj.png"
+           style="width:100%; height:auto; max-height:240px; object-fit:contain;">
     </td>
     <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/farm_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
+      <img src="figs/boreas_rt/trajectories/farm_traj.png"
+           style="width:100%; height:auto; max-height:240px; object-fit:contain;">
     </td>
     <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/tunnel_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
+      <img src="figs/boreas_rt/trajectories/tunnel_traj.png"
+           style="width:100%; height:auto; max-height:240px; object-fit:contain;">
     </td>
   </tr>
 
   <!-- Row 3 titles -->
   <tr>
-    <td style="border:1px solid #ccc; border-bottom:none; text-align:center; font-weight:600;">
-      <a href="https://youtu.be/0LC4g9NFzGg?si=_CJ09gnBG0McWoLl">Skyway</a>
+    <td style="border:1px solid #ccc; border-bottom:none; padding:6px 8px;">
+      <a href="https://youtu.be/0LC4g9NFzGg?si=_CJ09gnBG0McWoLl" style="display:block; text-align:center; font-weight:600;">Skyway</a>
     </td>
-    <td style="border:1px solid #ccc; border-bottom:none; text-align:center; font-weight:600;">
-      <a href="https://youtu.be/pQnh-pLbdeM?si=2sl1SGWnMuIAsz4v">Regional</a>
+    <td style="border:1px solid #ccc; border-bottom:none; padding:6px 8px;">
+      <a href="https://youtu.be/pQnh-pLbdeM?si=2sl1SGWnMuIAsz4v" style="display:block; text-align:center; font-weight:600;">Regional</a>
     </td>
-    <td style="border:1px solid #ccc; border-bottom:none; text-align:center; font-weight:600;">
-      <a href="https://youtu.be/iTek5DblFa4?si=3UEmJGQYxo5PZ0o0">Freeway</a>
+    <td style="border:1px solid #ccc; border-bottom:none; padding:6px 8px;">
+      <a href="https://youtu.be/iTek5DblFa4?si=3UEmJGQYxo5PZ0o0" style="display:block; text-align:center; font-weight:600;">Freeway</a>
     </td>
   </tr>
 
   <!-- Row 3 images -->
   <tr>
     <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/skyway_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
+      <img src="figs/boreas_rt/trajectories/skyway_traj.png"
+           style="width:100%; height:auto; max-height:240px; object-fit:contain;">
     </td>
     <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/regional_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
+      <img src="figs/boreas_rt/trajectories/regional_traj.png"
+           style="width:100%; height:auto; max-height:240px; object-fit:contain;">
     </td>
     <td style="border:1px solid #ccc; border-top:none; text-align:center;">
-      <img src="figs/boreas_rt/trajectories/freeway_traj.png" style="width:100%; height:auto; max-height:360px; object-fit:contain;">
+      <img src="figs/boreas_rt/trajectories/freeway_traj.png"
+           style="width:100%; height:auto; max-height:240px; object-fit:contain;">
     </td>
   </tr>
 </table>
@@ -253,7 +262,7 @@ Images are simply stored as `png` files. All images are rectified such that a si
 
 ### Pose Files
 
-Ground truth poses are obtained by post-processing GNSS, IMU, and wheel encoder measurements along with corrections obtained from an RTX subscription using Applanix's POSPac software suite. Positions and velocities are given with respect to a fixed East-North-Up frame $ENU_{\text{ref}}$. The position of $ENU_{\text{ref}}$ is aligned with the first pose of the first sequence (`boreas-2020-11-26-13-58`) but the orientation is defined to be tangential to the geoid as defined in the WGS-84 convention such that x points East, y points North, and z points up.
+Ground truth poses are obtained by post-processing GNSS, IMU, and wheel encoder measurements along with corrections obtained from an RTX subscription using Applanix's POSPac software suite. Positions and velocities are given with respect to a fixed East-North-Up frame $ENU_{\text{ref}}$. The position of $ENU_{\text{ref}}$ is aligned with the first pose of the first Boreas sequence (`boreas-2020-11-26-13-58`) but the orientation is defined to be tangential to the geoid as defined in the WGS-84 convention such that x points East, y points North, and z points up.
 
 For each sequence, `applanix/gps_post_process.csv` contains the post-processed ground truth in the Applanix frame at 200Hz.
 
@@ -279,6 +288,7 @@ w_sensor_enu_in_sensor = [wx, wy, wz]
 ```
 <!-- 
 We also provide an `imu.csv` file which can be used to improve odometry or localization performance as desired. This data is provided in the applanix reference frame. Each line in the file has the following format: `t, wz, wy, wx, az, ay, ax` where `(t, wz, wy, wz)` have the same format as above, and `(az, ay, ax)` are the linear acceleration values as defined in the applanix sensor frame. We also provide Note that the data contained in `imu.csv` is extraced from the post-processed Applanix solution. In order to enable researchers to work on visual-inertial or lidar-inertial systems, we also provide `imu_raw.csv` which is extracted from the raw Applanix logs. The `imu_raw.csv` files have the same format except **they are in the IMU body frame which is defined as x-backwards, y-left, z-up**. We further provide `dmi.csv` which provides the wheel encoder ticks vs. time. Note that the lever arms between the DMI and the applanix reference frame are x=-0.65m, y=-0.77m, z=1.80m.
+
 
 ## Synchronization and Calibration
 
