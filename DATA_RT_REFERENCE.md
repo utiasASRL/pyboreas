@@ -262,7 +262,7 @@ Images are simply stored as `png` files. All images are rectified such that a si
 
 ### Pose Files
 
-Ground truth poses are obtained by post-processing GNSS, IMU, and wheel encoder measurements along with corrections obtained from an RTX subscription using Applanix's POSPac software suite. Positions and velocities are given with respect to a fixed East-North-Up frame $ENU_{\text{ref}}$. The position of $ENU_{\text{ref}}$ is aligned with the first pose of the first sequence (`boreas-2020-11-26-13-58`) but the orientation is defined to be tangential to the geoid as defined in the WGS-84 convention such that x points East, y points North, and z points up.
+Ground truth poses are obtained by post-processing GNSS, IMU, and wheel encoder measurements along with corrections obtained from an RTX subscription using Applanix's POSPac software suite. Positions and velocities are given with respect to a fixed East-North-Up frame $ENU_{\text{ref}}$. The position of $ENU_{\text{ref}}$ is aligned with the first pose of the first Boreas sequence (`boreas-2020-11-26-13-58`) but the orientation is defined to be tangential to the geoid as defined in the WGS-84 convention such that x points East, y points North, and z points up.
 
 For each sequence, `applanix/gps_post_process.csv` contains the post-processed ground truth in the Applanix frame at 200Hz.
 
@@ -288,6 +288,7 @@ w_sensor_enu_in_sensor = [wx, wy, wz]
 ```
 <!-- 
 We also provide an `imu.csv` file which can be used to improve odometry or localization performance as desired. This data is provided in the applanix reference frame. Each line in the file has the following format: `t, wz, wy, wx, az, ay, ax` where `(t, wz, wy, wz)` have the same format as above, and `(az, ay, ax)` are the linear acceleration values as defined in the applanix sensor frame. We also provide Note that the data contained in `imu.csv` is extraced from the post-processed Applanix solution. In order to enable researchers to work on visual-inertial or lidar-inertial systems, we also provide `imu_raw.csv` which is extracted from the raw Applanix logs. The `imu_raw.csv` files have the same format except **they are in the IMU body frame which is defined as x-backwards, y-left, z-up**. We further provide `dmi.csv` which provides the wheel encoder ticks vs. time. Note that the lever arms between the DMI and the applanix reference frame are x=-0.65m, y=-0.77m, z=1.80m.
+
 
 ## Synchronization and Calibration
 
