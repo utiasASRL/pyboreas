@@ -1,6 +1,6 @@
 # Evaluation
 
-Submissions are zip files which contain the result txt files along with a metadata.yaml file.
+Submissions are `.zip` files which contain the result `.txt` files along with a `metadata.yaml` file.
 
 Note that train/test splits are contained in `pyboreas.data.splits.py`
 Users are free to create their own train/validation splits from the available training data. 
@@ -31,30 +31,47 @@ For **localization**, use `boreas-2020-11-26-13-58` as the mapping sequence and 
 All sequences below are the **odometry benchmarks**. 
 For **localization**, use the first sequence of each route as the mapping sequence and submit results only for sequences marked with ✅.
 
-| Route            | Sequence               | Localization |
-|-----------------|----------------------|-------------|
-| Suburbs Route    | boreas-2024-12-03-12-54 | ❌ (use for mapping)|
-| Suburbs Route    | boreas-2025-01-08-11-22 | ✅ |
-|  Suburbs Route   | boreas-2025-02-15-17-19 | ✅ |
-| Industrial Route | boreas-2024-12-05-14-12 | ❌ (use for mapping) |
-| Industrial Route | boreas-2024-12-23-16-27 | ✅ |
-| Industrial Route | boreas-2024-12-23-16-44 | ✅ |
-| Skyway Route     | boreas-2024-12-04-11-45 | ❌ (use for mapping) |
-| Skyway Route     | boreas-2024-12-04-12-08 | ✅ |
-| Skyway Route     | boreas-2024-12-04-12-34 | ✅ |
+| Route            | Sequence                | Localization |
+|------------------|-------------------------|-------------|
+| Suburbs          | boreas-2024-12-03-12-54 | ❌ (use for mapping)|
+| Suburbs          | boreas-2025-01-08-11-22 | ✅ |
+| Suburbs          | boreas-2025-02-15-17-19 | ✅ |
+| Skyway           | boreas-2024-12-04-11-45 | ❌ (use for mapping) |
+| Skyway           | boreas-2024-12-04-12-08 | ✅ |
+| Skyway           | boreas-2024-12-04-12-34 | ✅ |
 | Tunnel East      | boreas-2024-12-04-14-28 | ❌ (use for mapping) |
 | Tunnel East      | boreas-2024-12-04-14-50 | ✅ |
 | Tunnel East      | boreas-2024-12-04-15-19 | ✅ |
+| Industrial       | boreas-2024-12-05-14-12 | ❌ (use for mapping) |
+| Industrial       | boreas-2024-12-23-16-27 | ✅ |
+| Industrial       | boreas-2024-12-23-16-44 | ✅ |
 | Farm             | boreas-2025-07-18-14-55 | ❌ (use for mapping) |
 | Farm             | boreas-2025-07-18-15-30 | ✅ |
-| Farm             | boreas-2025-07-18-16-05 | ✅ |
+| Farm             | boreas-2025-08-13-09-01 | ✅ |
 
 
 ### Submission Formatting
 
-The name of the zip file must start with the desired dataset, which is one of `[boreas, boreasrt]`, then contain your method name, and end in the desired benchmark, which can be one of `[odometry, localization, detection]`. Example: `boreas-RoBoDoMeTrY-odometry.zip`. The dataset and benchmark specified in the file name must match their respecive fields specified in the yaml file.
+##### Filename
+The name of the `.zip` file must start with the desired dataset, which is one of `[boreas, boreasrt]`, then contain your method name, and end in the desired benchmark, which can be one of `[odometry, localization, detection]`. Example: `boreas-RoBoDoMeTrY-odometry.zip`. The dataset and benchmark specified in the file name must match their respecive fields specified in the yaml file.
 
-metadata.yaml uses the following format:
+##### Formatting the `.txt` Files
+`.txt` files must follow the format described in [odometry.md](https://github.com/utiasASRL/pyboreas/blob/master/pyboreas/eval/odometry.md) for odometry submissions and in [localization.md](https://github.com/utiasASRL/pyboreas/blob/master/pyboreas/eval/localization.md) for localization submissions. The devkit contains file formatting examples for odometry
+```bash
+ls -1 pyboreas/test/demo/pred/3d/
+boreas-2021-08-05-13-34.txt
+boreas-2021-09-02-11-42.txt
+```
+and for localization
+```bash
+ls -1 pyboreas/test/demo/pred/3d/loc/
+boreas-2025-01-08-11-22.txt
+```
+The length of the text files must match the length of the data with one row in the `.txt` file per timestamp. If your method fails, it must still populate the row for that timestamp (can be with 0s).
+<u>FMCW lidar results are not supported. Submit Velodyne lidar results only.</u>
+
+##### Formatting the `metadata.yaml` File
+`metadata.yaml` uses the following format:
 
 ```YAML
 # options: [odometry, localization, detection]
@@ -74,9 +91,11 @@ email: your.email@example.com
 
 # free text
 author: First Last, First1 Last1
+
+# paper name ("N/A" if not applicable)
 papertitle: Our Wondrous Algorithm
 
-# link to paper ("N/A" if not applicable)
+# link to paper (or repository if submission is not accociated with paper)
 paperurl: https://www.website/paperURL
 
 # conference or journal name ("N/A" if not applicable)
@@ -85,17 +104,19 @@ venue: ICRA
 # 4-digit year
 year: 2077
 
-# runtime in seconds (number)
+# compute per frame in seconds (number)
 runtimeseconds: 0.1
 
-# computer specs
+# computer specs (run `lscpu` in terminal and copy the output of "Model name")
 computer: Intel i7-1370p
 
 # sensor options for odometry: ['lidar', 'radar', 'IMU', 'camera']
 sensors: ['lidar', 'IMU']
 
-# sensor options for localization: ['lidar', 'radar', 'camera']
-ref_sensor: ['lidar']
+# for localization evaluation, allowed sensors are: ['lidar', 'radar', 'camera']. you may append 'IMU' for display only (cannot be first sensor).
+# only the first sensor listed in each field will be used for evaluation; any additional sensors are for display only.
+# the test and reference evaluation sensors can be different.
+ref_sensor: ['lidar', 'IMU']
 test_sensor: ['lidar']
 ```
 
@@ -108,20 +129,33 @@ test_sensor: ['lidar']
 - `author, papertitle, paperurl, venue` are optional tags which can be left blank for an anonymous submission and may be updated via the website later
 
 For the localization benchmark, two additional metadata tags are required: 
-`ref_sensor` which can be one of: `lidar, radar, camera`. This is used to determine which sensor is being used as a reference for ground truth poses.
-`test_sensor` which can be one of: `lidar, radar, camera`. This is used to determine which sensor acts as the "test" sensor.
+`ref_sensor` the first sensor can be one of: `lidar, radar, camera`. This is used to determine which sensor is being used as a reference for ground truth poses.
+`test_sensor` the first sensor can be one of: `lidar, radar, camera`. This is used to determine which sensor acts as the "test" sensor.
+The first sensor listed will be used to evaluate. You may append additional sensors to these lists, but they will be display only. 
 
-<u>FMCW lidar results are not supported. Submit Velodyne lidar results only.</u>
+### Submission Management
+
+To create your submission `.zip`, put `metadata.yaml` and all of your result `.txt` files in the same directory, select them all, then compress them into a single zip archive (ensure the zip contains the files at its root, not an extra top-level folder).
+
+We provide a Python file to check the format of the submission `.zip` file: `pyboreas.eval.submission_checker.py`. Please use this script to check your submission before uploading to the website. Your submission may fail silently if this has not been done.
+
+See the other readme files for the format of the submission `.txt` files.
+
+Once your submission has been uploaded, it will take several minutes to process your submission. When processing is complete, a confirmation will be sent to the `email` provided in the yaml file. <u>Note that this `email` must match the one that was used to sign up for an account via our website.</u> Please wait for this confirmation before editing the metadata or attempting to publish your result.
 
 Note that submissions are hidden by default and that we provide the ability for users to "publish" or un-hide their results using the website. Submissions may also be hidden after they are published if desired.
 
-Note that we provide a Python file to check the format of the submission zip file: `pyboreas.eval.submission_checker.py`. Please use this script to check your submission before uploading to the website. Your submission may fail silently if this has not been done.
 
-See the other readme files for the format of the submission txt files.
+## FAQ
+##### 1. Why does my submission say "Processing..."?
+- After submitting, wait for a confirmation email from boreas@robotics.utias.utoronto.ca. Processing may take several minutes—check your spam folder.
+    - If you receive a results email, click the Refresh button on the submission page to enable Editing/Publishing.
+    - If you receive a failure email, delete your submission and use the submission checker to fix formatting issues.
+    - If you do not receive any email, please contact us for assistance.
 
-After uploading your submission, it will take several minutes before your results will apper in the "view / edit" section of the submission page.
-
-Detailed results will be sent to the `email` provided in the yaml file. <u>Note that this `email` must match the one that was used to sign up for an account via our website.</u>
+##### 2. What does `Number of Successes` mean on the leaderboard?
+- This is the number of test set sequences where your method achieved a translation error below 3% (odometry) or a lateral/longitudinal RMSE below 5 m (localization).
+Full per-sequence results are included in the benchmark results email sent to you after submission. 
 
 ## Submission Policy
 
