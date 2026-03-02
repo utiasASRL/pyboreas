@@ -6,6 +6,13 @@ import numpy as np
 
 from pyboreas.utils.lgmath import _tran2vec, _vec2tran, carrot
 
+def sec_to_micro(sec):
+    return np.int64(np.round(sec * 1e6))
+
+
+def micro_to_sec(micro):
+    return np.round(micro / 1e6, 6)
+
 
 def load_lidar(path, dim=6):
     """
