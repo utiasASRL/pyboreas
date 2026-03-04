@@ -24,5 +24,6 @@ setuptools.setup(
 		"matplotlib>=3.4.2",
 		"asrl-pysteam>=1.1.0",
 		"PyYAML>=5.4.1",
+		"ipykernel>=6.0.0",
 	]
 )
