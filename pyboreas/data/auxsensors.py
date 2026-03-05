@@ -125,6 +125,18 @@ class AuxCSV:
         self.load_csv()
         return self.timestamps_micro
 
+    def get_all_data(self, start_micro=None, end_micro=None):
+        self.load_csv()
+        timestamps = self.timestamps_micro
+        data = self.data
+        if start_micro is not None or end_micro is not None:
+            start = start_micro if start_micro is not None else timestamps[0]
+            end = end_micro if end_micro is not None else timestamps[-1]
+            mask = (timestamps >= start) & (timestamps <= end)
+            timestamps = timestamps[mask]
+            data = data[mask]
+        return timestamps, data
+
 class IMU(AuxSensor):
     """IMU data
 

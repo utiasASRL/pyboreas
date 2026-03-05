@@ -66,6 +66,9 @@ class Sequence:
         print("encoder frames: {}".format(len(self.encoder_frames)))
         print("-------------------------------")
 
+    def has_aeva(self):
+        return len(self.aeva_frames) > 0
+
     def get_camera(self, idx):
         self.camera_frames[idx].load_data()
         return self.camera_frames[idx]
@@ -118,6 +121,17 @@ class Sequence:
             dmu_frame.load_data()
             yield dmu_frame
 
+    def get_dmu_data(self, start_micro=None, end_micro=None):
+        if not osp.exists(self.dmu_csv_path):
+            return None
+        csv = AuxCSV.get_instance(self.dmu_csv_path, timestamp_multiplier=DMU.timestamp_multiplier)
+        timestamps, data = csv.get_all_data(start_micro, end_micro)
+        return {
+            'timestamps_micro': timestamps,
+            'body_angvel': data[:, 1:4],
+            'body_acc': data[:, 4:7],
+        }
+
     def get_dmu_iter(self):
         """Retrieves an iterator on dmu frames"""
         return iter(self.dmu)
@@ -131,6 +145,17 @@ class Sequence:
         for imu_frame in self.aeva_imu_frames:
             imu_frame.load_data()
             yield imu_frame
+
+    def get_aeva_imu_data(self, start_micro=None, end_micro=None):
+        if not osp.exists(self.aeva_imu_csv_path):
+            return None
+        csv = AuxCSV.get_instance(self.aeva_imu_csv_path, timestamp_multiplier=AevaIMU.timestamp_multiplier)
+        timestamps, data = csv.get_all_data(start_micro, end_micro)
+        return {
+            'timestamps_micro': timestamps,
+            'body_angvel': data[:, 1:4],
+            'body_acc': data[:, 4:7],
+        }
 
     def get_aeva_imu_iter(self):
         """Retrieves an iterator on aeva imu frames"""
@@ -146,6 +171,16 @@ class Sequence:
             encoder_frame.load_data()
             yield encoder_frame
 
+    def get_encoder_data(self, start_micro=None, end_micro=None):
+        if not osp.exists(self.encoder_csv_path):
+            return None
+        csv = AuxCSV.get_instance(self.encoder_csv_path, timestamp_multiplier=Encoder.timestamp_multiplier)
+        timestamps, data = csv.get_all_data(start_micro, end_micro)
+        return {
+            'timestamps_micro': timestamps,
+            'pulse_count': data[:, 1],
+        }
+
     def get_encoder_iter(self):
         """Retrieves an iterator on encoder frames"""
         return iter(self.encoder)
@@ -153,9 +188,9 @@ class Sequence:
     def _check_dataroot_valid(self):
         """Checks if the sequence folder structure is valid"""
         if not osp.isdir(self.applanix_root):
-            raise ValueError("ERROR: applanix dir missing from dataroot")
+            raise ValueError("ERROR: applanix dir missing from dataroot of sequence {}".format(self.ID))
         if not osp.isdir(self.calib_root):
-            raise ValueError("ERROR: calib dir missing from dataroot")
+            raise ValueError("ERROR: calib dir missing from dataroot of sequence {}".format(self.ID))
 
     def _check_download(self):
         """Checks if all sensor data has been downloaded, prints a warning otherwise"""
