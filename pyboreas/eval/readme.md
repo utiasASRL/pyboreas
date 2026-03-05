@@ -154,7 +154,7 @@ Note that submissions are hidden by default and that we provide the ability for 
     - If you do not receive any email, please contact us for assistance.
 
 ##### 2. What does `Number of Successes` mean on the leaderboard?
-- This is the number of test set sequences where your method achieved a translation error below 3% (odometry) or a lateral/longitudinal RMSE below 5 m (localization).
+- This is the number of test set sequences where your method achieved a translation error below 3% (odometry) or a lateral/longitudinal RMSE below 3 m (localization).
 Full per-sequence results are included in the benchmark results email sent to you after submission. 
 
 ## Submission Policy
@@ -162,6 +162,8 @@ Full per-sequence results are included in the benchmark results email sent to yo
 The submission page of our website should only be used for reporting final results for comparison with other methods on our website. 
 
 For the Boreas dataset benchmark, our expectation is that users will iterate their algorithms on a validation set based on the provided training data and only submit their best results on the test set once. Users are prohibited from tuning their algorithms to achieve better results on the test set. If users desire to compare the performance of multiple versions of the same algorithm, the provided training data should be used for this purpose.
+
+For the Boreas-RT benchmark, ground truth is provided for all sequences due to the lower number of repetitions per sequence. We ask that users tune their algorithms using sequences other than those that are tested for the leaderboard. Even if users tune algorithms on some portion of the test sequences, **under no circumstances should results that use the ground truth directly in any way be submitted to the leaderboard!** We reserve the right to remove results suspected of using the ground truth and to block the authors from future submissions to either leaderboard.
 
 Incorrect submission formatting resulting in erroneous or failed benchmark results does not count as a proper submission.
 

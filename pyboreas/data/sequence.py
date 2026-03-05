@@ -74,7 +74,9 @@ class Sequence:
         print("encoder frames: {}".format(len(self.encoder_frames)))
         print("-------------------------------")
 
+    @property
     def has_aeva(self):
+        """Returns true if sequence has Aeva lidar data"""
         return len(self.aeva_frames) > 0
 
     def get_camera(self, idx):
@@ -131,7 +133,7 @@ class Sequence:
 
     def get_dmu_data(self, start_micro=None, end_micro=None):
         if not osp.exists(self.dmu_csv_path):
-            return None
+            raise ValueError(f"DMU csv file not found at {self.dmu_csv_path}")
         csv = AuxCSV.get_instance(self.dmu_csv_path, timestamp_multiplier=DMU.timestamp_multiplier)
         timestamps, data = csv.get_all_data(start_micro, end_micro)
         return {
@@ -156,7 +158,7 @@ class Sequence:
 
     def get_aeva_imu_data(self, start_micro=None, end_micro=None):
         if not osp.exists(self.aeva_imu_csv_path):
-            return None
+            raise ValueError(f"Aeva IMU csv file not found at {self.aeva_imu_csv_path}")
         csv = AuxCSV.get_instance(self.aeva_imu_csv_path, timestamp_multiplier=AevaIMU.timestamp_multiplier)
         timestamps, data = csv.get_all_data(start_micro, end_micro)
         return {
@@ -181,7 +183,7 @@ class Sequence:
 
     def get_encoder_data(self, start_micro=None, end_micro=None):
         if not osp.exists(self.encoder_csv_path):
-            return None
+            raise ValueError(f"Encoder csv file not found at {self.encoder_csv_path}")
         csv = AuxCSV.get_instance(self.encoder_csv_path, timestamp_multiplier=Encoder.timestamp_multiplier)
         timestamps, data = csv.get_all_data(start_micro, end_micro)
         return {
