@@ -972,7 +972,9 @@ def get_sequence_poses_gt(path, seq, dim, aeva=False):
                 filepath = osp.join(
                     path, dir, "applanix/aeva_poses.csv"
                 ) # use 'aeva_poses.csv' for groundtruth
-                T_calib = np.loadtxt(osp.join(path, dir, "calib/T_applanix_aeva.txt"))
+                T_applanix_lidar = np.loadtxt(osp.join(path, dir, "calib/T_applanix_lidar.txt"))
+                T_aeva_lidar = np.loadtxt(osp.join(path, dir, "calib/T_aeva_lidar.txt"))
+                T_calib = T_applanix_lidar @ np.linalg.inv(T_aeva_lidar)
             else:
                 filepath = osp.join(
                     path, dir, "applanix/lidar_poses.csv"
@@ -1306,7 +1308,9 @@ def get_sequence_velocities_gt(path, seq, dim, aeva=False):
                 filepath = osp.join(
                     path, dir, "applanix/aeva_poses.csv"
                 ) # use 'aeva_poses.csv' for groundtruth
-                T_calib = np.loadtxt(osp.join(path, dir, "calib/T_applanix_aeva.txt"))
+                T_applanix_lidar = np.loadtxt(osp.join(path, dir, "calib/T_applanix_lidar.txt"))
+                T_aeva_lidar = np.loadtxt(osp.join(path, dir, "calib/T_aeva_lidar.txt"))
+                T_calib = T_applanix_lidar @ np.linalg.inv(T_aeva_lidar)
             else:
                 filepath = osp.join(
                     path, dir, "applanix/lidar_poses.csv"
@@ -1363,8 +1367,7 @@ def read_vel_file_gt(path, T_ab, dim):
     T_ab = enforce_orthog(T_ab)
     for line in lines[1:]:
         vel, time = convert_line_to_vel(line, dim)
-        vel[:3] = T_ab[:3, :3] @ vel[:3]
-        vel[3:] = T_ab[:3, :3] @ vel[3:]
+        vel = se3op.tranAd(T_ab) @ vel
         # If 2D, zero out z, roll, pitch
         if dim == 2:
             vel[2:5] = 0.0
@@ -1438,27 +1441,27 @@ def compute_vel_metrics(vel_gt, vel_pred, times_pred, seq, pred_vel_path, dim, c
     times_pred = np.array(times_pred)
 
     vel_err = []
-    for ii, seq_ii in enumerate(seq):
-        print("processing vel for sequence", seq_ii, "...")
-        vel_pred_ii = vel_pred[:,:,ii]
-        vel_gt_ii = vel_gt[:,:,ii]
-        if len(vel_pred_ii) != len(vel_gt_ii):
-            vel_pred_ii = vel_pred_ii[crop[ii][0] : crop[ii][1], :]
+    for i in range(len(seq)):
+        print("processing vel for sequence", seq[i], "...")
+        vel_pred_seq = vel_pred[:,:,i]
+        vel_gt_seq = vel_gt[:,:,i]
+
+        if len(vel_pred_seq) != len(vel_gt_seq):
+            vel_pred_seq = vel_pred_seq[crop[i][0] : crop[i][1]]
 
         # Convert to degrees/s
-        vel_pred_ii[:, 3:6] = vel_pred_ii[:, 3:6] * 180 / np.pi
-        vel_gt_ii[:, 3:6] = vel_gt_ii[:, 3:6] * 180 / np.pi
-
-        v_err_ii = vel_pred_ii - vel_gt_ii
+        vel_pred_seq[:, 3:6] = vel_pred_seq[:, 3:6] * 180 / np.pi
+        vel_gt_seq[:, 3:6] = vel_gt_seq[:, 3:6] * 180 / np.pi
+        v_err_seq = vel_pred_seq - vel_gt_seq
 
         if dim == 2:
-            v_err_ii[:, 2:5] = 0.0
+            v_err_seq[:, 2:5] = 0.0
 
-        vel_err += [v_err_ii]
-        times_ii = times_pred[crop[ii][0] : crop[ii][1]] / 1e6
+        vel_err += [v_err_seq]
+        times_ii = times_pred[crop[i][0] : crop[i][1]] / 1e6
         times_ii = times_ii - times_ii[0]
 
-        plot_vel_stats(seq_ii, pred_vel_path, vel_pred_ii, vel_gt_ii, v_err_ii, times_ii)
+        plot_vel_stats(seq[i], pred_vel_path, vel_pred_seq, vel_gt_seq, v_err_seq, times_ii)
 
     vel_err = np.array(vel_err).reshape(-1, 6)
     vel_RMSE = np.sqrt(np.mean(np.array(vel_err) ** 2, axis=0))
