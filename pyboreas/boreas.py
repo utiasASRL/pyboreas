@@ -7,7 +7,7 @@ from pyboreas.data.sequence import Sequence
 
 class BoreasDataset:
     def __init__(
-        self, root="/data/boreas/", split=None, verbose=False, labelFolder="labels"
+        self, root="/data/boreas/", split=None, verbose=False, labelFolder="labels", load_aux_frames=False
     ):
         self.root = root
         self.split = split
@@ -36,7 +36,7 @@ class BoreasDataset:
         global _load_seq
 
         def _load_seq(seqSpec):
-            return Sequence(root, seqSpec, labelFolder=self.labelFolder)
+            return Sequence(root, seqSpec, labelFolder=self.labelFolder, load_aux_frames=load_aux_frames)
 
         pool = Pool(multiprocessing.cpu_count())
         self.sequences = list(pool.map(_load_seq, split))

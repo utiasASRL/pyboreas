@@ -13,7 +13,7 @@ class Sequence:
     Class for working with an individual Boreas dataset sequence
     """
 
-    def __init__(self, boreas_root, seqSpec, labelFolder="labels"):
+    def __init__(self, boreas_root, seqSpec, labelFolder="labels", load_aux_frames=False):
         """init
         Args:
             boreas_root (str): path to root folder ex: /path/to/data/boreas/
@@ -48,6 +48,14 @@ class Sequence:
         self.calib = Calib(self.calib_root)
         # Creates list of frame objects for cam, lidar, radar, and inits poses
         self.get_all_frames()
+
+        # Optionally load auxillary frames (not loaded by default since they take a bit to load in the first time)
+        if load_aux_frames:
+            self.get_all_aux_frames()
+        else:
+            self.dmu_frames = []
+            self.aeva_imu_frames = []
+            self.encoder_frames = []
 
         self.load_label_files()
 
@@ -283,6 +291,8 @@ class Sequence:
         self.camera_frames = self._get_frames(cfile, self.camera_root, ".png", Camera)
         self.lidar_frames = self._get_frames(lfile, self.lidar_root, ".bin", Lidar)
         self.radar_frames = self._get_frames(rfile, self.radar_root, ".png", Radar)
+
+    def get_all_aux_frames(self):
         self.dmu_frames = self._get_aux_frames(self.dmu_csv_path, DMU)
         self.aeva_imu_frames = self._get_aux_frames(self.aeva_imu_csv_path, AevaIMU)
         self.encoder_frames = self._get_aux_frames(self.encoder_csv_path, Encoder)
