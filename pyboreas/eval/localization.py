@@ -30,10 +30,10 @@ def get_Tas(gtpath, seq, sensor="lidar"):
         )
         return np.matmul(T_applanix_lidar, get_inverse_tf(T_radar_lidar))
     elif sensor == "aeva":
-        T_applanix_aeva = np.loadtxt(
-            osp.join(gtpath, seq, "calib", "T_applanix_aeva.txt")
+        T_aeva_lidar = np.loadtxt(
+            osp.join(gtpath, seq, "calib", "T_aeva_lidar.txt")
         )
-        return T_applanix_aeva
+        T_applanix_lidar = np.matmul(T_applanix_lidar, get_inverse_tf(T_aeva_lidar))
     return T_applanix_lidar
 
 
