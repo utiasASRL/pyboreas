@@ -66,6 +66,7 @@ class Sequence:
         print("encoder frames: {}".format(len(self.encoder_frames)))
         print("-------------------------------")
 
+    @property
     def has_aeva(self):
         return len(self.aeva_frames) > 0
 
