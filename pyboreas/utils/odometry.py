@@ -1443,8 +1443,8 @@ def compute_vel_metrics(vel_gt, vel_pred, times_pred, seq, pred_vel_path, dim, c
     vel_err = []
     for i in range(len(seq)):
         print("processing vel for sequence", seq[i], "...")
-        vel_pred_seq = vel_pred[:,:,i]
-        vel_gt_seq = vel_gt[:,:,i]
+        vel_pred_seq = vel_pred[crop[i][0] : crop[i][1], :, 0]
+        vel_gt_seq = vel_gt[crop[i][0] : crop[i][1], :, 0]
 
         if len(vel_pred_seq) != len(vel_gt_seq):
             vel_pred_seq = vel_pred_seq[crop[i][0] : crop[i][1]]
@@ -1458,13 +1458,12 @@ def compute_vel_metrics(vel_gt, vel_pred, times_pred, seq, pred_vel_path, dim, c
             v_err_seq[:, 2:5] = 0.0
 
         vel_err += [v_err_seq]
-        times_seq = times_pred[:,i]
-        times_seq = times_seq[crop[i][0] : crop[i][1]] / 1e6
+        times_seq = times_pred[crop[i][0] : crop[i][1]] / 1e6
         times_seq = times_seq - times_seq[0]
 
         plot_vel_stats(seq[i], pred_vel_path, vel_pred_seq, vel_gt_seq, v_err_seq, times_seq)
 
-    vel_err = np.array(vel_err).reshape(-1, 6)
+    vel_err = np.concatenate(vel_err, axis=0)
     vel_RMSE = np.sqrt(np.mean(np.array(vel_err) ** 2, axis=0))
     vel_mean = np.mean(vel_err, axis=0)
     
@@ -1625,8 +1624,3 @@ def plot_vel_stats(seq, dir, vel_pred, vel_gt, v_err, times_ii):
 
     plt.savefig(osp.join(dir, seq[:-4] + "_vel_err_vs_gt_vel.pdf"), pad_inches=0, bbox_inches='tight')
     plt.close()
-
-
-
-
-    
