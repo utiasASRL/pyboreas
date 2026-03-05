@@ -49,7 +49,7 @@ class Sequence:
         # Creates list of frame objects for cam, lidar, radar, and inits poses
         self.get_all_frames()
 
-        # Optionally load auxillary frames (not loaded by default since they take a bit to load in the first time)
+        # Optionally load auxiliary frames (not loaded by default since they take a bit to load in the first time)
         if load_aux_frames:
             self.get_all_aux_frames()
         else:

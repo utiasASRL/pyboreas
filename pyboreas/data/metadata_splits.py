@@ -1,16 +1,16 @@
 """
-Common metadata splits for convinience
+Common metadata splits for convenience
 Each split is a list of lists, where each inner list contains the sequence ID and optionally start and end timestamps (in microseconds) for the evaluation interval.
-The following splits are provided for convinience:
+The following splits are provided for convenience:
 - route splits: splits of sequences based on the route they were collected on
 - tag splits: splits of sequences based on metadata tags (e.g. weather, environment, etc.)
 
-This file also includes temporal splits for sensor upgrades.
+This file also includes temporal splits for sensor upgrades (in unix time) that can be used to split sequences based on when they were collected relative to upgrades.
 
 Feel free to add additional splits as needed through submitting a PR.
 """
 
-# Temporal splits
+# Temporal splits (sensor upgrade times in Unix epoch seconds)
 radar_resolution_upgrade_time = 1632182400  # before: resolution = 0.0596, after: resolution = 0.04381
 radar_chirp_type_upgrade_time = 1733248400  # before: no chirp type data, after: chirp type data included
 
