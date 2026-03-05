@@ -162,11 +162,12 @@ class Radar(Sensor):
         self.polar = None
         self.cartesian = None
         self.mask = None
+        self.chirp_type = None
 
     def load_data(self):
         # Loads polar radar data, timestamps, azimuths, and resolution value
         # Additionally, loads a pre-computed cartesian radar image and binary mask if they exist.
-        self.timestamps, self.azimuths, _, self.polar, self.resolution = load_radar(
+        self.timestamps, self.azimuths, self.chirp_type, self.polar, self.resolution = load_radar(
             self.path
         )
         cart_path = osp.join(self.sensor_root, "cart", self.frame + ".png")

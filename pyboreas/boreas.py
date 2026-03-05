@@ -15,6 +15,9 @@ class BoreasDataset:
         self.camera_frames = []
         self.lidar_frames = []
         self.radar_frames = []
+        self.dmu_frames = []
+        self.aeva_imu_frames = []
+        self.encoder_frames = []
         self.sequences = []
         self.seqDict = {}  # seq string to index
         self.map = None  # TODO: Load the HD map data
@@ -45,6 +48,9 @@ class BoreasDataset:
             self.camera_frames += seq.camera_frames
             self.lidar_frames += seq.lidar_frames
             self.radar_frames += seq.radar_frames
+            self.dmu_frames += seq.dmu_frames
+            self.aeva_imu_frames += seq.aeva_imu_frames
+            self.encoder_frames += seq.encoder_frames
             self.seqDict[seq.ID] = len(self.seqDict)
             if verbose:
                 seq.print()
@@ -54,6 +60,9 @@ class BoreasDataset:
             print("total camera frames: {}".format(len(self.camera_frames)))
             print("total lidar frames: {}".format(len(self.lidar_frames)))
             print("total radar frames: {}".format(len(self.radar_frames)))
+            print("total dmu frames: {}".format(len(self.dmu_frames)))
+            print("total aeva imu frames: {}".format(len(self.aeva_imu_frames)))
+            print("total encoder frames: {}".format(len(self.encoder_frames)))
 
     def get_seq_from_ID(self, ID):
         return self.sequences[self.seqDict[ID]]

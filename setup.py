@@ -8,7 +8,7 @@ with open(str(this_directory / "README.md"), encoding='utf-8') as f:
 
 setuptools.setup(
 	name='asrl-pyboreas',
-	version='1.0.5',
+	version='1.0.6',
 	description='A toolkit for working with the Boreas dataset in Python',
 	long_description=long_description,
 	long_description_content_type='text/markdown',
@@ -23,5 +23,6 @@ setuptools.setup(
 		"opencv-python>=4.5.3.56",
 		"matplotlib>=3.4.2",
 		"asrl-pysteam>=1.1.0",
+		"PyYAML>=5.4.1",
 	]
 )
