@@ -94,16 +94,21 @@ def eval_local(
     )
     gt_seqs = []
     for predfile in pred_files:
-        if predfile in urban_split:
+        predfile_seq = Path(predfile).stem.split(".")[0]
+        if [predfile_seq] in urban_split:
             raise Exception(
-                f"prediction file {predfile} is in the urban split, which has an inconsistent global accuracy (up to 1m) and is not suitable for localization evaluation. Please remove it from the prediction set and re-run evaluation."
+                f"prediction file {predfile} is in the urban split, "
+                "which has an inconsistent global accuracy (up to 1m) and is not "
+                "suitable for localization evaluation. Please remove it from the "
+                "prediction set and re-run evaluation. See https://arxiv.org/abs/2602.16870 "
+                "for more details."
             )
 
-        if Path(predfile).stem.split(".")[0] not in os.listdir(gtpath):
+        if predfile_seq not in os.listdir(gtpath):
             raise Exception(
                 f"prediction file {predfile} doesn't match ground truth sequence list"
             )
-        gt_seqs.append(Path(predfile).stem.split(".")[0])
+        gt_seqs.append(predfile_seq)
 
     gt_ref_poses, gt_ref_times = read_traj_file_gt2(
         osp.join(gtpath, gt_ref_seq, "applanix", ref_sensor + "_poses.csv"), dim=dim
