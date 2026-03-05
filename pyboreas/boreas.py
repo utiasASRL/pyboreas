@@ -7,7 +7,7 @@ from pyboreas.data.sequence import Sequence
 
 class BoreasDataset:
     def __init__(
-        self, root="/data/boreas/", split=None, verbose=False, labelFolder="labels"
+        self, root="/data/boreas/", split=None, verbose=False, labelFolder="labels", load_aux_frames=False
     ):
         self.root = root
         self.split = split

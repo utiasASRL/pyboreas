@@ -1,5 +1,19 @@
 """
-Tentative train/valid/test split for different tasks
+Different sequence splits for odometry, localization, and object detection benchmarks.
+Each split is a list of lists, where each inner list contains the sequence ID and optionally start and end timestamps (in microseconds) for the evaluation interval.
+The following splits are provided for convenience:
+- odom_sample: 1 sequence for quick testing of the Boreas dataset
+- odom_train: 32 sequences for training odometry methods
+- odom_test: 13 sequences for testing odometry methods
+- loc_sample: 1 sequence for quick testing of localization methods
+- loc_train: 30 sequences for training localization methods (includes the loc_reference sequence)
+- loc_test: 10 sequences for testing localization methods (does not include the loc_reference sequence)
+- loc_reference: 1 sequence that serves as the reference for localization methods (i.e. the "map" sequence that all other sequences are localized against)
+- obj_sample: 1 sequence for quick testing of object detection methods
+- obj_train: 40 sequences for training object detection methods
+- obj_test: 16 sequences for testing object detection methods
+- odom_test_rt: 15 sequences from the Boreas Road Trip for testing odometry methods in new environments
+- loc_test_rt: 11 sequences from the Boreas Road Trip for testing localization methods in new environments
 """
 
 # List: [ID]
