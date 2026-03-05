@@ -163,6 +163,8 @@ The submission page of our website should only be used for reporting final resul
 
 For the Boreas dataset benchmark, our expectation is that users will iterate their algorithms on a validation set based on the provided training data and only submit their best results on the test set once. Users are prohibited from tuning their algorithms to achieve better results on the test set. If users desire to compare the performance of multiple versions of the same algorithm, the provided training data should be used for this purpose.
 
+For the Boreas-RT benchmark, ground truth is provided for all sequences due to the lower number of repetitions per sequence. We ask that users tune their algorithms using sequences other than those that are tested for the leaderboard. Even if users tune algorithms on some portion of the test sequences, **under no circumstances should results that use the ground truth directly in any way be submitted to the leaderboard!** We reserve the right to remove results suspected of using the ground truth and to block the authors from future submissions to either leaderboard.
+
 Incorrect submission formatting resulting in erroneous or failed benchmark results does not count as a proper submission.
 
 ## Anonymous Submissions
