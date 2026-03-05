@@ -129,6 +129,8 @@ class AuxCSV:
         self.load_csv()
         timestamps = self.timestamps_micro
         data = self.data
+        if len(timestamps) == 0:
+            return timestamps, data
         if start_micro is not None or end_micro is not None:
             start = start_micro if start_micro is not None else timestamps[0]
             end = end_micro if end_micro is not None else timestamps[-1]
