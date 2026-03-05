@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from pyboreas.data.splits import loc_reference
+from pyboreas.data.metadata_splits import urban_split
 from pyboreas.utils.odometry import plot_loc_stats, read_traj_file2, read_traj_file_gt2, get_sequence_velocities_gt
 from pyboreas.utils.utils import (
     SE3Tose3,
@@ -93,6 +94,11 @@ def eval_local(
     )
     gt_seqs = []
     for predfile in pred_files:
+        if predfile in urban_split:
+            raise Exception(
+                f"prediction file {predfile} is in the urban split, which has an inconsistent global accuracy (up to 1m) and is not suitable for localization evaluation. Please remove it from the prediction set and re-run evaluation."
+            )
+
         if Path(predfile).stem.split(".")[0] not in os.listdir(gtpath):
             raise Exception(
                 f"prediction file {predfile} doesn't match ground truth sequence list"

@@ -16,8 +16,7 @@ import cv2
 import numpy as np
 
 from pyboreas.utils.utils import get_time_from_filename
-
-upgrade_time = 1632182400  # before: resolution = 0.0596, after: resolution = 0.04381
+from pyboreas.data.metadata_splits import radar_resolution_upgrade_time
 
 
 def load_radar(example_path):
@@ -43,7 +42,7 @@ def load_radar(example_path):
         t = get_time_from_filename(example_path)
     except:
         t = 0
-    if t > upgrade_time:
+    if t > radar_resolution_upgrade_time:
         resolution = 0.04381
     raw_example_data = cv2.imread(example_path, cv2.IMREAD_GRAYSCALE)
     timestamps = raw_example_data[:, :8].copy().view(np.int64)
