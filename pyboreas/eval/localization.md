@@ -14,7 +14,7 @@ T_sa = get_inverse_tf(T_as)
 T = pred_T_s1_s2 @ get_inverse_tf(gt_T_s1_s2)
 Te = T_as @ T @ T_sa
 xe, ye, ze = Te[:3, 3]
-rolle, pitche, yawe = rotToRollPitchYaw(Te[:3, :3])
+roll_e, pitch_e, yaw_e = rotToRollPitchYaw(Te[:3, :3])
 ```
 
 For each test sequence, users will provide a space-seperated text file of K x (14|50) values with the same name as the test sequence, example: `boreas-2021-11-28-09-18.txt`. The first column is the timestamp of the test frame, the second column is the timestamp of the user-specified reference frame in the map sequence. The following 12 values correspond to the upper 3x4 component of `pred_T_s1_s2` in row-major order. Users also have the option of providing 6x6 inverse covariance matrices `Sigma_inv_s1_s2` for each localization estimate. The entire covariance matrix must be unrolled into 36 values (row-major order) and appended to each row, for a total of 50 values per row. We will use these covariance values to calculate consistency scores `c`:
