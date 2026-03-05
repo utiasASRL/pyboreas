@@ -154,7 +154,7 @@ Note that submissions are hidden by default and that we provide the ability for 
     - If you do not receive any email, please contact us for assistance.
 
 ##### 2. What does `Number of Successes` mean on the leaderboard?
-- This is the number of test set sequences where your method achieved a translation error below 3% (odometry) or a lateral/longitudinal RMSE below 5 m (localization).
+- This is the number of test set sequences where your method achieved a translation error below 3% (odometry) or a lateral/longitudinal RMSE below 3 m (localization).
 Full per-sequence results are included in the benchmark results email sent to you after submission. 
 
 ## Submission Policy
