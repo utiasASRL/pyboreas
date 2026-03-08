@@ -10,16 +10,16 @@
 ```Bash
 root=/path/to/data/boreas/
 sequence=boreas-2021-09-02-11-42
-aws s3 sync s3://boreas/$sequence $root$sequence
+aws s3 sync s3://boreas/$sequence $root$sequence --no-sign-request
 ```
 
 The [Download page](https://www.boreas.utias.utoronto.ca/#/download) on our website can be used to browse through sequences. The website will output a bash script that can be run to download the desired sequences.
 
-Each sequence is approximately 100GB.
+Each Boreas sequence is typically ~100GB. Boreas-RT sequences range from 30-260GB depending on the route. The [Download page](https://www.boreas.utias.utoronto.ca/#/download) provides options to only download certain sensor streams to reduce the amount of data downloaded. 
 
 Note that each benchmark comes with a predefined train/test split contained in `pyboreas/data/splits.py`
 
-`download_task.py` can also be used to execute AWS CLI commands to download the sequences for a specific task (odometry, localization, detection).
+For the Boreas dataset, `download_task.py` can also be used to execute AWS CLI commands to download the sequences for a specific task (odometry, localization, detection). The Boreas-RT dataset does not have a strict separation for different tasks due to the variety of road conditions.
 
 Note that the Boreas-Objects-V1 3D object dataset has its own special sequence named `boreas-objects-v1`.
 
