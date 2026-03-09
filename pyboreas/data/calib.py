@@ -21,7 +21,7 @@ class Calib:
         self.T_imu_aeva = np.eye(4)
         self.wheel_radius = 0.34    # [m], default internal wheel radius for converting encoder ticks to distance
         self.radar_offset = -0.31   # [m], default internal radar range offset
-        self.radar_doppler_beta = 0.049
+        self.radar_doppler_beta = 0.049     # [unitless], scaling factor to convert b/w radar Doppler velocities and range offset (see Boreas-RT calibration docs)
 
         if osp.exists(osp.join(calib_root, "T_applanix_wheel.txt")):
             self.T_applanix_wheel = np.loadtxt(osp.join(calib_root, "T_applanix_wheel.txt"))
