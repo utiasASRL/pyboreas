@@ -270,6 +270,10 @@ Note that due to a bug in our driver implementation, the DMU41 data contains occ
 
 To maintain backward-compatibility with the Boreas dataset, Boreas-RT sequences also include an `applanix/imu.csv` file containing raw IMU data from the Applanix IMU. However, since this IMU is used in the processing of ground truth data, it should be avoided in algorithms using Boreas-RT data to avoid cross-correlation between algorithm outputs and ground truth.
 
+### Wheel Encoder
+
+We also provide raw wheel encoder tick data from the wheel encoder mounted to the rear left wheel of the car. The data is contained in the `applanix/dmi.csv` file with the fields `[GPSTime, pulse_count]`. `GPSTime` contains the GPS time in seconds and `pulse_count` is the number of pulses detected by the wheel encoder. The pulses are counted as unsigned integers, meaning that they roll over after $2^{24} = 16777216$ pulses.
+
 ### Pose Files
 
 Ground truth poses are obtained by post-processing GNSS, Applanix IMU, and wheel encoder measurements along with corrections obtained from an RTX subscription using Applanix's POSPac software suite. The POSPac suite uses all available (GPS, IMU, wheel encoder) data and performs a batch optimization using an RTS smoother to obtain the most accurate orientation, and velocity information at each time step. Positions and velocities are given with respect to a fixed East-North-Up frame $ENU_{\text{ref}}$. The position of $ENU_{\text{ref}}$ is aligned with the first pose of the first Boreas sequence (`boreas-2020-11-26-13-58`) but the orientation is defined to be tangential to the geoid as defined in the WGS-84 convention such that x points East, y points North, and z points up.
