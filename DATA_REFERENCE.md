@@ -28,13 +28,13 @@ Data was collected during repeated traversals of several routes in Toronto, Cana
 
 ### Specifications
 
-The Velodyne Alpha Prime lidar has a 40 degree vertical field of view, with a range of up to 300m for targets with 10\% reflectivity or up to 180m for targets with 5\% reflectivity. This lidar has a 0.2 degree horizontal angular resolution and a 0.1 degree vertical angular resolution. This sensor typically produces over 2M points per second. The lidar is configured to have a rotational rate of 10Hz, resulting in over 200k points per rotation. We retain only the strongest lidar returns instead of keeping dual returns per laser firing sequence.
+The Velodyne Alpha Prime lidar has a 40 degree vertical field of view, with a range of up to 300m for targets with 10\% reflectivity or up to 180m for targets with 5\% reflectivity. This lidar has a 0.2 degree horizontal angular resolution and a 0.1 degree vertical angular resolution. This sensor typically produces over 2M points per second. The lidar is configured to have a rotational rate of 10 Hz, resulting in over 200k points per rotation. We retain only the strongest lidar returns instead of keeping dual returns per laser firing sequence.
 
-The Navtech CIR204-H radar has a range resolution of 0.0596m per range bin with a total range of 200.256m. The sensor spins at 4Hz and provides 400 azimuth measurements per rotation, resulting in a horizontal angular resolution of 0.9 degrees.
+The Navtech CIR204-H radar has a range resolution of 0.0596m per range bin with a total range of 200.256m. The sensor spins at 4 Hz and provides 400 azimuth measurements per rotation, resulting in a horizontal angular resolution of 0.9 degrees.
 
-The FLIR Blackfly S monocular camera has a resolution of 2448 x 2048. Based on the calibration, the camera has a field of view of approximately 81 x 71 degrees. We extract camera images at 10Hz to minimize storage requirements.
+The FLIR Blackfly S monocular camera has a resolution of 2448 x 2048. Based on the calibration, the camera has a field of view of approximately 81 x 71 degrees. We extract camera images at 10 Hz to minimize storage requirements.
 
-The Applanix POSLV system includes an external wheel encoder, and an RTX subscription which improves the accuracy. All of the logged Applanix data is post-processed using their proprietary POSPac suite. This performs a batch optimization over each sequence. The post-processed position data can be expected to have an RMS error around 2-4 cm, depending on the sequence. Post-processed data is provided at 200Hz.
+The Applanix POSLV system includes an external wheel encoder, and an RTX subscription which improves the accuracy. All of the logged Applanix data is post-processed using their proprietary POSPac suite. This performs a batch optimization over each sequence. The post-processed position data can be expected to have an RMS error around 2-4 cm, depending on the sequence. Post-processed data is provided at 200 Hz.
 
 ### Placement
 
@@ -131,6 +131,10 @@ def load_lidar(path, dim=6):
 ### Radar
 Raw radar scans are 2D polar images: `M` azimuths x `R` range bins. We follow Oxford's convention and embed timestamp and encoder information into the first 11 columns (bytes) of each polar radar scan. The first 8 columns represent a 64-bit integer, the UTC timestamp of each azimuth. The next 2 columns represent a 16-bit unsigned integer, the rotational encoder value. The encoder values can be converted into azimuth angles in radians with: `azimuth = encoder * np.pi / 2800`. The next column is unused, preserved compatibility with Oxford's format. For convenience, we also provide a pre-computed cartesian representation of each radar scan with a width of 640 pixels and a resolution of 0.2384 m/pixel.
 
+Note that there is a `-0.31m` range offset to the range output by the Navtech radar.
+This value is provided by Navtech and was independently verified in our own calibration experiment.
+A given bin range can be corrected using `range_m = bin_index * resolution + radar_offset`.
+
 Polar format:
 ![radar](figs/polar.png)
 
@@ -146,7 +150,7 @@ Images are simply stored as `png` files. All images are rectified such that a si
 
 Ground truth poses are obtained by post-processing GNSS, IMU, and wheel encoder measurements along with corrections obtained from an RTX subscription using Applanix's POSPac software suite. Positions and velocities are given with respect to a fixed East-North-Up frame $ENU_{\text{ref}}$. The position of $ENU_{\text{ref}}$ is aligned with the first pose of the first sequence (`boreas-2020-11-26-13-58`) but the orientation is defined to be tangential to the geoid as defined in the WGS-84 convention such that x points East, y points North, and z points up.
 
-For each sequence, `applanix/gps_post_process.csv` contains the post-processed ground truth in the Applanix frame at 200Hz.
+For each sequence, `applanix/gps_post_process.csv` contains the post-processed ground truth in the Applanix frame at 200 Hz.
 
 Each sensor frame's pose information is stored in the associated `applanix/<sensor>_poses.csv` file with the following format:
 
@@ -169,7 +173,7 @@ v_sensor_enu_in_enu = [vx, vy, vz]
 w_sensor_enu_in_sensor = [wx, wy, wz]
 ```
 
-We also provide an `imu.csv` file which can be used to improve odometry or localization performance as desired. This data is provided in the applanix reference frame. Each line in the file has the following format: `t, wz, wy, wx, az, ay, ax` where `(t, wz, wy, wz)` have the same format as above, and `(az, ay, ax)` are the linear acceleration values as defined in the applanix sensor frame. We also provide Note that the data contained in `imu.csv` is extraced from the post-processed Applanix solution. In order to enable researchers to work on visual-inertial or lidar-inertial systems, we also provide `imu_raw.csv` which is extracted from the raw Applanix logs. The `imu_raw.csv` files have the same format except **they are in the IMU body frame which is defined as x-backwards, y-left, z-up**. We further provide `dmi.csv` which provides the wheel encoder ticks vs. time. Note that the lever arms between the DMI and the applanix reference frame are x=-0.65m, y=-0.77m, z=1.80m.
+We also provide an `applanix/imu.csv` file which can be used to improve odometry or localization performance as desired. This data is provided in the applanix reference frame. Each line in the file has the following format: `t, wz, wy, wx, az, ay, ax` where `(t, wz, wy, wx)` have the same format as above, and `(az, ay, ax)` are the linear acceleration values as defined in the applanix sensor frame. Note that the data contained in `imu.csv` is extracted from the post-processed Applanix solution. In order to enable researchers to work on visual-inertial or lidar-inertial systems, we also provide `imu_raw.csv` which is extracted from the raw Applanix logs. The `imu_raw.csv` files have the same format except **they are in the IMU body frame which is defined as x-backwards, y-left, z-up**. We further provide `dmi.csv` which provides the wheel encoder ticks vs. time. Note that the lever arms between the DMI and the applanix reference frame are x=-0.65m, y=-0.77m, z=1.80m.
 
 ## Synchronization and Calibration
 
@@ -194,4 +198,4 @@ The extrinsics between the lidar and IMU (Applanix reference frame) were obtaine
 
 ## Applanix Data
 
-We use Applanix's proprietary POSPac suite to obtain post-processed results. The POSPac suite uses all available (GPS, IMU, wheel encoder) data and performs a batch optimization using an RTS smoother to obtain the most accurate orientation, and velocity information at each time step. The RMS position error is typically 2-4 cm. However, this accuracy can change depending on the atmospheric conditions and the visibility of satellites. The accuracy can also change throughout the course of a sequence. For detailed information on the position accuracy of each sequence, we have provided a script, `plot_processed_error.py`, which produces plots of position, orientation, and velocity residual error vs. time.
+We use Applanix's proprietary POSPac suite to obtain post-processed results. The POSPac suite uses all available (GPS, IMU, wheel encoder) data and performs a batch optimization using an RTS smoother to obtain the most accurate orientation, and velocity information at each time step. The RMS position error is typically 2-4 cm. However, this accuracy can change depending on the atmospheric conditions and the visibility of satellites. The accuracy can also change throughout the course of a sequence.

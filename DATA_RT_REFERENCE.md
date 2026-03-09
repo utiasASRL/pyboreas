@@ -195,7 +195,7 @@ The website will then generate a list of AWS CLI commands that can be run as a b
 ```bash
 root=/path/to/data/boreas/
 cd $root
-aws s3 sync s3://boreas/boreas-2020-11-26-13-58 ./boreas-2020-11-26-13-58
+aws s3 sync s3://boreas/boreas-2020-11-26-13-58 ./boreas-2020-11-26-13-58 --no-sign-request
 ```
 where you will need to modify root to your desired `root` folder before executing the script. The website provides an estimate of the amount of space required in order to download the desired combination of sequences and sensors.
 
@@ -251,6 +251,11 @@ The next column is used to store a byte representing whether the radar azimuth w
 The chirp direction corresponds to whether the radar wave was modulated up or down and [can be used to extract the relative Doppler velocity of the objects in the azimuth](https://arxiv.org/abs/2404.01537).
 For convenience, we also provide a way to computed a Cartesian representation of each radar scan.
 
+Note that there is a `-0.31m` range offset to the range output by the Navtech radar.
+This value is provided by Navtech and was independently verified in our own calibration experiment.
+A given bin range can be corrected using `range_m = bin_index * resolution + radar_offset`.
+
+
 A trimmed polar (left) and Cartesian representation (right) of a radar scan
 ![radar](figs/boreas_rt/sensor_data/radar_fig_git.png)
 
@@ -260,11 +265,23 @@ Images are simply stored as `png` files. All images are rectified such that a si
 
 ![camera](figs/boreas_rt/sensor_data/camera_1733249255732230.png)
 
+### IMU
+
+We provide two sources of stand-alone IMU data: 200 Hz DMU41 IMU data contained in `imu/dmu_imu.csv` and 100 Hz Aeva IMU data contained in `imu/aeva_imu.csv`. Each CSV contains fields `[time, wx, wy, wz, ax, ay, az]` where `time` is in nanoseconds for the DMU and in microseconds for Aeva, `w` columns correspond to angular velocity, and `a` columns correspond to acceleration about each respective IMU axis.
+
+Note that due to a bug in our driver implementation, the DMU41 data contains occasional drop-outs. For a more 'beginner-friendly' source of IMU information we also provide an `imu/dmu_imu_infilled.csv` file. This CSV is identical to `imu/dmu_imu.csv`, except it features data resampled at a perfect 200 Hz.
+
+To maintain backward-compatibility with the Boreas dataset, Boreas-RT sequences also include an `applanix/imu.csv` file containing raw IMU data from the Applanix IMU. However, since this IMU is used in the processing of ground truth data, it should be avoided in algorithms using Boreas-RT data to avoid cross-correlation between algorithm outputs and ground truth.
+
+### Wheel Encoder
+
+We also provide raw wheel encoder tick data from the wheel encoder mounted to the rear left wheel of the car. The data is contained in the `applanix/dmi.csv` file with the fields `[GPSTime, pulse_count]`. `GPSTime` contains the GPS time in seconds and `pulse_count` is the number of pulses detected by the wheel encoder. The pulses are counted as unsigned integers, meaning that they roll over after $2^{24} = 16777216$ pulses.
+
 ### Pose Files
 
-Ground truth poses are obtained by post-processing GNSS, IMU, and wheel encoder measurements along with corrections obtained from an RTX subscription using Applanix's POSPac software suite. Positions and velocities are given with respect to a fixed East-North-Up frame $ENU_{\text{ref}}$. The position of $ENU_{\text{ref}}$ is aligned with the first pose of the first Boreas sequence (`boreas-2020-11-26-13-58`) but the orientation is defined to be tangential to the geoid as defined in the WGS-84 convention such that x points East, y points North, and z points up.
+Ground truth poses are obtained by post-processing GNSS, Applanix IMU, and wheel encoder measurements along with corrections obtained from an RTX subscription using Applanix's POSPac software suite. The POSPac suite uses all available (GPS, IMU, wheel encoder) data and performs a batch optimization using an RTS smoother to obtain the most accurate orientation, and velocity information at each time step. Positions and velocities are given with respect to a fixed East-North-Up frame $ENU_{\text{ref}}$. The position of $ENU_{\text{ref}}$ is aligned with the first pose of the first Boreas sequence (`boreas-2020-11-26-13-58`) but the orientation is defined to be tangential to the geoid as defined in the WGS-84 convention such that x points East, y points North, and z points up.
 
-For each sequence, `applanix/gps_post_process.csv` contains the post-processed ground truth in the Applanix frame at 200Hz.
+For each sequence, `applanix/gps_post_process.csv` contains the post-processed ground truth in the Applanix frame at 200 Hz.
 
 Each sensor frame's pose information is stored in the associated `applanix/<sensor>_poses.csv` file with the following format:
 
@@ -286,31 +303,10 @@ def get_pose(x, y, z, r, p, y):
 v_sensor_enu_in_enu = [vx, vy, vz]
 w_sensor_enu_in_sensor = [wx, wy, wz]
 ```
-<!-- 
-We also provide an `imu.csv` file which can be used to improve odometry or localization performance as desired. This data is provided in the applanix reference frame. Each line in the file has the following format: `t, wz, wy, wx, az, ay, ax` where `(t, wz, wy, wz)` have the same format as above, and `(az, ay, ax)` are the linear acceleration values as defined in the applanix sensor frame. We also provide Note that the data contained in `imu.csv` is extraced from the post-processed Applanix solution. In order to enable researchers to work on visual-inertial or lidar-inertial systems, we also provide `imu_raw.csv` which is extracted from the raw Applanix logs. The `imu_raw.csv` files have the same format except **they are in the IMU body frame which is defined as x-backwards, y-left, z-up**. We further provide `dmi.csv` which provides the wheel encoder ticks vs. time. Note that the lever arms between the DMI and the applanix reference frame are x=-0.65m, y=-0.77m, z=1.80m.
+
+The RMS position error is typically 1-3 cm. However, this accuracy can change depending on the atmospheric conditions, visibility of satellites, and geometric features in the environment. As a result, the accuracy can change throughout the course of a sequence. For detailed information on the position accuracy of each sequence, a plot of the self-reported position, orientation, and velocity errors is provided under `applanix/gt_errors.pdf` in each sequence. Table 3 in the [Boreas-RT paper](https://arxiv.org/pdf/2602.16870) provides an approximate ground truth upper bound on localization accuracy for each route.
 
 
 ## Synchronization and Calibration
 
-### Synchronization
-The camera was configured to emit a square-wave pulse where the rising edge of each pulse corresponds to the start of a new camera exposure event. The Applanix receiver was then configured to receive and timestamp these event signals. The Velodyne lidar was synchronized to UTC time using a hardwired connection to the Applanix sensor carrying NMEA data and PPS signals. The data-recording computer was synchronized to UTC time in the same fashion. The Navtech radar synchronizes its local clock to the NTP time broadcasted on its ethernet subnet. Since the computer publishing the NTP time is synchronized to UTC time, the radar is thereby also synchronized to UTC time.
-
-### Camera Intrinsics
-Camera intrinsics are calibrated using [MATLAB's camera calibrator](https://www.mathworks.com/help/vision/ug/using-the-single-camera-calibrator-app.html) and are recorded in `camera0_intrinsics.yaml`. Images in the dataset have already been rectified and as such, the intrinsics parameters can be ignored for most applications. The rectified matrix `P`, stored in `P_camera.txt`, can then use used to project points onto the image plane.
-
-### Lidar-to-Camera Extrinsics
-The extrinsic calibration between the camera and lidar is obtained using [MATLAB's camera to LIDAR calibrator](https://www.mathworks.com/help/lidar/ug/lidar-and-camera-calibration.html). The results are stored in `T_camera_lidar.txt`.
-
-![calibration](figs/camvel.png)
-
-### Lidar-to-Radar Extrinsics
-To calibrate the rotation between the lidar and radar, we use correlative scan matching via the Fourier Mellin transform: [git repo](https://github.com/keenan-burnett/radar_to_lidar_calib). Several lidar-radar pairs are collected while the vehicle is stationary in different positions. The final rotation estimate is obtained by averaging over several measurements. The results are stored in `T_radar_lidar.txt`.
-
-![calibration](figs/radvel.png)
-
-### Lidar-to-IMU Extrinsics
-The extrinsics between the lidar and IMU (Applanix reference frame) were obtained by using Applanix's proprietary in-house calibration tools. Their tool estimates this relative transform as a by-product of a batch optimization aiming to estimate the most likely vehicle path given a sequence of lidar pointclouds and post-processed GPS/IMU measurements. The results are stored in `T_applanix_lidar.txt`.
-
-## Applanix Data
-
-We use Applanix's proprietary POSPac suite to obtain post-processed results. The POSPac suite uses all available (GPS, IMU, wheel encoder) data and performs a batch optimization using an RTS smoother to obtain the most accurate orientation, and velocity information at each time step. The RMS position error is typically 2-4 cm. However, this accuracy can change depending on the atmospheric conditions and the visibility of satellites. The accuracy can also change throughout the course of a sequence. For detailed information on the position accuracy of each sequence, we have provided a script, `plot_processed_error.py`, which produces plots of position, orientation, and velocity residual error vs. time.  -->
+We refer the reader to the [Calibration section of the Boreas-RT paper](https://arxiv.org/pdf/2602.16870) for full details on the temporal synchronization and extrinsic calibration of all sensors.
