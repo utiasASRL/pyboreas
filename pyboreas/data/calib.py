@@ -21,6 +21,7 @@ class Calib:
         self.T_imu_aeva = np.eye(4)
         self.wheel_radius = 0.34    # [m], default internal wheel radius for converting encoder ticks to distance
         self.radar_offset = -0.31   # [m], default internal radar range offset
+        self.radar_doppler_beta = 0.049
 
         if osp.exists(osp.join(calib_root, "T_applanix_wheel.txt")):
             self.T_applanix_wheel = np.loadtxt(osp.join(calib_root, "T_applanix_wheel.txt"))
@@ -35,6 +36,8 @@ class Calib:
                 misc_calib = yaml.safe_load(f)
                 self.wheel_radius = misc_calib.get('wheel_radius', self.wheel_radius)
                 self.radar_offset = misc_calib.get('radar_offset', self.radar_offset)
+                self.radar_doppler_beta = misc_calib.get('radar_doppler_beta', self.radar_doppler_beta)
+
 
     def print_calibration(self):
         print("P0:")
@@ -53,3 +56,6 @@ class Calib:
         print(self.T_aeva_lidar)
         print("T_imu_aeva:")
         print(self.T_imu_aeva)
+        print("wheel_radius: {} m".format(self.wheel_radius))
+        print("radar_offset: {} m".format(self.radar_offset))
+        print("radar_doppler_beta: {}".format(self.radar_doppler_beta))
