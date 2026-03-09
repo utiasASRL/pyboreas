@@ -249,14 +249,14 @@ Aeva data can be loaded using the same function as presented for the Velodyne li
 Raw radar scans are 2D polar images: `M` azimuths x `R` range bins. We follow Oxford's convention and embed timestamp and encoder information into the first 11 columns (bytes) of each polar radar scan. The first 8 columns represent a 64-bit integer, the UTC timestamp of each azimuth. The next 2 columns represent a 16-bit unsigned integer, the rotational encoder value. The encoder values can be converted into azimuth angles in radians with: `azimuth = encoder * np.pi / 2800`.
 The next column is used to store a byte representing whether the radar azimuth was generated using an 'up-chirp' or 'down-chirp'.
 The chirp direction corresponds to whether the radar wave was modulated up or down and [can be used to extract the relative Doppler velocity of the objects in the azimuth](https://arxiv.org/abs/2404.01537).
-For convenience, we also provide a way to computed a Cartesian representation of each radar scan.
+The beta parameter from the paper above is stored in `calib.radar_doppler_beta` for each loaded sequence.
 
 Note that there is a `-0.31m` range offset to the range output by the Navtech radar.
 This value is provided by Navtech and was independently verified in our own calibration experiment.
+The offset is stored in `calib.radar_offset` for each loaded sequence.
 A given bin range can be corrected using `range_m = bin_index * resolution + radar_offset`.
 
-
-A trimmed polar (left) and Cartesian representation (right) of a radar scan
+For convenience, we also provide a way to compute a Cartesian representation of each radar scan. A trimmed polar (left) and Cartesian representation (right) of a radar scan are visualized below:
 ![radar](figs/boreas_rt/sensor_data/radar_fig_git.png)
 
 
