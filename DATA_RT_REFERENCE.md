@@ -306,4 +306,4 @@ The RMS position error is typically 1-3 cm. However, this accuracy can change de
 
 ## Synchronization and Calibration
 
-We refere the reader to the [Calibration section of the Boreas-RT paper](https://arxiv.org/pdf/2602.16870) for full details on the temporal synchronization and extrinsic calibration of all sensors.
+We refer the reader to the [Calibration section of the Boreas-RT paper](https://arxiv.org/pdf/2602.16870) for full details on the temporal synchronization and extrinsic calibration of all sensors.
