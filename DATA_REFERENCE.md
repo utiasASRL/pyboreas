@@ -28,13 +28,13 @@ Data was collected during repeated traversals of several routes in Toronto, Cana
 
 ### Specifications
 
-The Velodyne Alpha Prime lidar has a 40 degree vertical field of view, with a range of up to 300m for targets with 10\% reflectivity or up to 180m for targets with 5\% reflectivity. This lidar has a 0.2 degree horizontal angular resolution and a 0.1 degree vertical angular resolution. This sensor typically produces over 2M points per second. The lidar is configured to have a rotational rate of 10Hz, resulting in over 200k points per rotation. We retain only the strongest lidar returns instead of keeping dual returns per laser firing sequence.
+The Velodyne Alpha Prime lidar has a 40 degree vertical field of view, with a range of up to 300m for targets with 10\% reflectivity or up to 180m for targets with 5\% reflectivity. This lidar has a 0.2 degree horizontal angular resolution and a 0.1 degree vertical angular resolution. This sensor typically produces over 2M points per second. The lidar is configured to have a rotational rate of 10 Hz, resulting in over 200k points per rotation. We retain only the strongest lidar returns instead of keeping dual returns per laser firing sequence.
 
-The Navtech CIR204-H radar has a range resolution of 0.0596m per range bin with a total range of 200.256m. The sensor spins at 4Hz and provides 400 azimuth measurements per rotation, resulting in a horizontal angular resolution of 0.9 degrees.
+The Navtech CIR204-H radar has a range resolution of 0.0596m per range bin with a total range of 200.256m. The sensor spins at 4 Hz and provides 400 azimuth measurements per rotation, resulting in a horizontal angular resolution of 0.9 degrees.
 
-The FLIR Blackfly S monocular camera has a resolution of 2448 x 2048. Based on the calibration, the camera has a field of view of approximately 81 x 71 degrees. We extract camera images at 10Hz to minimize storage requirements.
+The FLIR Blackfly S monocular camera has a resolution of 2448 x 2048. Based on the calibration, the camera has a field of view of approximately 81 x 71 degrees. We extract camera images at 10 Hz to minimize storage requirements.
 
-The Applanix POSLV system includes an external wheel encoder, and an RTX subscription which improves the accuracy. All of the logged Applanix data is post-processed using their proprietary POSPac suite. This performs a batch optimization over each sequence. The post-processed position data can be expected to have an RMS error around 2-4 cm, depending on the sequence. Post-processed data is provided at 200Hz.
+The Applanix POSLV system includes an external wheel encoder, and an RTX subscription which improves the accuracy. All of the logged Applanix data is post-processed using their proprietary POSPac suite. This performs a batch optimization over each sequence. The post-processed position data can be expected to have an RMS error around 2-4 cm, depending on the sequence. Post-processed data is provided at 200 Hz.
 
 ### Placement
 
@@ -148,7 +148,7 @@ Images are simply stored as `png` files. All images are rectified such that a si
 
 Ground truth poses are obtained by post-processing GNSS, IMU, and wheel encoder measurements along with corrections obtained from an RTX subscription using Applanix's POSPac software suite. Positions and velocities are given with respect to a fixed East-North-Up frame $ENU_{\text{ref}}$. The position of $ENU_{\text{ref}}$ is aligned with the first pose of the first sequence (`boreas-2020-11-26-13-58`) but the orientation is defined to be tangential to the geoid as defined in the WGS-84 convention such that x points East, y points North, and z points up.
 
-For each sequence, `applanix/gps_post_process.csv` contains the post-processed ground truth in the Applanix frame at 200Hz.
+For each sequence, `applanix/gps_post_process.csv` contains the post-processed ground truth in the Applanix frame at 200 Hz.
 
 Each sensor frame's pose information is stored in the associated `applanix/<sensor>_poses.csv` file with the following format:
 

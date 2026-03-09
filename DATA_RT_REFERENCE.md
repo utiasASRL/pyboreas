@@ -264,7 +264,7 @@ Images are simply stored as `png` files. All images are rectified such that a si
 
 ### IMU
 
-We provide two sources of stand-alone IMU data: 200 Hz DMU41 IMU data contained in `imu/dmu_imu.csv` and 100Hz Aeva IMU data contained in `imu/aeva_imu.csv`. Each CSV contains fields `[time, wx, wy, wz, ax, ay, az]` where `time` is in nanoseconds for the DMU and in microseconds for Aeva, `w` columns correspond to angular velocity, and `a` columns correspond to acceleration about each respective IMU axis.
+We provide two sources of stand-alone IMU data: 200 Hz DMU41 IMU data contained in `imu/dmu_imu.csv` and 100 Hz Aeva IMU data contained in `imu/aeva_imu.csv`. Each CSV contains fields `[time, wx, wy, wz, ax, ay, az]` where `time` is in nanoseconds for the DMU and in microseconds for Aeva, `w` columns correspond to angular velocity, and `a` columns correspond to acceleration about each respective IMU axis.
 
 Note that due to a bug in our driver implementation, the DMU41 data contains occasional drop-outs. For a more 'beginner-friendly' source of IMU information we also provide an `imu/dmu_imu_infilled.csv` file. This CSV is identical to `imu/dmu_imu.csv`, except it features data resampled at a perfect 200 Hz.
 
@@ -278,7 +278,7 @@ We also provide raw wheel encoder tick data from the wheel encoder mounted to th
 
 Ground truth poses are obtained by post-processing GNSS, Applanix IMU, and wheel encoder measurements along with corrections obtained from an RTX subscription using Applanix's POSPac software suite. The POSPac suite uses all available (GPS, IMU, wheel encoder) data and performs a batch optimization using an RTS smoother to obtain the most accurate orientation, and velocity information at each time step. Positions and velocities are given with respect to a fixed East-North-Up frame $ENU_{\text{ref}}$. The position of $ENU_{\text{ref}}$ is aligned with the first pose of the first Boreas sequence (`boreas-2020-11-26-13-58`) but the orientation is defined to be tangential to the geoid as defined in the WGS-84 convention such that x points East, y points North, and z points up.
 
-For each sequence, `applanix/gps_post_process.csv` contains the post-processed ground truth in the Applanix frame at 200Hz.
+For each sequence, `applanix/gps_post_process.csv` contains the post-processed ground truth in the Applanix frame at 200 Hz.
 
 Each sensor frame's pose information is stored in the associated `applanix/<sensor>_poses.csv` file with the following format:
 
