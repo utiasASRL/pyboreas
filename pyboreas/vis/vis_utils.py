@@ -115,10 +115,10 @@ def vis_radar(
     ax = fig.add_subplot()
     ax.imshow(cart, cmap=cmap)
     ax.set_axis_off()
+    if save is not None:
+        plt.savefig(save, bbox_inches="tight", pad_inches=0)
     if show:
         plt.show()
-    if save is not None:
-        plt.savefig(save, bbox_inches="tight")
     return ax
 
 
