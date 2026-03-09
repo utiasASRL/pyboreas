@@ -251,7 +251,10 @@ The next column is used to store a byte representing whether the radar azimuth w
 The chirp direction corresponds to whether the radar wave was modulated up or down and [can be used to extract the relative Doppler velocity of the objects in the azimuth](https://arxiv.org/abs/2404.01537).
 For convenience, we also provide a way to computed a Cartesian representation of each radar scan.
 
-Note that there is a `-0.31m` range offset to the range output by the Navtech radar. This value is provided by Navtech and was independently verified in our own calibration experiment.
+Note that there is a `-0.31m` range offset to the range output by the Navtech radar.
+This value is provided by Navtech and was independently verified in our own calibration experiment.
+A given bin range can be corrected using `range_m = bin_index * resolution + radar_offset`.
+
 
 A trimmed polar (left) and Cartesian representation (right) of a radar scan
 ![radar](figs/boreas_rt/sensor_data/radar_fig_git.png)

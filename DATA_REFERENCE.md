@@ -131,7 +131,9 @@ def load_lidar(path, dim=6):
 ### Radar
 Raw radar scans are 2D polar images: `M` azimuths x `R` range bins. We follow Oxford's convention and embed timestamp and encoder information into the first 11 columns (bytes) of each polar radar scan. The first 8 columns represent a 64-bit integer, the UTC timestamp of each azimuth. The next 2 columns represent a 16-bit unsigned integer, the rotational encoder value. The encoder values can be converted into azimuth angles in radians with: `azimuth = encoder * np.pi / 2800`. The next column is unused, preserved compatibility with Oxford's format. For convenience, we also provide a pre-computed cartesian representation of each radar scan with a width of 640 pixels and a resolution of 0.2384 m/pixel.
 
-Note that there is a `-0.31m` range offset to the range output by the Navtech radar. This value is provided by Navtech and was independently verified in our own calibration experiment.
+Note that there is a `-0.31m` range offset to the range output by the Navtech radar.
+This value is provided by Navtech and was independently verified in our own calibration experiment.
+A given bin range can be corrected using `range_m = bin_index * resolution + radar_offset`.
 
 Polar format:
 ![radar](figs/polar.png)
