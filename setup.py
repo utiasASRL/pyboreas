@@ -8,11 +8,11 @@ with open(str(this_directory / "README.md"), encoding='utf-8') as f:
 
 setuptools.setup(
 	name='asrl-pyboreas',
-	version='1.0.6',
-	description='A toolkit for working with the Boreas dataset in Python',
+	version='2.0.1',
+	description='A toolkit for working with the Boreas and Boreas-RT datasets in Python',
 	long_description=long_description,
 	long_description_content_type='text/markdown',
-	author='Keenan Burnett, Andrew Li, Shichen Lu, Jingxing Qian, Yuchen Wu, David Yoon',
+	author='Keenan Burnett, Daniil Lisus, Andrew Li, Shichen Lu, Jingxing Qian, Yuchen Wu, David Yoon, Katya Papais',
 	author_email='boreas@robotics.utias.utoronto.ca',
 	url='https://github.com/utiasASRL/boreas-devkit',
 	license='BSD',
