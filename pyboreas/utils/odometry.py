@@ -1301,7 +1301,6 @@ def get_sequence_velocities_gt(path, seq, dim, aeva=False):
         dir = filename
         if dir.endswith('.txt'): 
             dir = dir[:-4]  # assumes last four characters are '.txt'
-        print("dir", dir)
         if dim == 3:
             if aeva:
                 print("Using AEVA velocities for 3D evaluation")
@@ -1421,12 +1420,14 @@ def convert_line_to_vel(line, dim=3):
     time = int(line[0])
     return body_rate, time
 
-def compute_vel_metrics(vel_gt, vel_pred, times_pred, seq, pred_vel_path, dim, crop):
+def compute_vel_metrics(vel_gt, vel_pred, times_pred, seq_lens_gt, seq_lens_pred, seq, pred_vel_path, dim, crop):
     """Evaluates velocity metrics for the given sequences and plots.
     Args:
         vel_gt (List[np.ndarray]): List of 6x1 groundtruth velocities
         vel_pred (List[np.ndarray]): List of 6x1 predicted velocities
         times_pred (List[int]): List of times (microseconds) corresponding to T_pred
+        seq_lens_gt (List[int]): List of sequence lengths corresponding to vel_gt
+        seq_lens_pred (List[int]): List of sequence lengths corresponding to vel_pred
         seq (List[string]): List of sequence file names
         dim (int): dimension for evaluation. Set to '3' for 3D or '2' for 2D
         crop (List[Tuple]): sequences are cropped to prevent extrapolation, this list holds start and end indices
@@ -1436,18 +1437,29 @@ def compute_vel_metrics(vel_gt, vel_pred, times_pred, seq, pred_vel_path, dim, c
         vel_RMSE_out: RMSE of velocity error with outliers rejected
         vel_mean_out: Mean velocity error with outliers rejected
     """
-    vel_pred = np.array(vel_pred)
-    vel_gt = np.array(vel_gt)
-    times_pred = np.array(times_pred)
 
-    vel_err = []
+    # get start and end indices of each sequence
+    indices_gt = [0]
+    indices_gt.extend(list(accumulate(seq_lens_gt)))
+    indices_pred = [0]
+    indices_pred.extend(list(accumulate(seq_lens_pred)))
+
+    vel_err_list = []
     for i in range(len(seq)):
         print("processing vel for sequence", seq[i], "...")
-        vel_pred_seq = vel_pred[crop[i][0] : crop[i][1], :, 0]
-        vel_gt_seq = vel_gt[crop[i][0] : crop[i][1], :, 0]
+
+        vel_gt_seq = vel_gt[indices_gt[i] : indices_gt[i + 1]]
+        vel_pred_seq = vel_pred[indices_pred[i] : indices_pred[i + 1]]
+        times_seq = times_pred[indices_pred[i] : indices_pred[i + 1]]
 
         if len(vel_pred_seq) != len(vel_gt_seq):
             vel_pred_seq = vel_pred_seq[crop[i][0] : crop[i][1]]
+            times_seq = times_seq[crop[i][0] : crop[i][1]]
+
+        # Convert to arrays
+        vel_pred_seq = np.array(vel_pred_seq)
+        vel_gt_seq = np.array(vel_gt_seq)
+        times_seq = np.array(times_seq)
 
         # Convert to degrees/s
         vel_pred_seq[:, 3:6] = vel_pred_seq[:, 3:6] * 180 / np.pi
@@ -1457,39 +1469,20 @@ def compute_vel_metrics(vel_gt, vel_pred, times_pred, seq, pred_vel_path, dim, c
         if dim == 2:
             v_err_seq[:, 2:5] = 0.0
 
-        vel_err += [v_err_seq]
-        times_seq = times_pred[crop[i][0] : crop[i][1]] / 1e6
-        times_seq = times_seq - times_seq[0]
+        vel_err_list += [v_err_seq]
+
+        v_RMSE = np.round(np.sqrt(np.mean(v_err_seq ** 2, axis=0)).squeeze(), 3)
+        v_mean = np.round(np.mean(v_err_seq, axis=0).squeeze(), 3)
+        print("Velocity RMSE: ", v_RMSE, " [m/s, m/s, m/s, deg/s, deg/s, deg/s]")
+        print("Velocity Mean Error: ", v_mean, " [m/s, m/s, m/s, deg/s, deg/s, deg/s]")
 
         plot_vel_stats(seq[i], pred_vel_path, vel_pred_seq, vel_gt_seq, v_err_seq, times_seq)
 
-    vel_err = np.concatenate(vel_err, axis=0)
-    vel_RMSE = np.sqrt(np.mean(np.array(vel_err) ** 2, axis=0))
-    vel_mean = np.mean(vel_err, axis=0)
-    
-    # Compute outlier rejected RMSE and mean
-    outlier_thres = 2.0
-    vel_err_out = vel_err[np.all(np.abs(vel_err[:, :3]) < outlier_thres, axis=1)]
-    if vel_err_out.shape[0] < vel_err.shape[0]:
-        outlier_timestamps = times_pred[np.where(np.any(np.abs(vel_err[:, :3]) > outlier_thres, axis=1))]
-        print("Outliers at scan num, timestamps, error:")
-        print("*commented out right now*")
-        for ts in outlier_timestamps:
-            rad_num = np.where(times_pred == ts)[0][0]
-            #print(rad_num, ts, vel_err[np.where(times_pred == ts)][0,:2])
-        print("Num outliers rejected:", len(outlier_timestamps))
-    vel_RMSE_out = np.sqrt(np.mean(np.array(vel_err_out) ** 2, axis=0))
-    vel_mean_out = np.mean(vel_err_out, axis=0)
+    vel_err = np.concatenate([vel_err_i for vel_err_i in vel_err_list])
+    vel_rmse = np.sqrt(np.mean(np.array(vel_err) ** 2, axis=0)).squeeze()
+    vel_mean = np.mean(vel_err, axis=0).squeeze()
 
-    if dim == 2:
-        # Crop out z, roll, pitch
-        vel_RMSE = np.array([vel_RMSE[0], vel_RMSE[1], vel_RMSE[5]])
-        vel_mean = np.array([vel_mean[0], vel_mean[1], vel_mean[5]])
-
-        vel_RMSE_out = np.array([vel_RMSE_out[0], vel_RMSE_out[1], vel_RMSE_out[5]])
-        vel_mean_out = np.array([vel_mean_out[0], vel_mean_out[1], vel_mean_out[5]])
-
-    return vel_RMSE, vel_mean, vel_RMSE_out, vel_mean_out
+    return vel_rmse, vel_mean
 
 
 def plot_vel_stats(seq, dir, vel_pred, vel_gt, v_err, times_ii):

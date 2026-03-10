@@ -21,7 +21,7 @@ def eval_odom(pred="test/demo/pred/3d", gt="test/demo/gt", radar=False, aeva=Fal
 
     # parse sequences
     seq = get_sequences(pred, ".txt")
-    T_pred, times_pred, seq_lens_pred = get_sequence_poses(pred, seq)
+    T_pred, _, seq_lens_pred = get_sequence_poses(pred, seq)
 
     # For sequences where there are extractor specific parameters in the name
     # Ex: 'boreas-2021-10-15-12-35_kstrongest_3_0f35.txt' -> 'boreas-2021-10-15-12-35.txt'
@@ -52,7 +52,7 @@ def eval_odom_vel(pred="test/demo/pred/3d", gt="test/demo/gt", radar=False, aeva
 
     # parse sequences
     seq = get_sequences(pred, ".txt")
-    vel_pred, times_pred, seq_vel_lens_pred = get_sequence_velocities(pred, seq, dim)
+    vel_pred, times_pred, seq_lens_pred = get_sequence_velocities(pred, seq, dim)
 
     # For sequences where there are extractor specific parameters in the name
     # Ex: 'boreas-2021-10-15-12-35_kstrongest_3_0f35.txt' -> 'boreas-2021-10-15-12-35.txt'
@@ -67,21 +67,14 @@ def eval_odom_vel(pred="test/demo/pred/3d", gt="test/demo/gt", radar=False, aeva
     vel_gt, _, seq_lens_gt, crop = get_sequence_velocities_gt(gt, seq_gt, dim, aeva)
 
     # compute errors
-    v_RMSE, v_mean, v_RMSE_out, v_mean_out = compute_vel_metrics(vel_gt, vel_pred, times_pred, seq, pred, dim, crop)
+    v_rmse, v_mean = compute_vel_metrics(vel_gt, vel_pred, times_pred, seq_lens_gt, seq_lens_pred, seq, pred, dim, crop)
 
     # print out results
-    if dim == 2:
-        print("Velocity RMSE: ", v_RMSE, " [m/s, m/s, deg/s]")
-        print("Velocity mean: ", v_mean, " [m/s, m/s, deg/s]")
-        print("Velocity RMSE w/o outliers: ", v_RMSE_out, " [m/s, m/s, deg/s]")
-        print("Velocity mean w/o outliers: ", v_mean_out, " [m/s, m/s, deg/s]")
-    else:
-        print("Velocity RMSE: ", v_RMSE, " [m/s, m/s, m/s, deg/s, deg/s, deg/s]")
-        print("Velocity mean: ", v_mean, " [m/s, m/s, m/s, deg/s, deg/s, deg/s]")
-        print("Velocity RMSE w/o outliers: ", v_RMSE_out, " [m/s, m/s, m/s, deg/s, deg/s, deg/s]")
-        print("Velocity mean w/o outliers: ", v_mean_out, " [m/s, m/s, m/s, deg/s, deg/s, deg/s]")
+    print("Evaluated sequences: ", seq)
+    print("Overall velocity RMSE: ", np.round(v_rmse, 3), " [m/s, m/s, m/s, deg/s, deg/s, deg/s]")
+    print("Overall velocity mean: ", np.round(v_mean, 3), " [m/s, m/s, m/s, deg/s, deg/s, deg/s]")
 
-    return v_RMSE, v_mean
+    return v_rmse, v_mean
 
 
 if __name__ == "__main__":
