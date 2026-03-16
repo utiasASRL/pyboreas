@@ -204,7 +204,7 @@ class Radar(Sensor):
             self.cartesian = cartesian
         return cartesian
     
-    def undistort_radar_to_cart(
+    def undistort_motion(
         self, query_poses, cart_resolution, cart_pixel_width, azimuth_upsample=4, polar=None, in_place=False 
     ):
         """Undistort motion of a polar radar scan into a Cartesian image using per-azimuth poses.
