@@ -1407,7 +1407,7 @@ def convert_line_to_vel(line, dim=3):
         )
     else:
         raise ValueError(
-            "Invalid dim value in convert_line_to_pose. Use either 2 or 3."
+            "Invalid dim value in convert_line_to_vel. Use either 2 or 3."
         )
 
     vbar = np.array([line[4], line[5], line[6]]).reshape(3, 1)
