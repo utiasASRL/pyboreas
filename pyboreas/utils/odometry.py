@@ -1175,7 +1175,6 @@ def read_traj_file_gt2(path, dim=3):
     """Reads trajectory from a comma-separated file, see Boreas documentation for format
     Args:
         path (string): file path including file name
-        T_ab (np.ndarray): 4x4 transformation matrix for calibration. Poses read are in frame 'b', output in frame 'a'
         dim (int): dimension for evaluation. Set to '3' for 3D or '2' for 2D
     Returns:
         (List[np.ndarray]): list of 4x4 poses
