@@ -169,7 +169,13 @@ def eval_local(
                 seq, plot_dir, T_pred_seq, T_gt_seq, errs, consist, Xi, Cov, has_cov
             )
         rmse = root_mean_square(errs)
-        seq_rmse.append(rmse)
+        if (rmse[1] > 3 or rmse[0] > 3):
+            print(
+                "WARNING: RMSE is above 3m for sequence {}. Please check the plots and ensure that the "
+                "localization results are reasonable.".format(seq)
+            )
+        else:
+            seq_rmse.append(rmse)
         print(
             "RMSE: long.: {} m lat.: {} m vert.: {} m roll: {} deg pitch: {} deg yaw: {} deg".format(
                 rmse[1], rmse[0], rmse[2], rmse[4], rmse[3], rmse[5]
