@@ -4,7 +4,8 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import PIL
-
+from pyboreas.utils.odometry import read_traj_file_gt
+import os.path as osp
 
 def convert_plt_to_img(dpi=128):
     buf = io.BytesIO()
@@ -217,3 +218,41 @@ def draw_boxes(img, UV, color=[0, 0, 255], line_width=2, draw_corners=False):
         if uv is None:
             continue
         draw_box(img, uv, color, line_width, draw_corners)
+
+def vis_sensor_poses(seq, sensor, figsize=(10, 10), T_ab=np.identity(4), show=True, save=None):
+    """Visualizes 2D groundtruth sensor poses for a given sequence and sensor.
+    Args:
+        seq (BoreasSequence): sequence to visualize
+        sensor (str): sensor to visualize. Must be one of 'lidar', 'radar', 'camera', 'aeva'
+        T_ab (np.ndarray): 4x4 transformation matrix for calibration. Poses read are in frame 'b', output in frame 'a'
+                            This matrix is T_newframe_sensorframe and so it will result in plotting T_inertial_newframe
+                            instead of T_inertial_sensorframe.
+        figsize (tuple): size of figure to plot 
+    Returns:
+        ax (matplotlib axis): axis of the plot
+    """
+
+    # Confirm sensor is one of 'lidar', 'radar', 'camera', 'aeva'
+    assert sensor in ['lidar', 'radar', 'camera', 'aeva'], "sensor must be one of 'lidar', 'radar', 'camera', 'aeva'"
+    if sensor == 'aeva' and not seq.has_aeva:
+        raise ValueError("Sequence does not have aeva data")
+
+    # Since we only plot xy, dim=2 is sufficient for all sensors
+    poses, _ = read_traj_file_gt(osp.join(seq.applanix_root, sensor + '_poses.csv'), np.identity(4), dim=2)
+    poses = np.array(poses)  # Nx4x4 array of poses
+    # Invert poses to get lidar trajectory in ENU frame
+    poses = np.linalg.inv(poses)
+    # Plot xy trajectory
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot()
+    ax.plot(poses[:, 0], poses[:, 1], color='blue')
+    ax.set_aspect('equal', adjustable='datalim')
+    ax.set_xlabel('x (m)')
+    ax.set_ylabel('y (m)')
+    ax.set_title('Groundtruth {} trajectory'.format(sensor))
+    ax.grid()
+    if show:
+        plt.show()
+    if save is not None:
+        plt.savefig(save, bbox_inches="tight")
+    return ax
