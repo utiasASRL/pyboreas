@@ -203,6 +203,126 @@ class Radar(Sensor):
         if in_place:
             self.cartesian = cartesian
         return cartesian
+    
+    def undistort_motion(
+        self, query_poses, cart_resolution, cart_pixel_width, azimuth_upsample=4, polar=None, in_place=False 
+    ):
+        """Undistort motion of a polar radar scan into a Cartesian image using per-azimuth poses.
+        Uses radar frame pose as the reference frame.
+
+        Args:
+            query_poses (List[np.ndarray]): list of 4x4 poses for each azimuth (T_v_i vehicle and inertial frames)
+            cart_resolution (float): resolution of the output Cartesian image in (m / pixel)
+            cart_pixel_width (int): width of the output Cartesian image in pixels
+            azimuth_upsample (int): upsampling factor for number of azimuths via interpolation (1 = no interpolation)
+            polar (np.ndarray): if supplied, this function will use this input and not self.polar.
+            in_place (bool): if True, self.cartesian is updated.
+        """
+        if polar is None:
+            polar = self.polar
+        A, R = polar.shape
+        T_ref_enu = np.linalg.inv(self.pose)
+
+        # Cartesian image setup
+        cart = np.zeros((cart_pixel_width, cart_pixel_width), dtype=np.float32)
+        weight = np.zeros_like(cart)
+
+        center = (cart_pixel_width - 1) / 2.0
+        ranges = (np.arange(R, dtype=np.float32) + 0.5) * self.resolution # ranges of each bin
+
+        def splat_ray(x_ref, y_ref, vals):
+            col =  y_ref / cart_resolution + center
+            row = center - x_ref / cart_resolution
+            
+            # Only keep values within cartesian image
+            valid = (
+                (col >= 0) & (col < cart_pixel_width - 1) &
+                (row >= 0) & (row < cart_pixel_width - 1)
+            )
+
+            if not np.any(valid):
+                return
+
+            colv = col[valid]
+            rowv = row[valid]
+            valv = vals[valid]
+
+            # Bilinear splat
+            c0 = np.floor(colv).astype(np.int32)
+            r0 = np.floor(rowv).astype(np.int32)
+            dc = colv - c0
+            dr = rowv - r0
+
+            # Bilinear interpolation weights
+            w00 = (1 - dc) * (1 - dr) # top-left
+            w01 = dc * (1 - dr) # top-right
+            w10 = (1 - dc) * dr # bottom-left
+            w11 = dc * dr # bottom-right
+
+            np.add.at(cart, (r0, c0), w00 * valv)
+            np.add.at(weight,(r0, c0), w00)
+
+            np.add.at(cart, (r0,c0 + 1), w01 * valv)
+            np.add.at(weight, (r0, c0 + 1), w01)
+
+            np.add.at(cart, (r0 + 1, c0), w10 * valv)
+            np.add.at(weight, (r0 + 1, c0), w10)
+
+            np.add.at(cart, (r0 + 1, c0 + 1), w11 * valv)
+            np.add.at(weight, (r0 + 1, c0 + 1), w11)
+
+        # Precompute all transformed rays once
+        rays_x_ref = []
+        rays_y_ref = []
+
+        for i in range(A):
+            theta = self.azimuths[i]
+            T_ref_i = T_ref_enu @ query_poses[i]
+
+            c = np.cos(theta)
+            s = np.sin(theta)
+
+            # Get cartesian points
+            x_i = ranges * c
+            y_i = ranges * s
+            z_i = np.zeros_like(ranges)
+            pts_i = np.stack([x_i, y_i, z_i], axis=0)
+
+            # Transform into reference frame
+            R_ref_i = T_ref_i[:3, :3]
+            t_ref_i = T_ref_i[:3, 3:4]
+            pts_ref = R_ref_i @ pts_i + t_ref_i
+
+            rays_x_ref.append(pts_ref[0])
+            rays_y_ref.append(pts_ref[1])
+
+        # Interpolate between adjacent azimuths
+        for i in range (A - 1):
+            x0 = rays_x_ref[i]
+            y0 = rays_y_ref[i]
+            v0 = polar[i].astype(np.float32)
+
+            x1 = rays_x_ref[i + 1]
+            y1 = rays_y_ref[i + 1]
+            v1 = polar[i + 1].astype(np.float32)
+
+            # Upsample number of azimuths for interpolation
+            for k in range(azimuth_upsample):
+                alpha = k / azimuth_upsample # alpha is a linear interpolation factor
+                x_ref = (1.0 - alpha) * x0 + alpha * x1
+                y_ref = (1.0 - alpha) * y0 + alpha * y1
+                vals  = (1.0 - alpha) * v0 + alpha * v1
+
+                splat_ray(x_ref, y_ref, vals)
+
+        # Need to include last original ray explicitly
+        splat_ray(rays_x_ref[-1], rays_y_ref[-1], polar[-1].astype(np.float32))
+
+        mask = weight > 1e-6
+        cart[mask] /= weight[mask]
+
+        return cart
+
 
     def visualize(self, **kwargs):
         return vis_radar(self, **kwargs)
