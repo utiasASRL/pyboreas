@@ -277,7 +277,7 @@ class Radar(Sensor):
 
         for i in range(A):
             theta = self.azimuths[i]
-            T_ref_i = T_ref_enu @ query_poses[i]
+            T_ref_i = T_ref_enu @ np.linalg.inv(query_poses[i])
 
             c = np.cos(theta)
             s = np.sin(theta)
