@@ -204,6 +204,75 @@ class Radar(Sensor):
             self.cartesian = cartesian
         return cartesian
     
+    def remove_offset(self, radar_offset, in_place=True):
+        """Corrects each azimuth of the polar scan for the radar's internal range offset.
+        The radar signal travels a constant distance internally before being reflected
+        outwards, so all range measurements share a constant offset.
+
+        Args:
+            radar_offset (float): internal radar range offset in meters (seq.calib.radar_offset)
+            in_place (bool): if True, self.polar is updated.
+        Returns:
+            np.ndarray: the offset-corrected polar scan.
+        """
+        polar = self.polar
+        tx = radar_offset / self.resolution
+        M = np.float32([[1, 0, tx], [0, 1, 0]])
+        h, w = polar.shape[:2]
+        shifted_polar = cv2.warpAffine(
+            polar,
+            M,
+            (w, h),
+            flags=cv2.INTER_CUBIC,
+            borderMode=cv2.BORDER_REPLICATE,
+        )
+        if in_place:
+            self.polar = shifted_polar
+        return shifted_polar
+
+    def remove_doppler(self, beta, velocity=None, in_place=True):
+        """Corrects each azimuth of the polar scan for Doppler distortion.
+        Uses the velocity of the radar frame to obtain the radial velocity, where velocity
+        is a 6 x 1 velocity in the sensor frame [v_se_in_s; w_se_in_s] (s = sensor frame,
+        e = ENU frame). Note that radial velocity is in the opposite direction to the
+        projected velocity along the line of sight, so v_es_in_s = -v_se_in_s.
+        Requires Boreas-RT data (self.chirp_type).
+
+        Args:
+            beta (float): Doppler distortion scaling factor (seq.calib.radar_doppler_beta)
+            velocity (np.ndarray): 6 x 1 velocity in the sensor frame [v_se_in_s; w_se_in_s].
+                If None, the ground truth self.body_rate is used (requires an initialized pose).
+            in_place (bool): if True, self.polar is updated.
+        Returns:
+            np.ndarray: the Doppler-corrected polar scan.
+        """
+        polar = self.polar
+        if velocity is None:
+            velocity = self.body_rate
+        vx = -velocity[0]
+        vy = -velocity[1]
+        u = vx * np.cos(self.azimuths) + vy * np.sin(self.azimuths)
+        delta_r_d = beta * u
+        chirp_sign = np.where(self.chirp_type == 0, -1, self.chirp_type)
+        doppler_shift = chirp_sign * delta_r_d / self.resolution  # need to SUBTRACT this to get real range
+
+        h, w = polar.shape[:2]
+        corrected_polar = np.empty_like(polar)
+        for idx in range(h):
+            # For a 1D row, we only shift in x
+            M_row = np.float32([[1, 0, -doppler_shift[idx].item()], [0, 1, 0]])
+            # Row kept as (1, W) for OpenCV processing
+            corrected_polar[idx] = cv2.warpAffine(
+                polar[idx : idx + 1, :],
+                M_row,
+                (w, 1),
+                flags=cv2.INTER_CUBIC,
+                borderMode=cv2.BORDER_REPLICATE,
+            )
+        if in_place:
+            self.polar = corrected_polar
+        return corrected_polar
+
     def undistort_motion(
         self, query_poses, cart_resolution, cart_pixel_width, azimuth_upsample=4, polar=None, in_place=False 
     ):
