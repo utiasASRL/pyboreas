@@ -63,7 +63,7 @@ def check_yaml(yml):
         try:
             sensors = yml["sensors"]
             for sensor in sensors:
-                if sensor not in ["camera", "lidar", "radar", "IMU"]:
+                if sensor not in ["camera", "lidar", "radar", "IMU", "wheel"]:
                     print("incorrect list of sensors: {}".format(yml["sensors"]))
                     return False
         except KeyError:
