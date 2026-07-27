@@ -110,10 +110,10 @@ runtimeseconds: 0.1
 # computer specs (run `lscpu` in terminal and copy the output of "Model name")
 computer: Intel i7-1370p
 
-# sensor options for odometry: ['lidar', 'radar', 'IMU', 'camera']
+# sensor options for odometry: ['lidar', 'radar', 'IMU', 'camera', 'wheel']
 sensors: ['lidar', 'IMU']
 
-# for localization evaluation, allowed sensors are: ['lidar', 'radar', 'camera']. you may append 'IMU' for display only (cannot be first sensor).
+# for localization evaluation, allowed sensors are: ['lidar', 'radar', 'camera']. you may append 'IMU' and 'wheel' for display only (cannot be first sensor).
 # only the first sensor listed in each field will be used for evaluation; any additional sensors are for display only.
 # the test and reference evaluation sensors can be different.
 ref_sensor: ['lidar', 'IMU']
