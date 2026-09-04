@@ -199,3 +199,6 @@ The extrinsics between the lidar and IMU (Applanix reference frame) were obtaine
 ## Applanix Data
 
 We use Applanix's proprietary POSPac suite to obtain post-processed results. The POSPac suite uses all available (GPS, IMU, wheel encoder) data and performs a batch optimization using an RTS smoother to obtain the most accurate orientation, and velocity information at each time step. The RMS position error is typically 2-4 cm. However, this accuracy can change depending on the atmospheric conditions and the visibility of satellites. The accuracy can also change throughout the course of a sequence.
+
+### Reference Frame, Realization, and Epoch
+The post-processed data is in ITRF2000 (ITRF00), WGS84 ellipsoid, tied to the epoch of observation.

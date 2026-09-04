@@ -306,6 +306,7 @@ w_sensor_enu_in_sensor = [wx, wy, wz]
 
 The RMS position error is typically 1-3 cm. However, this accuracy can change depending on the atmospheric conditions, visibility of satellites, and geometric features in the environment. As a result, the accuracy can change throughout the course of a sequence. For detailed information on the position accuracy of each sequence, a plot of the self-reported position, orientation, and velocity errors is provided under `applanix/gt_errors.pdf` in each sequence. Table 3 in the [Boreas-RT paper](https://arxiv.org/pdf/2602.16870) provides an approximate ground truth upper bound on localization accuracy for each route.
 
+The post-processed data is expressed in the ITRF2000 (ITRF00) reference frame on the WGS84 ellipsoid, tied to the epoch of observation.
 
 ## Synchronization and Calibration
 
